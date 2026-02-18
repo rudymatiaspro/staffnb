@@ -5,11 +5,14 @@ import { INITIAL_GAMIFICATION } from '../../data/initialData';
 
 // ─── TYPE MAPPERS (DB row → App type) ─────────────────────────────────────────
 
-function dbRowToUser(row: Record<string, unknown>, roleRow?: Record<string, unknown>): User {
+function dbRowToUser(row: Record<string, unknown>, roleRow?: Record<string, unknown>, extraTeams?: Team[]): User {
+  const primaryTeam = row.team as Team;
+  const allTeams = extraTeams && extraTeams.length > 0 ? extraTeams : [primaryTeam];
   return {
     id: row.id as string,
     name: row.name as string,
-    team: row.team as Team,
+    team: primaryTeam,
+    teams: allTeams,
     role: (roleRow?.role as 'owner' | 'manager' | 'staff') ?? 'staff',
     pinSet: Boolean(row.pin_set),
     pin: '', // never expose from DB
@@ -219,6 +222,7 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
       const [
         { data: profilesData },
         { data: rolesData },
+        { data: profileTeamsData },
         { data: tasksData },
         { data: templatesData },
         { data: productsData },
@@ -234,6 +238,7 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
       ] = await Promise.all([
         supabase.from('profiles').select('*').order('name'),
         supabase.from('user_roles').select('*'),
+        supabase.from('profile_teams').select('*'),
         supabase.from('tasks').select('*').order('deadline'),
         supabase.from('task_templates').select('*').order('name'),
         supabase.from('products').select('*').order('name'),
@@ -250,7 +255,18 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
 
       const rolesMap = Object.fromEntries((rolesData ?? []).map((r) => [r.user_id, r]));
 
-      setUsers((profilesData ?? []).map((p) => dbRowToUser(p as Record<string, unknown>, rolesMap[p.id] as Record<string, unknown>)));
+      // Build a map of profileId -> Team[]
+      const profileTeamsMap: Record<string, Team[]> = {};
+      for (const pt of (profileTeamsData ?? [])) {
+        if (!profileTeamsMap[pt.profile_id]) profileTeamsMap[pt.profile_id] = [];
+        profileTeamsMap[pt.profile_id].push(pt.team as Team);
+      }
+
+      setUsers((profilesData ?? []).map((p) => dbRowToUser(
+        p as Record<string, unknown>,
+        rolesMap[p.id] as Record<string, unknown>,
+        profileTeamsMap[p.id]
+      )));
       setTasks((tasksData ?? []).map((t) => dbRowToTask(t as Record<string, unknown>)));
       setTemplates((templatesData ?? []).map((t) => dbRowToTemplate(t as Record<string, unknown>)));
       setProducts((productsData ?? []).map((p) => dbRowToProduct(p as Record<string, unknown>)));
@@ -529,10 +545,11 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
   }, []);
 
   const saveProfile = useCallback(async (user: User) => {
+    const primaryTeam = (user.teams && user.teams.length > 0) ? user.teams[0] : user.team;
     await supabase.from('profiles').upsert({
       id: user.id,
       name: user.name,
-      team: user.team,
+      team: primaryTeam,
       photo_url: user.photo ?? null,
       score: user.score ?? 0,
       pin_set: user.pinSet,
@@ -540,6 +557,11 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
     });
     // Upsert role separately
     await supabase.from('user_roles').upsert({ user_id: user.id, role: user.role }, { onConflict: 'user_id' });
+    // Sync multi-team assignments
+    if (user.teams && user.teams.length > 0) {
+      await supabase.from('profile_teams').delete().eq('profile_id', user.id);
+      await supabase.from('profile_teams').insert(user.teams.map(t => ({ profile_id: user.id, team: t })));
+    }
   }, []);
 
   const setProfilePin = useCallback(async (userId: string, pin: string) => {

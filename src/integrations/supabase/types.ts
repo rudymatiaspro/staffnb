@@ -339,6 +339,35 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_teams: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          team: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          team: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          team?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_teams_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
