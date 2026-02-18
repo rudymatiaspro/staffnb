@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, User, Task, TaskTemplate, GamificationSettings, Zone, ZoneScore, MalusEvent } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 
+export interface ValidationEvent {
+  id: string;
+  taskId: string;
+  taskName: string;
+  zone: Zone;
+  validatedBy: string;
+  validatedAt: Date;
+}
+
 interface AppContextType extends AppState {
+  validationLog: ValidationEvent[];
   login: (user: User) => void;
   logout: () => void;
   setPin: (userId: string, pin: string) => void;
@@ -17,23 +27,31 @@ interface AppContextType extends AppState {
   updateGamificationSettings: (settings: GamificationSettings) => void;
   addUser: (user: Omit<User, 'id'>) => void;
   removeUser: (userId: string) => void;
+  updateUser: (user: User) => void;
   getZoneScore: (zone: Zone) => ZoneScore;
   getTodayTasks: (zone?: Zone) => Task[];
   regenerateDailyTasks: () => void;
+  toast: Toast | null;
+  clearToast: () => void;
+}
+
+export interface Toast {
+  type: 'success' | 'error' | 'info' | 'malus';
+  message: string;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = 'casinha-manager-state';
+const STORAGE_KEY = 'casinha-manager-v2';
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function buildTaskDeadline(timeStr: string): Date {
+function buildTaskDeadline(timeStr: string, baseDate?: Date): Date {
   const [h, m] = timeStr.split(':').map(Number);
-  const d = new Date();
+  const d = baseDate ? new Date(baseDate) : new Date();
   d.setHours(h, m, 0, 0);
   return d;
 }
@@ -56,7 +74,8 @@ function generateDailyTasks(templates: TaskTemplate[], existingTasks: Task[]): T
 
     if (shouldGenerate) {
       const deadline = buildTaskDeadline(tpl.time);
-      const status = deadline < new Date() ? 'overdue' : 'pending';
+      const now = new Date();
+      const status = deadline < now ? 'overdue' : 'pending';
       newTasks.push({
         id: generateId(),
         templateId: tpl.id,
@@ -76,23 +95,21 @@ function generateDailyTasks(templates: TaskTemplate[], existingTasks: Task[]): T
   return newTasks;
 }
 
-function initializeZoneScores(zones: Zone[]): ZoneScore[] {
+function initZoneScores(base: number): ZoneScore[] {
+  const zones: Zone[] = ['BAR', 'CUISINE', 'ATELIER', 'MANAGEMENT', 'ALL'];
   return zones.map((zone) => ({
     zone,
-    baseBonus: 100,
+    baseBonus: base,
     totalMalus: 0,
-    currentBonus: 100,
+    currentBonus: base,
     malusEvents: [],
     date: todayStr(),
   }));
 }
 
-function loadState(): Partial<AppState> {
+function reviveDates(raw: string): Partial<AppState & { validationLog: ValidationEvent[] }> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw);
-    // Revive dates
     if (parsed.tasks) {
       parsed.tasks = parsed.tasks.map((t: Task) => ({
         ...t,
@@ -110,6 +127,12 @@ function loadState(): Partial<AppState> {
         })),
       }));
     }
+    if (parsed.validationLog) {
+      parsed.validationLog = parsed.validationLog.map((v: ValidationEvent) => ({
+        ...v,
+        validatedAt: new Date(v.validatedAt),
+      }));
+    }
     return parsed;
   } catch {
     return {};
@@ -117,7 +140,8 @@ function loadState(): Partial<AppState> {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const saved = loadState();
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const saved = raw ? reviveDates(raw) : {};
 
   const [users, setUsers] = useState<User[]>(saved.users || INITIAL_USERS);
   const [templates, setTemplates] = useState<TaskTemplate[]>(saved.templates || INITIAL_TEMPLATES);
@@ -126,49 +150,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const [restaurantName] = useState(saved.restaurantName || 'Casinha');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [validationLog, setValidationLog] = useState<ValidationEvent[]>(saved.validationLog || []);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [tasks, setTasks] = useState<Task[]>(() => {
     const savedTasks: Task[] = saved.tasks || [];
     const generated = generateDailyTasks(saved.templates || INITIAL_TEMPLATES, savedTasks);
     return [...savedTasks, ...generated];
   });
+
   const [zoneScores, setZoneScores] = useState<ZoneScore[]>(() => {
-    const saved2 = loadState();
-    if (saved2.zoneScores && saved2.zoneScores.length > 0) {
-      const today = todayStr();
-      // Reset if new day
-      if (saved2.zoneScores[0]?.date !== today) {
-        return initializeZoneScores(['BAR', 'CUISINE', 'ATELIER', 'MANAGEMENT', 'ALL']);
+    const base = saved.gamificationSettings?.dailyBonusBase || INITIAL_GAMIFICATION.dailyBonusBase;
+    if (saved.zoneScores && saved.zoneScores.length > 0) {
+      if (saved.zoneScores[0]?.date !== todayStr()) {
+        return initZoneScores(base);
       }
-      return saved2.zoneScores;
+      return saved.zoneScores;
     }
-    return initializeZoneScores(['BAR', 'CUISINE', 'ATELIER', 'MANAGEMENT', 'ALL']);
+    return initZoneScores(base);
   });
+
+  const showToast = useCallback((t: Toast) => {
+    setToast(t);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  const clearToast = useCallback(() => {
+    setToast(null);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
 
   // Persist state
   useEffect(() => {
-    const state = { users, templates, tasks, zoneScores, gamificationSettings, restaurantName };
+    const state = { users, templates, tasks, zoneScores, gamificationSettings, restaurantName, validationLog };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [users, templates, tasks, zoneScores, gamificationSettings, restaurantName]);
+  }, [users, templates, tasks, zoneScores, gamificationSettings, restaurantName, validationLog]);
 
-  // Live update task statuses
+  // Live update task statuses every 5s
+  const gamifRef = useRef(gamificationSettings);
+  gamifRef.current = gamificationSettings;
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setTasks((prev) =>
-        prev.map((task) => {
+      setTasks((prev) => {
+        let changed = false;
+        const next = prev.map((task) => {
           if (task.status === 'pending' && task.deadline < new Date()) {
-            // Apply malus
+            changed = true;
             setZoneScores((scores) =>
               scores.map((zs) => {
-                if (zs.zone === task.zone || zs.zone === 'ALL') {
+                if (zs.zone === task.zone || (task.zone === 'ALL' && zs.zone !== 'ALL')) {
+                  const pts = gamifRef.current.malusPerLateTask;
                   const malus: MalusEvent = {
                     id: generateId(),
                     zone: task.zone,
                     taskId: task.id,
                     taskName: task.name,
-                    points: gamificationSettings.malusPerLateTask,
+                    points: pts,
                     timestamp: new Date(),
                   };
-                  const newTotal = zs.totalMalus + gamificationSettings.malusPerLateTask;
+                  const newTotal = zs.totalMalus + pts;
                   return {
                     ...zs,
                     totalMalus: newTotal,
@@ -179,31 +222,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 return zs;
               })
             );
-            return { ...task, status: 'overdue' };
+            showToast({ type: 'malus', message: `⚠ Malus : "${task.name}" en retard !` });
+            return { ...task, status: 'overdue' as const };
           }
           return task;
-        })
-      );
-    }, 10000);
+        });
+        return changed ? next : prev;
+      });
+    }, 5000);
     return () => clearInterval(interval);
-  }, [gamificationSettings.malusPerLateTask]);
+  }, [showToast]);
 
-  const login = useCallback((user: User) => {
-    setCurrentUser(user);
-  }, []);
-
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-  }, []);
+  const login = useCallback((user: User) => setCurrentUser(user), []);
+  const logout = useCallback(() => setCurrentUser(null), []);
 
   const setPin = useCallback((userId: string, pin: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, pin, pinSet: true } : u))
-    );
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, pin, pinSet: true } : u)));
   }, []);
 
   const validatePin = useCallback(
-    (userId: string, pin: string): boolean => {
+    (userId: string, pin: string) => {
       const user = users.find((u) => u.id === userId);
       return user?.pin === pin;
     },
@@ -211,10 +249,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const resetPin = useCallback((userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, pin: '', pinSet: false } : u))
-    );
-  }, []);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, pin: '', pinSet: false } : u)));
+    showToast({ type: 'info', message: 'PIN réinitialisé avec succès' });
+  }, [showToast]);
 
   const completeTask = useCallback(
     (taskId: string) => {
@@ -222,35 +259,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId
-            ? {
-                ...t,
-                status: 'done',
-                validatedBy: currentUser.name,
-                validatedAt: new Date(),
-              }
+            ? { ...t, status: 'done', validatedBy: currentUser.name, validatedAt: new Date() }
             : t
         )
       );
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) {
+        const event: ValidationEvent = {
+          id: generateId(),
+          taskId,
+          taskName: task.name,
+          zone: task.zone,
+          validatedBy: currentUser.name,
+          validatedAt: new Date(),
+        };
+        setValidationLog((prev) => [event, ...prev].slice(0, 100));
+        showToast({ type: 'success', message: `✓ "${task.name}" validé !` });
+      }
     },
-    [currentUser]
+    [currentUser, tasks, showToast]
   );
 
   const createPunctualTask = useCallback(
     (task: Omit<Task, 'id' | 'createdAt'>) => {
-      const newTask: Task = {
-        ...task,
-        id: generateId(),
-        createdAt: new Date(),
-      };
+      const newTask: Task = { ...task, id: generateId(), createdAt: new Date() };
       setTasks((prev) => [...prev, newTask]);
+      showToast({ type: 'success', message: `Tâche "${task.name}" créée !` });
     },
-    []
+    [showToast]
   );
 
   const createTemplate = useCallback((template: Omit<TaskTemplate, 'id'>) => {
     const newTpl: TaskTemplate = { ...template, id: generateId() };
     setTemplates((prev) => [...prev, newTpl]);
-  }, []);
+    showToast({ type: 'success', message: `Modèle "${template.name}" créé !` });
+  }, [showToast]);
 
   const updateTemplate = useCallback((template: TaskTemplate) => {
     setTemplates((prev) => prev.map((t) => (t.id === template.id ? template : t)));
@@ -258,7 +301,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTemplate = useCallback((templateId: string) => {
     setTemplates((prev) => prev.filter((t) => t.id !== templateId));
-  }, []);
+    showToast({ type: 'info', message: 'Modèle supprimé' });
+  }, [showToast]);
 
   const deleteTask = useCallback((taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -266,30 +310,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateGamificationSettings = useCallback((settings: GamificationSettings) => {
     setGamificationSettings(settings);
-  }, []);
+    showToast({ type: 'success', message: 'Paramètres sauvegardés !' });
+  }, [showToast]);
 
   const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser: User = { ...user, id: generateId() };
     setUsers((prev) => [...prev, newUser]);
-  }, []);
+    showToast({ type: 'success', message: `${user.name} ajouté(e) !` });
+  }, [showToast]);
 
   const removeUser = useCallback((userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   }, []);
 
+  const updateUser = useCallback((user: User) => {
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+  }, []);
+
   const getZoneScore = useCallback(
-    (zone: Zone): ZoneScore => {
-      return (
-        zoneScores.find((zs) => zs.zone === zone) || {
-          zone,
-          baseBonus: gamificationSettings.dailyBonusBase,
-          totalMalus: 0,
-          currentBonus: gamificationSettings.dailyBonusBase,
-          malusEvents: [],
-          date: todayStr(),
-        }
-      );
-    },
+    (zone: Zone): ZoneScore =>
+      zoneScores.find((zs) => zs.zone === zone) || {
+        zone,
+        baseBonus: gamificationSettings.dailyBonusBase,
+        totalMalus: 0,
+        currentBonus: gamificationSettings.dailyBonusBase,
+        malusEvents: [],
+        date: todayStr(),
+      },
     [zoneScores, gamificationSettings.dailyBonusBase]
   );
 
@@ -302,6 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const isToday = taskDay === today || deadlineDay === today;
         if (!isToday) return false;
         if (!zone) return true;
+        if (zone === 'ALL') return true;
         return t.zone === zone || t.zone === 'ALL';
       });
     },
@@ -318,30 +366,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        users,
-        tasks,
-        templates,
-        zoneScores,
-        gamificationSettings,
-        currentUser,
-        restaurantName,
-        login,
-        logout,
-        setPin,
-        validatePin,
-        resetPin,
-        completeTask,
-        createPunctualTask,
-        createTemplate,
-        updateTemplate,
-        deleteTemplate,
-        deleteTask,
-        updateGamificationSettings,
-        addUser,
-        removeUser,
-        getZoneScore,
-        getTodayTasks,
-        regenerateDailyTasks,
+        users, tasks, templates, zoneScores, gamificationSettings,
+        currentUser, restaurantName, validationLog, toast,
+        login, logout, setPin, validatePin, resetPin,
+        completeTask, createPunctualTask, createTemplate, updateTemplate,
+        deleteTemplate, deleteTask, updateGamificationSettings,
+        addUser, removeUser, updateUser,
+        getZoneScore, getTodayTasks, regenerateDailyTasks, clearToast,
       }}
     >
       {children}
