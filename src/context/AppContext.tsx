@@ -16,6 +16,8 @@ export interface ValidationEvent {
 interface AppContextType extends AppState {
   validationLog: ValidationEvent[];
   realtimeStatus: 'connected' | 'connecting' | 'disconnected';
+  unreadHighIncidents: number;
+  clearIncidentBadge: () => void;
   login: (user: User) => void;
   logout: () => void;
   setPin: (userId: string, pin: string) => void;
@@ -252,6 +254,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tempLocations, setTempLocations] = useState<TemperatureLocation[]>([]);
   const [tempLogs, setTempLogs] = useState<TemperatureLog[]>([]);
   const [objectives, setObjectives] = useState<TeamObjective[]>([]);
+
+  // ─── High-severity incident badge ────────────────────────────────────────────
+  // We track the timestamp of the last time a manager/owner cleared the badge.
+  const lastSeenIncidentRef = useRef<number>(Date.now());
+  const [unreadHighIncidents, setUnreadHighIncidents] = useState(0);
+
+  const clearIncidentBadge = useCallback(() => {
+    lastSeenIncidentRef.current = Date.now();
+    setUnreadHighIncidents(0);
+  }, []);
 
   // ─── Sync DB data into local state when it loads ─────────────────────────────
   useEffect(() => {
@@ -779,12 +791,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (isAuthenticated) setTempLogs(db.tempLogs); }, [db.tempLogs]);
   useEffect(() => { if (isAuthenticated) setObjectives(db.objectives); }, [db.objectives]);
 
+  // Recount unread high-severity incidents whenever the incidents list changes
+  useEffect(() => {
+    const cutoff = lastSeenIncidentRef.current;
+    const count = incidents.filter(
+      (i) => i.severity === 'high' && i.createdAt.getTime() > cutoff
+    ).length;
+    setUnreadHighIncidents(count);
+  }, [incidents]);
+
   return (
     <AppContext.Provider
       value={{
         users, tasks, templates, teamScores, gamificationSettings,
         currentUser, restaurantName, validationLog, toast,
         realtimeStatus: db.realtimeStatus,
+        unreadHighIncidents, clearIncidentBadge,
         login, logout, setPin, validatePin, resetPin,
         setStationPin, resetStationPin, validateStationPin,
         completeTask, createPunctualTask, createTemplate, updateTemplate,

@@ -38,7 +38,7 @@ function getInitials(name: string) {
 import { OwnerSettings } from './OwnerSettings';
 
 export function OwnerDashboard() {
-  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser } = useApp();
+  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge } = useApp();
   const [activeTab, setActiveTab] = useState<OwnerTab>('overview');
   const today = new Date().toISOString().split('T')[0];
   const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
@@ -86,18 +86,30 @@ export function OwnerDashboard() {
 
       {/* Tab nav — scrollable on mobile */}
       <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all ${
-              activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const isIncidentsTab = tab.id === 'incidents';
+          const showBadge = isIncidentsTab && unreadHighIncidents > 0;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (isIncidentsTab) clearIncidentBadge();
+              }}
+              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all ${
+                activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {showBadge && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                  {unreadHighIncidents > 9 ? '9+' : unreadHighIncidents}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ===== OVERVIEW TAB ===== */}

@@ -5,7 +5,7 @@ import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
-import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, Wifi, WifiOff } from 'lucide-react';
+import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon } from 'lucide-react';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
@@ -18,7 +18,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function Dashboard() {
-  const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus } = useApp();
+  const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus, unreadHighIncidents } = useApp();
   const { signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -66,6 +66,12 @@ export default function Dashboard() {
                 <span className="text-[10px] text-timer-warning font-medium hidden sm:inline">
                   {realtimeStatus === 'connecting' ? 'Reconnecting…' : 'Offline'}
                 </span>
+              </div>
+            )}
+            {isManager && unreadHighIncidents > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive animate-pulse">
+                <AlertOctagon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-xs font-bold">{unreadHighIncidents} HIGH</span>
               </div>
             )}
             {overdueCount > 0 && (
