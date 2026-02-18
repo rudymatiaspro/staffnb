@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Team, User } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
-import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding } from 'lucide-react';
+import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding, KeyRound, Delete, ShieldCheck } from 'lucide-react';
 
-type Tab = 'staff' | 'templates' | 'gamification';
+type Tab = 'staff' | 'templates' | 'gamification' | 'pins';
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
 
 const TEAM_ICON_ELS: Record<string, React.ReactNode> = {
@@ -20,6 +20,7 @@ export function OwnerSettings() {
     users, resetPin, removeUser, addUser, updateUser,
     templates, deleteTemplate, createTemplate,
     gamificationSettings, updateGamificationSettings,
+    setStationPin, resetStationPin,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('staff');
@@ -36,6 +37,12 @@ export function OwnerSettings() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [expandedTeams, setExpandedTeams] = useState<Set<Team>>(new Set(TEAMS));
+  // Station PIN state
+  const [pinModalUser, setPinModalUser] = useState<User | null>(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinConfirmInput, setPinConfirmInput] = useState('');
+  const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
+  const [pinError, setPinError] = useState('');
 
   const toggleTeam = (t: Team) => {
     setExpandedTeams(prev => {
@@ -49,6 +56,7 @@ export function OwnerSettings() {
     { id: 'staff' as Tab, label: 'Staff', icon: <Users className="w-4 h-4" /> },
     { id: 'templates' as Tab, label: 'Templates', icon: <Repeat className="w-4 h-4" /> },
     { id: 'gamification' as Tab, label: 'Scoring', icon: <Trophy className="w-4 h-4" /> },
+    { id: 'pins' as Tab, label: 'Station PINs', icon: <KeyRound className="w-4 h-4" /> },
   ];
 
   const handleAddUser = () => {
@@ -76,6 +84,61 @@ export function OwnerSettings() {
     if (editName.trim()) updateUser({ ...user, name: editName.trim() });
     setEditingUser(null);
   };
+
+  // Station PIN helpers
+  const openPinModal = (user: User) => {
+    setPinModalUser(user);
+    setPinInput('');
+    setPinConfirmInput('');
+    setPinStep('enter');
+    setPinError('');
+  };
+
+  const closePinModal = () => {
+    setPinModalUser(null);
+    setPinInput('');
+    setPinConfirmInput('');
+    setPinStep('enter');
+    setPinError('');
+  };
+
+  const handlePinKey = (key: string, isConfirm: boolean) => {
+    const current = isConfirm ? pinConfirmInput : pinInput;
+    const setter = isConfirm ? setPinConfirmInput : setPinInput;
+    if (key === 'del') { setter(current.slice(0, -1)); setPinError(''); return; }
+    if (key === 'clear') { setter(''); setPinError(''); return; }
+    if (current.length >= 4) return;
+    setter(current + key);
+  };
+
+  const handlePinSubmit = () => {
+    if (pinStep === 'enter') {
+      if (pinInput.length !== 4) { setPinError('PIN must be exactly 4 digits'); return; }
+      setPinStep('confirm');
+      setPinError('');
+    } else {
+      if (pinConfirmInput !== pinInput) {
+        setPinError('PINs do not match — try again');
+        setPinConfirmInput('');
+        return;
+      }
+      if (pinModalUser) {
+        // Validate no duplicate station PINs
+        const duplicate = users.find((u) => u.id !== pinModalUser.id && u.stationPin === pinInput && u.stationPinSet);
+        if (duplicate) {
+          setPinError(`PIN already used by ${duplicate.name}`);
+          setPinInput('');
+          setPinConfirmInput('');
+          setPinStep('enter');
+          return;
+        }
+        setStationPin(pinModalUser.id, pinInput);
+        closePinModal();
+      }
+    }
+  };
+
+  const PIN_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'] as const;
 
   return (
     <div className="space-y-4">
@@ -387,6 +450,165 @@ export function OwnerSettings() {
               <Save className="w-4 h-4" />
               Save Settings
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======= STATION PINs TAB ======= */}
+      {activeTab === 'pins' && (
+        <div className="space-y-4">
+          {/* Explanation banner */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/15">
+            <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Station PINs — Clock In/Out</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Each staff member needs a unique 4-digit station PIN to clock in and out at <strong>/station</strong>.
+                This is separate from their app login PIN.
+              </p>
+            </div>
+          </div>
+
+          {/* Staff list by team */}
+          {TEAMS.filter((t) => t !== 'MANAGEMENT').map((team) => {
+            const teamUsers = users.filter((u) => u.team === team && u.role !== 'owner');
+            if (teamUsers.length === 0) return null;
+            return (
+              <div key={team} className={`rounded-xl team-card ${TEAM_CSS[team]}`}>
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border/30">
+                  <span className="text-muted-foreground">{TEAM_ICON_ELS[team]}</span>
+                  <span className="font-bold text-sm text-foreground">{TEAM_LABELS[team]}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {teamUsers.filter((u) => u.stationPinSet).length}/{teamUsers.length} PINs set
+                  </span>
+                </div>
+                <div className="px-4 py-2 space-y-0.5">
+                  {teamUsers.map((user) => (
+                    <div key={user.id} className="flex items-center gap-3 py-2.5 border-b border-border/20 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{user.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                          <KeyRound className="w-3 h-3" />
+                          {user.stationPinSet
+                            ? <span className="text-timer-safe font-medium">PIN set ••••</span>
+                            : <span className="text-amber-500 font-medium">No PIN — cannot clock in</span>}
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button
+                          onClick={() => openPinModal(user)}
+                          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors font-medium"
+                        >
+                          <KeyRound className="w-3 h-3" />
+                          {user.stationPinSet ? 'Change PIN' : 'Set PIN'}
+                        </button>
+                        {user.stationPinSet && (
+                          <button
+                            onClick={() => resetStationPin(user.id)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            title="Clear station PIN"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Link to station */}
+          <a
+            href="/station"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary transition-all text-sm w-full"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Open Clock In/Out Station ↗
+          </a>
+        </div>
+      )}
+
+      {/* ======= STATION PIN MODAL ======= */}
+      {pinModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/30 backdrop-blur-sm">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-xs shadow-2xl animate-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">
+                  {pinStep === 'enter' ? 'New Station PIN' : 'Confirm PIN'}
+                </p>
+                <p className="text-base font-bold text-foreground">{pinModalUser.name}</p>
+              </div>
+              <button onClick={closePinModal} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Step indicator */}
+            <div className="flex gap-1 mb-4">
+              <div className={`flex-1 h-1 rounded-full transition-all ${pinStep === 'enter' ? 'bg-primary' : 'bg-primary'}`} />
+              <div className={`flex-1 h-1 rounded-full transition-all ${pinStep === 'confirm' ? 'bg-primary' : 'bg-secondary'}`} />
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-4 text-center">
+              {pinStep === 'enter' ? 'Enter a 4-digit PIN for the clock-in station' : 'Re-enter the same PIN to confirm'}
+            </p>
+
+            {/* PIN dots */}
+            <div className="flex justify-center gap-4 mb-4">
+              {[0, 1, 2, 3].map((i) => {
+                const val = pinStep === 'enter' ? pinInput : pinConfirmInput;
+                return (
+                  <div
+                    key={i}
+                    className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                      i < val.length ? 'bg-primary scale-110' : 'bg-secondary border-2 border-border'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Error */}
+            {pinError && (
+              <p className="text-xs text-timer-danger font-medium text-center mb-3 animate-wiggle">{pinError}</p>
+            )}
+
+            {/* Keypad */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {PIN_KEYS.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => handlePinKey(key, pinStep === 'confirm')}
+                  className="pin-btn h-12 text-base"
+                >
+                  {key === 'del' ? <Delete className="w-4 h-4 mx-auto" /> : key === 'clear' ? 'CLR' : key}
+                </button>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={pinStep === 'enter' ? closePinModal : () => { setPinStep('enter'); setPinConfirmInput(''); setPinError(''); }}
+                className="flex-1 py-2.5 rounded-xl border border-input text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                {pinStep === 'enter' ? 'Cancel' : 'Back'}
+              </button>
+              <button
+                onClick={handlePinSubmit}
+                disabled={pinStep === 'enter' ? pinInput.length !== 4 : pinConfirmInput.length !== 4}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+              >
+                {pinStep === 'enter' ? 'Next →' : 'Save PIN'}
+              </button>
+            </div>
           </div>
         </div>
       )}

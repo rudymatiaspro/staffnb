@@ -18,6 +18,9 @@ interface AppContextType extends AppState {
   setPin: (userId: string, pin: string) => void;
   validatePin: (userId: string, pin: string) => boolean;
   resetPin: (userId: string) => void;
+  setStationPin: (userId: string, pin: string) => void;
+  resetStationPin: (userId: string) => void;
+  validateStationPin: (pin: string) => User | null;
   completeTask: (taskId: string) => void;
   createPunctualTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
   createTemplate: (template: Omit<TaskTemplate, 'id'>) => void;
@@ -300,8 +303,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resetPin = useCallback((userId: string) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, pin: '', pinSet: false } : u)));
-    showToast({ type: 'info', message: 'PIN reset successfully' });
+    showToast({ type: 'info', message: 'Login PIN reset' });
   }, [showToast]);
+
+  const setStationPin = useCallback((userId: string, pin: string) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, stationPin: pin, stationPinSet: true } : u)));
+    showToast({ type: 'success', message: 'Station PIN saved' });
+  }, [showToast]);
+
+  const resetStationPin = useCallback((userId: string) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, stationPin: '', stationPinSet: false } : u)));
+    showToast({ type: 'info', message: 'Station PIN cleared' });
+  }, [showToast]);
+
+  const validateStationPin = useCallback((pin: string): User | null => {
+    if (!pin || pin.length !== 4) return null;
+    return users.find((u) => u.stationPin === pin && u.stationPinSet) ?? null;
+  }, [users]);
 
   const completeTask = useCallback(
     (taskId: string) => {
@@ -605,6 +623,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         users, tasks, templates, teamScores, gamificationSettings,
         currentUser, restaurantName, validationLog, toast,
         login, logout, setPin, validatePin, resetPin,
+        setStationPin, resetStationPin, validateStationPin,
         completeTask, createPunctualTask, createTemplate, updateTemplate,
         deleteTemplate, deleteTask, updateGamificationSettings,
         addUser, removeUser, updateUser,
