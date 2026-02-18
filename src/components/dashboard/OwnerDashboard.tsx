@@ -6,10 +6,15 @@ import { Leaderboard } from '../leaderboard/Leaderboard';
 import { ProductCatalogue } from '../catalogue/ProductCatalogue';
 import { ReportsView } from '../reports/EndOfDayReport';
 import { TimesheetView } from '../timesheets/TimesheetView';
+import { IncidentModule } from '../incidents/IncidentModule';
+import { HACCPModule } from '../haccp/HACCPModule';
+import { ObjectivesModule } from '../objectives/ObjectivesModule';
+import { PinManagement } from '../pins/PinManagement';
 import {
   Users, CheckCircle, AlertTriangle, TrendingUp, Trophy,
   Wine, ChefHat, Layers, PersonStanding, Settings,
   Clock, ChevronRight, BarChart2, Star, Bell, Package, FileText,
+  Thermometer, Target, KeyRound,
 } from 'lucide-react';
 
 const ACTIVE_TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -23,7 +28,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Users className="w-4 h-4" />,
 };
 
-type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'timesheets' | 'reports' | 'settings';
+type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'timesheets' | 'reports' | 'settings' | 'incidents' | 'haccp' | 'objectives' | 'pins';
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -57,6 +62,10 @@ export function OwnerDashboard() {
     { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheets', label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'reports', label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'incidents', label: 'Incidents', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    { id: 'haccp', label: 'HACCP', icon: <Thermometer className="w-3.5 h-3.5" /> },
+    { id: 'objectives', label: 'Objectives', icon: <Target className="w-3.5 h-3.5" /> },
+    { id: 'pins', label: 'PINs', icon: <KeyRound className="w-3.5 h-3.5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-3.5 h-3.5" /> },
   ];
 
@@ -377,6 +386,18 @@ export function OwnerDashboard() {
 
       {/* ===== REPORTS TAB ===== */}
       {activeTab === 'reports' && <ReportsView canCloseDay />}
+
+      {/* ===== INCIDENTS TAB ===== */}
+      {activeTab === 'incidents' && <IncidentModule />}
+
+      {/* ===== HACCP TAB ===== */}
+      {activeTab === 'haccp' && <HACCPModule />}
+
+      {/* ===== OBJECTIVES TAB ===== */}
+      {activeTab === 'objectives' && <ObjectivesModule canManage />}
+
+      {/* ===== PINS TAB ===== */}
+      {activeTab === 'pins' && <PinManagement />}
 
       {/* ===== SETTINGS TAB ===== */}
       {activeTab === 'settings' && <OwnerSettings />}

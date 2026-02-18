@@ -4,11 +4,14 @@ import { TaskCard } from '../tasks/TaskCard';
 import { BonusScoreCard } from '../zones/BonusScoreCard';
 import { ProductCatalogue } from '../catalogue/ProductCatalogue';
 import { TimesheetView } from '../timesheets/TimesheetView';
+import { IncidentModule } from '../incidents/IncidentModule';
+import { HACCPModule } from '../haccp/HACCPModule';
+import { ObjectivesModule } from '../objectives/ObjectivesModule';
 import { Team } from '../../types';
-import { CheckCircle, Clock, Star, ChevronDown, ChevronUp, Trophy, Award, Package } from 'lucide-react';
+import { CheckCircle, Clock, Star, ChevronDown, ChevronUp, Trophy, Award, Package, AlertTriangle, Thermometer, Target } from 'lucide-react';
 import { TEAM_LABELS } from '../../data/initialData';
 
-type StaffTab = 'tasks' | 'catalogue' | 'timesheet';
+type StaffTab = 'tasks' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives';
 
 export function StaffView() {
   const { currentUser, getTodayTasks, users } = useApp();
@@ -31,17 +34,20 @@ export function StaffView() {
     { id: 'tasks', label: 'My Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheet', label: 'Timesheet', icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'incidents', label: 'Report', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    { id: 'haccp', label: 'HACCP', icon: <Thermometer className="w-3.5 h-3.5" /> },
+    { id: 'objectives', label: 'Goals', icon: <Target className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="space-y-5">
-      {/* Tab nav */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+      {/* Tab nav — scrollable */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-1 justify-center transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 justify-center transition-all ${
               activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -60,6 +66,15 @@ export function StaffView() {
       {activeTab === 'timesheet' && currentUser && (
         <TimesheetView userId={currentUser.id} />
       )}
+
+      {/* Incidents tab */}
+      {activeTab === 'incidents' && <IncidentModule />}
+
+      {/* HACCP tab */}
+      {activeTab === 'haccp' && <HACCPModule />}
+
+      {/* Objectives tab — read-only progress */}
+      {activeTab === 'objectives' && <ObjectivesModule canManage={false} />}
 
       {/* Tasks tab */}
       {activeTab === 'tasks' && (

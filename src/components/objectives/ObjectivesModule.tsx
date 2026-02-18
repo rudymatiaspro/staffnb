@@ -195,7 +195,19 @@ export function ObjectivesModule({ canManage = false, teamFilter }: Props) {
             if (editingId) {
               updateObjective(editingId, data);
             } else {
-              addObjective({ ...data, createdBy: currentUser?.name, createdByUserId: currentUser?.id });
+              addObjective({
+                title: data.title ?? '',
+                description: data.description,
+                targetValue: data.targetValue ?? 100,
+                currentValue: data.currentValue ?? 0,
+                unit: data.unit ?? '%',
+                team: data.team ?? 'ALL',
+                deadline: data.deadline ?? new Date().toISOString().split('T')[0],
+                autoTrack: data.autoTrack ?? false,
+                autoTrackMetric: data.autoTrackMetric,
+                createdBy: currentUser?.name,
+                createdByUserId: currentUser?.id,
+              });
             }
             setShowForm(false);
             setEditingId(null);

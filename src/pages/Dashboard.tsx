@@ -5,7 +5,7 @@ import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
-import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown } from 'lucide-react';
+import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, Wifi, WifiOff } from 'lucide-react';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
@@ -18,7 +18,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function Dashboard() {
-  const { currentUser, logout, restaurantName, getTodayTasks } = useApp();
+  const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus } = useApp();
   const { signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -52,8 +52,22 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right — alert + user menu */}
+          {/* Right — realtime dot + alert + user menu */}
           <div className="flex items-center gap-2">
+            {/* Realtime status indicator */}
+            {realtimeStatus === 'connected' ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-timer-safe/10">
+                <span className="w-1.5 h-1.5 rounded-full bg-timer-safe animate-pulse" />
+                <span className="text-[10px] text-timer-safe font-medium hidden sm:inline">live</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-timer-warning/10 border border-timer-warning/20">
+                <WifiOff className="w-3 h-3 text-timer-warning" />
+                <span className="text-[10px] text-timer-warning font-medium hidden sm:inline">
+                  {realtimeStatus === 'connecting' ? 'Reconnecting…' : 'Offline'}
+                </span>
+              </div>
+            )}
             {overdueCount > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-timer-danger">
                 <Bell className="w-3.5 h-3.5 animate-pulse-danger" />
