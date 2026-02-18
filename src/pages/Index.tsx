@@ -24,14 +24,13 @@ function ProfileSeeder({ children }: { children: React.ReactNode }) {
     async function seed() {
       try {
         // Check if profile already exists
-        const { data: existingProfile } = await supabase
+        const { data: existingProfiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('id', supabaseUser!.id)
-          .single();
+          .eq('id', supabaseUser!.id);
 
-        if (!existingProfile) {
-        // Create profile
+        if (!existingProfiles || existingProfiles.length === 0) {
+          // Create profile
           await supabase.from('profiles').insert({
             id: supabaseUser!.id,
             name: supabaseUser!.user_metadata?.name || supabaseUser!.email?.split('@')[0] || 'User',
@@ -42,13 +41,12 @@ function ProfileSeeder({ children }: { children: React.ReactNode }) {
         }
 
         // Check if role exists
-        const { data: existingRole } = await supabase
+        const { data: existingRoles } = await supabase
           .from('user_roles')
           .select('id')
-          .eq('user_id', supabaseUser!.id)
-          .single();
+          .eq('user_id', supabaseUser!.id);
 
-        if (!existingRole) {
+        if (!existingRoles || existingRoles.length === 0) {
           // Check total user count — first user becomes owner
           const { count } = await supabase
             .from('user_roles')
