@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
-import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon } from 'lucide-react';
+import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
+import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff } from 'lucide-react';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
+import type { Incident } from '../types';
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
   BAR: <Wine className="w-3.5 h-3.5" />,
@@ -17,15 +19,53 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Users className="w-3.5 h-3.5" />,
 };
 
+const SEVERITY_EMOJI: Record<Incident['severity'], string> = {
+  high: '🚨',
+  medium: '⚠️',
+  low: 'ℹ️',
+};
+
 export default function Dashboard() {
-  const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus, unreadHighIncidents } = useApp();
+  const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus, unreadHighIncidents, incidents } = useApp();
   const { signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  if (!currentUser) return null;
+  const { permission, isSupported, requestPermission, notify } = useBrowserNotifications();
 
-  const isOwner = currentUser.role === 'owner';
-  const isManager = currentUser.role === 'manager' || isOwner;
+  const isOwner = currentUser?.role === 'owner';
+  const isManager = currentUser?.role === 'manager' || isOwner;
+
+  // ─── Real-time browser notifications for high-severity incidents ──────────
+  // Seed known IDs on first render so we don't fire for historical incidents.
+  const knownIdsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!isManager) return;
+
+    // First load — seed without toasting
+    if (knownIdsRef.current === null) {
+      knownIdsRef.current = new Set(incidents.map((i) => i.id));
+      return;
+    }
+
+    const known = knownIdsRef.current;
+    const brandNew = incidents.filter(
+      (i) => !known.has(i.id) && i.severity === 'high'
+    );
+
+    brandNew.forEach((inc) => {
+      notify({
+        title: `${SEVERITY_EMOJI.high} High-severity incident`,
+        body: `${inc.type} · ${inc.location}${inc.description ? ` — "${inc.description.slice(0, 60)}"` : ''}`,
+        tag: `incident-${inc.id}`,
+      });
+    });
+
+    // Update the known set
+    incidents.forEach((i) => known.add(i.id));
+  }, [incidents, isManager, notify]);
+
+  if (!currentUser) return null;
 
   const myTasks = getTodayTasks(isManager ? undefined : currentUser.team);
   const overdueCount = myTasks.filter((t) => t.status === 'overdue').length;
@@ -35,6 +75,11 @@ export default function Dashboard() {
     if (isManager) return 'Manager Dashboard';
     return `${TEAM_LABELS[currentUser.team]} — ${currentUser.name}`;
   };
+
+  // Show the "Enable notifications" pill only if: manager, supported, not yet decided
+  const showNotifPrompt = isManager && isSupported && permission === 'default';
+  // Show "blocked" hint if denied
+  const notifBlocked = isManager && isSupported && permission === 'denied';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -52,7 +97,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right — realtime dot + alert + user menu */}
+          {/* Right — realtime dot + alerts + user menu */}
           <div className="flex items-center gap-2">
             {/* Realtime status indicator */}
             {realtimeStatus === 'connected' ? (
@@ -68,18 +113,45 @@ export default function Dashboard() {
                 </span>
               </div>
             )}
+
+            {/* Enable push notifications prompt */}
+            {showNotifPrompt && (
+              <button
+                onClick={requestPermission}
+                title="Enable push notifications for high-severity incidents"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-semibold hidden sm:inline">Enable alerts</span>
+              </button>
+            )}
+
+            {/* Notification blocked hint */}
+            {notifBlocked && (
+              <div
+                title="Browser notifications are blocked. Enable them in your browser settings."
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-muted-foreground cursor-default"
+              >
+                <BellOff className="w-3 h-3" />
+              </div>
+            )}
+
+            {/* High-severity incident badge */}
             {isManager && unreadHighIncidents > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive animate-pulse">
                 <AlertOctagon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="text-xs font-bold">{unreadHighIncidents} HIGH</span>
               </div>
             )}
+
+            {/* Overdue tasks bell */}
             {overdueCount > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-timer-danger">
                 <Bell className="w-3.5 h-3.5 animate-pulse-danger" />
                 <span className="text-xs font-bold">{overdueCount}</span>
               </div>
             )}
+
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -103,6 +175,23 @@ export default function Dashboard() {
                       {TEAM_LABELS[currentUser.team]} · {currentUser.role === 'owner' ? 'Owner' : currentUser.role === 'manager' ? 'Manager' : 'Staff'}
                     </p>
                   </div>
+                  {/* Notification toggle in menu */}
+                  {isManager && isSupported && (
+                    <button
+                      onClick={async () => {
+                        if (permission === 'default') await requestPermission();
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      {permission === 'granted'
+                        ? <><Bell className="w-3.5 h-3.5 text-timer-safe" /> Push alerts on</>
+                        : permission === 'denied'
+                        ? <><BellOff className="w-3.5 h-3.5 text-muted-foreground" /> Alerts blocked</>
+                        : <><Bell className="w-3.5 h-3.5" /> Enable push alerts</>
+                      }
+                    </button>
+                  )}
                   <button
                     onClick={() => { logout(); setShowUserMenu(false); }}
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
