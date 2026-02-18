@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './client';
-import type { User, Task, TaskTemplate, GamificationSettings, Product, StockLog, DayReport, DayCloseState, Shift, TeamScore, ScoreEvent, Team } from '../../types';
+import type { User, Task, TaskTemplate, GamificationSettings, Product, StockLog, DayReport, DayCloseState, Shift, TeamScore, Team, Incident, TemperatureLocation, TemperatureLog, TeamObjective } from '../../types';
 import { INITIAL_GAMIFICATION } from '../../data/initialData';
 
 // ─── TYPE MAPPERS (DB row → App type) ─────────────────────────────────────────
@@ -153,6 +153,11 @@ export interface SupabaseData {
   dayReports: DayReport[];
   dayCloseState: DayCloseState | null;
   gamificationSettings: GamificationSettings;
+  incidents: Incident[];
+  tempLocations: TemperatureLocation[];
+  tempLogs: TemperatureLog[];
+  objectives: TeamObjective[];
+  realtimeStatus: 'connected' | 'connecting' | 'disconnected';
   loading: boolean;
   // Write ops
   saveTask: (task: Task) => Promise<void>;
@@ -172,6 +177,14 @@ export interface SupabaseData {
   setProfilePin: (userId: string, pin: string) => Promise<void>;
   setProfileStationPin: (userId: string, pin: string) => Promise<void>;
   deleteProfile: (userId: string) => Promise<void>;
+  saveIncident: (incident: Incident) => Promise<void>;
+  updateIncidentDB: (id: string, updates: Partial<Incident>) => Promise<void>;
+  deleteIncidentDB: (id: string) => Promise<void>;
+  saveTempLog: (log: TemperatureLog) => Promise<void>;
+  saveTempLocation: (loc: TemperatureLocation) => Promise<void>;
+  saveObjective: (obj: TeamObjective) => Promise<void>;
+  updateObjectiveDB: (id: string, updates: Partial<TeamObjective>) => Promise<void>;
+  deleteObjectiveDB: (id: string) => Promise<void>;
 }
 
 export function useSupabaseData(enabled: boolean): SupabaseData {
@@ -185,7 +198,12 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
   const [dayReports, setDayReports] = useState<DayReport[]>([]);
   const [dayCloseState, setDayCloseState] = useState<DayCloseState | null>(null);
   const [gamificationSettings, setGamificationSettings] = useState<GamificationSettings>(INITIAL_GAMIFICATION);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [tempLocations, setTempLocations] = useState<TemperatureLocation[]>([]);
+  const [tempLogs, setTempLogs] = useState<TemperatureLog[]>([]);
+  const [objectives, setObjectives] = useState<TeamObjective[]>([]);
   const [loading, setLoading] = useState(true);
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting');
   const initialized = useRef(false);
 
   // ─── Initial fetch ───────────────────────────────────────────────────────────
@@ -209,6 +227,10 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
         { data: teamScoresData },
         { data: dayReportsData },
         { data: gamData },
+        { data: incidentsData },
+        { data: tempLocData },
+        { data: tempLogsData },
+        { data: objectivesData },
       ] = await Promise.all([
         supabase.from('profiles').select('*').order('name'),
         supabase.from('user_roles').select('*'),
@@ -220,6 +242,10 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
         supabase.from('team_scores').select('*'),
         supabase.from('day_reports').select('*').order('date', { ascending: false }),
         supabase.from('gamification_settings').select('*').limit(1),
+        supabase.from('incidents').select('*').order('created_at', { ascending: false }),
+        supabase.from('temperature_locations').select('*').order('name'),
+        supabase.from('temperature_logs').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('team_objectives').select('*').order('deadline'),
       ]);
 
       const rolesMap = Object.fromEntries((rolesData ?? []).map((r) => [r.user_id, r]));
@@ -229,27 +255,52 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
       setTemplates((templatesData ?? []).map((t) => dbRowToTemplate(t as Record<string, unknown>)));
       setProducts((productsData ?? []).map((p) => dbRowToProduct(p as Record<string, unknown>)));
       setStockLogs((stockLogsData ?? []).map((s) => ({
-        id: s.id,
-        productId: s.product_id,
-        delta: s.delta,
-        reason: s.reason as StockLog['reason'],
-        updatedBy: s.updated_by,
-        timestamp: new Date(s.timestamp),
+        id: s.id, productId: s.product_id, delta: s.delta,
+        reason: s.reason as StockLog['reason'], updatedBy: s.updated_by, timestamp: new Date(s.timestamp),
       })));
       setShifts((shiftsData ?? []).map((s) => dbRowToShift(s as Record<string, unknown>)));
       setTeamScores((teamScoresData ?? []).map((ts) => dbRowToTeamScore(ts as Record<string, unknown>)));
       setDayReports((dayReportsData ?? []).map((r) => dbRowToDayReport(r as Record<string, unknown>)));
-      if (gamData && gamData.length > 0) {
-        setGamificationSettings(dbRowToGamification(gamData[0] as Record<string, unknown>));
-      }
+      if (gamData && gamData.length > 0) setGamificationSettings(dbRowToGamification(gamData[0] as Record<string, unknown>));
 
-      // Fetch today's day close state
       const today = new Date().toISOString().split('T')[0];
       const { data: dcsRows } = await supabase.from('day_close_states').select('*').eq('date', today).limit(1);
       if (dcsRows && dcsRows.length > 0) setDayCloseState(dbRowToDayCloseState(dcsRows[0] as Record<string, unknown>));
 
+      setIncidents((incidentsData ?? []).map((r) => ({
+        id: r.id, type: r.type as Incident['type'], description: r.description,
+        location: r.location as Incident['location'], severity: r.severity as Incident['severity'],
+        team: r.team as Team, reporterName: r.reporter_name ?? undefined,
+        reporterUserId: r.reporter_user_id ?? undefined, anonymous: r.anonymous,
+        status: r.status as Incident['status'], resolutionNote: r.resolution_note ?? undefined,
+        resolvedBy: r.resolved_by ?? undefined,
+        resolvedAt: r.resolved_at ? new Date(r.resolved_at) : undefined,
+        createdAt: new Date(r.created_at), updatedAt: new Date(r.updated_at),
+      })));
+      setTempLocations((tempLocData ?? []).map((r) => ({
+        id: r.id, name: r.name,
+        minThreshold: r.min_threshold !== null ? Number(r.min_threshold) : undefined,
+        maxThreshold: Number(r.max_threshold), isCustom: r.is_custom, createdAt: new Date(r.created_at),
+      })));
+      setTempLogs((tempLogsData ?? []).map((r) => ({
+        id: r.id, locationId: r.location_id, locationName: r.location_name,
+        temperature: Number(r.temperature), unit: r.unit, isAlert: r.is_alert,
+        note: r.note ?? undefined, loggedBy: r.logged_by,
+        loggedByUserId: r.logged_by_user_id ?? undefined, createdAt: new Date(r.created_at),
+      })));
+      setObjectives((objectivesData ?? []).map((r) => ({
+        id: r.id, title: r.title, description: r.description ?? undefined,
+        targetValue: Number(r.target_value), currentValue: Number(r.current_value),
+        unit: r.unit, team: r.team as Team, deadline: r.deadline,
+        autoTrack: r.auto_track, autoTrackMetric: r.auto_track_metric ?? undefined,
+        createdBy: r.created_by ?? undefined, createdByUserId: r.created_by_user_id ?? undefined,
+        completedAt: r.completed_at ? new Date(r.completed_at) : undefined,
+        createdAt: new Date(r.created_at), updatedAt: new Date(r.updated_at),
+      })));
+      setRealtimeStatus('connected');
     } catch (err) {
       console.error('Supabase fetch error:', err);
+      setRealtimeStatus('disconnected');
     } finally {
       setLoading(false);
     }
@@ -261,48 +312,37 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
 
     const channels = [
       supabase.channel('tasks-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        if (payload.eventType === 'DELETE') {
-          setTasks((p) => p.filter((t) => t.id !== payload.old.id));
-        } else if (payload.eventType === 'INSERT') {
-          setTasks((p) => [...p, dbRowToTask(payload.new as Record<string, unknown>)]);
-        } else {
-          setTasks((p) => p.map((t) => t.id === (payload.new as Record<string, unknown>).id ? dbRowToTask(payload.new as Record<string, unknown>) : t));
-        }
-      }).subscribe(),
+        if (payload.eventType === 'DELETE') setTasks((p) => p.filter((t) => t.id !== payload.old.id));
+        else if (payload.eventType === 'INSERT') setTasks((p) => [...p, dbRowToTask(payload.new as Record<string, unknown>)]);
+        else setTasks((p) => p.map((t) => t.id === (payload.new as Record<string, unknown>).id ? dbRowToTask(payload.new as Record<string, unknown>) : t));
+      }).subscribe((status) => { if (status === 'SUBSCRIBED') setRealtimeStatus('connected'); }),
 
       supabase.channel('shifts-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setShifts((p) => [dbRowToShift(payload.new as Record<string, unknown>), ...p]);
-        } else if (payload.eventType === 'UPDATE') {
-          setShifts((p) => p.map((s) => s.id === (payload.new as Record<string, unknown>).id ? dbRowToShift(payload.new as Record<string, unknown>) : s));
-        }
+        if (payload.eventType === 'INSERT') setShifts((p) => [dbRowToShift(payload.new as Record<string, unknown>), ...p]);
+        else if (payload.eventType === 'UPDATE') setShifts((p) => p.map((s) => s.id === (payload.new as Record<string, unknown>).id ? dbRowToShift(payload.new as Record<string, unknown>) : s));
       }).subscribe(),
 
       supabase.channel('products-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-        if (payload.eventType === 'DELETE') {
-          setProducts((p) => p.filter((x) => x.id !== payload.old.id));
-        } else if (payload.eventType === 'INSERT') {
-          setProducts((p) => [...p, dbRowToProduct(payload.new as Record<string, unknown>)]);
-        } else {
-          setProducts((p) => p.map((x) => x.id === (payload.new as Record<string, unknown>).id ? dbRowToProduct(payload.new as Record<string, unknown>) : x));
-        }
+        if (payload.eventType === 'DELETE') setProducts((p) => p.filter((x) => x.id !== payload.old.id));
+        else if (payload.eventType === 'INSERT') setProducts((p) => [...p, dbRowToProduct(payload.new as Record<string, unknown>)]);
+        else setProducts((p) => p.map((x) => x.id === (payload.new as Record<string, unknown>).id ? dbRowToProduct(payload.new as Record<string, unknown>) : x));
       }).subscribe(),
 
       supabase.channel('reports-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'day_reports' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setDayReports((p) => [dbRowToDayReport(payload.new as Record<string, unknown>), ...p]);
-        } else if (payload.eventType === 'UPDATE') {
-          setDayReports((p) => p.map((r) => r.id === (payload.new as Record<string, unknown>).id ? dbRowToDayReport(payload.new as Record<string, unknown>) : r));
-        }
+        if (payload.eventType === 'INSERT') setDayReports((p) => [dbRowToDayReport(payload.new as Record<string, unknown>), ...p]);
+        else if (payload.eventType === 'UPDATE') setDayReports((p) => p.map((r) => r.id === (payload.new as Record<string, unknown>).id ? dbRowToDayReport(payload.new as Record<string, unknown>) : r));
       }).subscribe(),
 
-      supabase.channel('profiles-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        // Re-fetch profiles on any change
-        fetchAll();
-      }).subscribe(),
+      supabase.channel('profiles-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAll(); }).subscribe(),
+
+      supabase.channel('incidents-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, () => { fetchAll(); }).subscribe(),
+
+      supabase.channel('temp-logs-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'temperature_logs' }, () => { fetchAll(); }).subscribe(),
+
+      supabase.channel('objectives-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'team_objectives' }, () => { fetchAll(); }).subscribe(),
     ];
 
-    return () => { channels.forEach((c) => supabase.removeChannel(c)); };
+    return () => { channels.forEach((c) => supabase.removeChannel(c)); setRealtimeStatus('disconnected'); };
   }, [enabled]);
 
   // ─── Write operations ────────────────────────────────────────────────────────
@@ -489,12 +529,80 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
     await supabase.from('profiles').delete().eq('id', userId);
   }, []);
 
+  const saveIncident = useCallback(async (incident: Incident) => {
+    await supabase.from('incidents').upsert({
+      id: incident.id, type: incident.type, description: incident.description,
+      location: incident.location, severity: incident.severity, team: incident.team,
+      reporter_name: incident.reporterName ?? null, reporter_user_id: incident.reporterUserId ?? null,
+      anonymous: incident.anonymous, status: incident.status,
+      resolution_note: incident.resolutionNote ?? null, resolved_by: incident.resolvedBy ?? null,
+      resolved_at: incident.resolvedAt?.toISOString() ?? null,
+    });
+  }, []);
+
+  const updateIncidentDB = useCallback(async (id: string, updates: Partial<Incident>) => {
+    await supabase.from('incidents').update({
+      status: updates.status, resolution_note: updates.resolutionNote ?? null,
+      resolved_by: updates.resolvedBy ?? null,
+      resolved_at: updates.resolvedAt?.toISOString() ?? null,
+    }).eq('id', id);
+  }, []);
+
+  const deleteIncidentDB = useCallback(async (id: string) => {
+    await supabase.from('incidents').delete().eq('id', id);
+  }, []);
+
+  const saveTempLog = useCallback(async (log: TemperatureLog) => {
+    await supabase.from('temperature_logs').insert({
+      id: log.id, location_id: log.locationId, location_name: log.locationName,
+      temperature: log.temperature, unit: log.unit, is_alert: log.isAlert,
+      note: log.note ?? null, logged_by: log.loggedBy, logged_by_user_id: log.loggedByUserId ?? null,
+    });
+  }, []);
+
+  const saveTempLocation = useCallback(async (loc: TemperatureLocation) => {
+    await supabase.from('temperature_locations').insert({
+      id: loc.id, name: loc.name, min_threshold: loc.minThreshold ?? null,
+      max_threshold: loc.maxThreshold, is_custom: loc.isCustom,
+    });
+  }, []);
+
+  const saveObjective = useCallback(async (obj: TeamObjective) => {
+    await supabase.from('team_objectives').upsert({
+      id: obj.id, title: obj.title, description: obj.description ?? null,
+      target_value: obj.targetValue, current_value: obj.currentValue, unit: obj.unit,
+      team: obj.team, deadline: obj.deadline, auto_track: obj.autoTrack,
+      auto_track_metric: obj.autoTrackMetric ?? null, created_by: obj.createdBy ?? null,
+      created_by_user_id: obj.createdByUserId ?? null,
+    });
+  }, []);
+
+  const updateObjectiveDB = useCallback(async (id: string, updates: Partial<TeamObjective>) => {
+    const patch: Record<string, unknown> = {};
+    if (updates.currentValue !== undefined) patch.current_value = updates.currentValue;
+    if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.description !== undefined) patch.description = updates.description;
+    if (updates.targetValue !== undefined) patch.target_value = updates.targetValue;
+    if (updates.deadline !== undefined) patch.deadline = updates.deadline;
+    if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt?.toISOString() ?? null;
+    await supabase.from('team_objectives').update(patch).eq('id', id);
+  }, []);
+
+  const deleteObjectiveDB = useCallback(async (id: string) => {
+    await supabase.from('team_objectives').delete().eq('id', id);
+  }, []);
+
   return {
     users, tasks, templates, products, stockLogs, shifts, teamScores,
-    dayReports, dayCloseState, gamificationSettings, loading,
+    dayReports, dayCloseState, gamificationSettings,
+    incidents, tempLocations, tempLogs, objectives,
+    realtimeStatus, loading,
     saveTask, saveTemplate, deleteTemplate, saveProduct, deleteProduct,
     saveStockLog, saveShift, updateShift, saveTeamScore, saveDayReport,
     updateDayReport, saveDayCloseState, saveGamification, saveProfile,
     setProfilePin, setProfileStationPin, deleteProfile,
+    saveIncident, updateIncidentDB, deleteIncidentDB,
+    saveTempLog, saveTempLocation,
+    saveObjective, updateObjectiveDB, deleteObjectiveDB,
   };
 }
