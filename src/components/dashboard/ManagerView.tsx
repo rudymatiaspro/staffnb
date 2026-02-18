@@ -3,11 +3,14 @@ import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../tasks/TaskCard';
 import { BonusScoreCard } from '../zones/BonusScoreCard';
 import { CreateTaskModal } from '../tasks/CreateTaskModal';
+import { ProductCatalogue } from '../catalogue/ProductCatalogue';
+import { ReportsView } from '../reports/EndOfDayReport';
+import { TimesheetView } from '../timesheets/TimesheetView';
 import { Team } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import {
   Plus, LayoutGrid, List, Activity, CheckCircle, Clock,
-  AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe
+  AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe, Package, FileText,
 } from 'lucide-react';
 
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -21,15 +24,17 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Globe className="w-4 h-4" />,
 };
 
-type ManagerTab = 'tasks' | 'activity' | 'scores';
+type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'timesheets' | 'reports';
 
 export function ManagerView() {
-  const { getTodayTasks, deleteTask, validationLog, getTeamScore, users } = useApp();
+  const { getTodayTasks, deleteTask, validationLog, getTeamScore, users, dayCloseState, dayReports, triggerCloseDay, currentUser } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filterTeam, setFilterTeam] = useState<Team | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<ManagerTab>('tasks');
   const [expandedTeams, setExpandedTeams] = useState<Set<Team>>(new Set(TEAMS));
+  const today = new Date().toISOString().split('T')[0];
+  const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
 
   const allTasks = getTodayTasks();
   const filteredTasks = filterTeam === 'ALL'
@@ -57,10 +62,26 @@ export function ManagerView() {
     { id: 'tasks' as ManagerTab, label: 'Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'scores' as ManagerTab, label: 'Scores', icon: <Activity className="w-3.5 h-3.5" /> },
     { id: 'activity' as ManagerTab, label: 'Activity', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'catalogue' as ManagerTab, label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
+    { id: 'timesheets' as ManagerTab, label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'reports' as ManagerTab, label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="space-y-5">
+      {/* Close Day button */}
+      {!todayClosed && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => { if (currentUser) triggerCloseDay(currentUser.name); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-opacity"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Close Day
+          </button>
+        </div>
+      )}
+
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3">
         <div className="glass-card rounded-xl p-3 text-center">
@@ -77,18 +98,18 @@ export function ManagerView() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+      {/* Tabs — scrollable */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-1 justify-center transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all ${
               activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.icon}
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -311,6 +332,15 @@ export function ManagerView() {
           </div>
         </div>
       )}
+
+      {/* === CATALOGUE TAB === */}
+      {activeTab === 'catalogue' && <ProductCatalogue canEdit canDelete={false} />}
+
+      {/* === TIMESHEETS TAB === */}
+      {activeTab === 'timesheets' && <TimesheetView canExport={false} />}
+
+      {/* === REPORTS TAB === */}
+      {activeTab === 'reports' && <ReportsView canCloseDay />}
 
       {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
     </div>
