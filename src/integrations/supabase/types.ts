@@ -234,6 +234,66 @@ export type Database = {
           },
         ]
       }
+      planning_shifts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          note: string | null
+          shift_end: string
+          shift_start: string
+          shift_type: string
+          team: string
+          updated_at: string
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          note?: string | null
+          shift_end?: string
+          shift_start?: string
+          shift_type: string
+          team?: string
+          updated_at?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          note?: string | null
+          shift_end?: string
+          shift_start?: string
+          shift_type?: string
+          team?: string
+          updated_at?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_shifts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
