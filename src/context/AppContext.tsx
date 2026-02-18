@@ -255,10 +255,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tempLogs, setTempLogs] = useState<TemperatureLog[]>([]);
   const [objectives, setObjectives] = useState<TeamObjective[]>([]);
 
-  // ─── High-severity incident badge ────────────────────────────────────────────
-  // We track the timestamp of the last time a manager/owner cleared the badge.
+  // ─── High-severity incident badge + real-time toast ──────────────────────────
+  // Track the timestamp of the last badge clear.
   const lastSeenIncidentRef = useRef<number>(Date.now());
   const [unreadHighIncidents, setUnreadHighIncidents] = useState(0);
+  // Track which incident IDs we already know about to detect genuinely new ones.
+  const knownIncidentIdsRef = useRef<Set<string> | null>(null);
 
   const clearIncidentBadge = useCallback(() => {
     lastSeenIncidentRef.current = Date.now();
@@ -786,7 +788,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, db]);
 
   // Sync new module data from DB
-  useEffect(() => { if (isAuthenticated) setIncidents(db.incidents); }, [db.incidents]);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const incoming = db.incidents;
+
+    // First load — seed the known-IDs set, no toasts
+    if (knownIncidentIdsRef.current === null) {
+      knownIncidentIdsRef.current = new Set(incoming.map((i) => i.id));
+      setIncidents(incoming);
+      return;
+    }
+
+    // Subsequent updates — find truly new incidents
+    const knownIds = knownIncidentIdsRef.current;
+    const newHighIncidents = incoming.filter(
+      (i) => !knownIds.has(i.id) && i.severity === 'high'
+    );
+
+    // Toast each new high-severity incident (managers/owners only)
+    if (newHighIncidents.length > 0 && currentUser && (currentUser.role === 'manager' || currentUser.role === 'owner')) {
+      newHighIncidents.forEach((inc) => {
+        showToast({
+          type: 'malus',
+          message: `🚨 High incident: ${inc.type} — ${inc.location}`,
+        });
+      });
+    }
+
+    // Update the known-IDs set
+    incoming.forEach((i) => knownIds.add(i.id));
+    setIncidents(incoming);
+  }, [db.incidents]);
+
   useEffect(() => { if (isAuthenticated) setTempLocations(db.tempLocations); }, [db.tempLocations]);
   useEffect(() => { if (isAuthenticated) setTempLogs(db.tempLogs); }, [db.tempLogs]);
   useEffect(() => { if (isAuthenticated) setObjectives(db.objectives); }, [db.objectives]);
