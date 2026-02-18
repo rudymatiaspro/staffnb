@@ -6,7 +6,8 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
-  team: Team;
+  team: Team;           // primary team (kept for backward compat)
+  teams?: Team[];       // all assigned teams (multi-team support)
   pin?: string;          // app login PIN
   pinSet: boolean;       // app login PIN set
   stationPin?: string;   // clock-in/out station PIN (separate)

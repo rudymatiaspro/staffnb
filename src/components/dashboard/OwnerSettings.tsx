@@ -28,7 +28,7 @@ export function OwnerSettings() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddTemplate, setShowAddTemplate] = useState(false);
   const [newUserName, setNewUserName] = useState('');
-  const [newUserTeam, setNewUserTeam] = useState<Team>('BAR');
+  const [newUserTeams, setNewUserTeams] = useState<Team[]>(['BAR']);
   const [newUserRole, setNewUserRole] = useState<'staff' | 'manager'>('staff');
   const [newTplName, setNewTplName] = useState('');
   const [newTplTeam, setNewTplTeam] = useState<Team>('BAR');
@@ -43,6 +43,12 @@ export function OwnerSettings() {
   const [pinConfirmInput, setPinConfirmInput] = useState('');
   const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
   const [pinError, setPinError] = useState('');
+
+  const toggleNewUserTeam = (t: Team) => {
+    setNewUserTeams(prev =>
+      prev.includes(t) ? (prev.length > 1 ? prev.filter(x => x !== t) : prev) : [...prev, t]
+    );
+  };
 
   const toggleTeam = (t: Team) => {
     setExpandedTeams(prev => {
@@ -61,8 +67,9 @@ export function OwnerSettings() {
 
   const handleAddUser = () => {
     if (!newUserName.trim()) return;
-    addUser({ name: newUserName.trim(), role: newUserRole, team: newUserTeam, pinSet: false, pin: '' });
-    setNewUserName(''); setShowAddUser(false);
+    const primaryTeam = newUserTeams[0] ?? 'BAR';
+    addUser({ name: newUserName.trim(), role: newUserRole, team: primaryTeam, teams: newUserTeams, pinSet: false, pin: '' });
+    setNewUserName(''); setNewUserTeams(['BAR']); setShowAddUser(false);
   };
 
   const handleAddTemplate = () => {
@@ -162,7 +169,11 @@ export function OwnerSettings() {
       {activeTab === 'staff' && (
         <div className="space-y-3">
           {TEAMS.map((team) => {
-            const teamUsers = users.filter((u) => u.team === team);
+            // Show users whose primary team OR any of their teams includes this team
+            const teamUsers = users.filter((u) => {
+              const userTeams = u.teams && u.teams.length > 0 ? u.teams : [u.team];
+              return userTeams.includes(team);
+            });
             if (teamUsers.length === 0) return null;
             const expanded = expandedTeams.has(team);
             return (
@@ -197,12 +208,23 @@ export function OwnerSettings() {
                         ) : (
                           <>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground">{user.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {user.role === 'owner' ? 'Owner' : user.role === 'manager' ? 'Manager' : 'Staff'} ·
-                                PIN: {user.pinSet ? '••••' : <span className="text-amber-400">Not set</span>}
-                              </p>
-                            </div>
+                               <p className="text-sm font-medium text-foreground">{user.name}</p>
+                               <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                 <span className="text-xs text-muted-foreground">
+                                   {user.role === 'owner' ? 'Owner' : user.role === 'manager' ? 'Manager' : 'Staff'} · PIN: {user.pinSet ? '••••' : <span className="text-amber-400">Not set</span>}
+                                 </span>
+                               </div>
+                               {/* Secondary teams badges */}
+                               {user.teams && user.teams.length > 1 && (
+                                 <div className="flex flex-wrap gap-1 mt-1">
+                                   {user.teams.map(t => (
+                                     <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium team-badge ${TEAM_CSS[t]}`}>
+                                       {TEAM_LABELS[t]}
+                                     </span>
+                                   ))}
+                                 </div>
+                               )}
+                             </div>
                             <div className="flex gap-1.5 flex-shrink-0">
                               {user.role !== 'owner' && (
                                 <button onClick={() => startEdit(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground" title="Rename">
@@ -255,22 +277,40 @@ export function OwnerSettings() {
                 onChange={(e) => setNewUserName(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
               />
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={newUserTeam}
-                  onChange={(e) => setNewUserTeam(e.target.value as Team)}
-                  className="px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
-                >
-                  {TEAMS.map((t) => <option key={t} value={t}>{TEAM_LABELS[t]}</option>)}
-                </select>
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as 'staff' | 'manager')}
-                  className="px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="manager">Manager</option>
-                </select>
+              {/* Role selector */}
+              <select
+                value={newUserRole}
+                onChange={(e) => setNewUserRole(e.target.value as 'staff' | 'manager')}
+                className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+              >
+                <option value="staff">Staff</option>
+                <option value="manager">Manager</option>
+              </select>
+              {/* Multi-team selection */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 font-medium">Teams <span className="text-primary">(select one or more)</span></p>
+                <div className="grid grid-cols-2 gap-2">
+                  {TEAMS.map((t) => {
+                    const selected = newUserTeams.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => toggleNewUserTeam(t)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                          selected
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-secondary text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                        }`}
+                      >
+                        <span className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${selected ? 'bg-primary border-primary' : 'border-border'}`}>
+                          {selected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                        </span>
+                        {TEAM_LABELS[t]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowAddUser(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm text-secondary-foreground">Cancel</button>

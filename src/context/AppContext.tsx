@@ -37,7 +37,7 @@ interface AppContextType extends AppState {
   removeUser: (userId: string) => void;
   updateUser: (user: User) => void;
   getTeamScore: (team: Team) => TeamScore;
-  getTodayTasks: (team?: Team) => Task[];
+  getTodayTasks: (team?: Team | Team[]) => Task[];
   regenerateDailyTasks: () => void;
   toast: Toast | null;
   clearToast: () => void;
@@ -548,16 +548,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getTodayTasks = useCallback(
-    (team?: Team): Task[] => {
+    (team?: Team | Team[]): Task[] => {
       const today = todayStr();
+      const teams: Team[] | undefined = team
+        ? Array.isArray(team) ? team : [team]
+        : undefined;
       return tasks.filter((t) => {
         const taskDay = t.createdAt.toISOString().split('T')[0];
         const deadlineDay = t.deadline.toISOString().split('T')[0];
         const isToday = taskDay === today || deadlineDay === today;
         if (!isToday) return false;
-        if (!team) return true;
-        if (team === 'ALL') return true;
-        return t.team === team || t.team === 'ALL';
+        if (!teams || teams.includes('ALL')) return true;
+        return t.team === 'ALL' || teams.some(tm => t.team === tm);
       });
     },
     [tasks]

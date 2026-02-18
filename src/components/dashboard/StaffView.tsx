@@ -16,10 +16,11 @@ type StaffTab = 'tasks' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'o
 export function StaffView() {
   const { currentUser, getTodayTasks, users } = useApp();
   const team = currentUser?.team as Team;
+  const teams = currentUser?.teams && currentUser.teams.length > 0 ? currentUser.teams : [team];
   const [showDone, setShowDone] = useState(false);
   const [activeTab, setActiveTab] = useState<StaffTab>('tasks');
 
-  const allTasks = getTodayTasks(team);
+  const allTasks = getTodayTasks(teams);
   const overdueTasks = allTasks.filter((t) => t.status === 'overdue').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
   const pendingTasks = allTasks.filter((t) => t.status === 'pending').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
   const doneTasks = allTasks.filter((t) => t.status === 'done');
