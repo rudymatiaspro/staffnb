@@ -722,11 +722,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return shifts.filter((s) => s.date === dateStr);
   }, [shifts]);
 
+  // ─── New module write ops (wired through db) ─────────────────────────────────
+  const addIncident = useCallback(async (incident: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!isAuthenticated) return;
+    const newInc: Incident = {
+      ...incident,
+      id: generateId(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setIncidents((prev) => [newInc, ...prev]);
+    await db.saveIncident(newInc);
+  }, [isAuthenticated, db]);
+
+  const updateIncident = useCallback(async (id: string, updates: Partial<Incident>) => {
+    setIncidents((prev) => prev.map((i) => i.id === id ? { ...i, ...updates, updatedAt: new Date() } : i));
+    if (isAuthenticated) await db.updateIncidentDB(id, updates);
+  }, [isAuthenticated, db]);
+
+  const deleteIncident = useCallback(async (id: string) => {
+    setIncidents((prev) => prev.filter((i) => i.id !== id));
+    if (isAuthenticated) await db.deleteIncidentDB(id);
+  }, [isAuthenticated, db]);
+
+  const addTempLog = useCallback(async (log: Omit<TemperatureLog, 'id' | 'createdAt'>) => {
+    const newLog: TemperatureLog = { ...log, id: generateId(), createdAt: new Date() };
+    setTempLogs((prev) => [newLog, ...prev]);
+    if (isAuthenticated) await db.saveTempLog(newLog);
+  }, [isAuthenticated, db]);
+
+  const addTempLocation = useCallback(async (loc: Omit<TemperatureLocation, 'id' | 'createdAt'>) => {
+    const newLoc: TemperatureLocation = { ...loc, id: generateId(), createdAt: new Date() };
+    setTempLocations((prev) => [...prev, newLoc]);
+    if (isAuthenticated) await db.saveTempLocation(newLoc);
+  }, [isAuthenticated, db]);
+
+  const addObjective = useCallback(async (obj: Omit<TeamObjective, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newObj: TeamObjective = { ...obj, id: generateId(), createdAt: new Date(), updatedAt: new Date() };
+    setObjectives((prev) => [...prev, newObj]);
+    if (isAuthenticated) await db.saveObjective(newObj);
+  }, [isAuthenticated, db]);
+
+  const updateObjective = useCallback(async (id: string, updates: Partial<TeamObjective>) => {
+    setObjectives((prev) => prev.map((o) => o.id === id ? { ...o, ...updates, updatedAt: new Date() } : o));
+    if (isAuthenticated) await db.updateObjectiveDB(id, updates);
+  }, [isAuthenticated, db]);
+
+  const deleteObjective = useCallback(async (id: string) => {
+    setObjectives((prev) => prev.filter((o) => o.id !== id));
+    if (isAuthenticated) await db.deleteObjectiveDB(id);
+  }, [isAuthenticated, db]);
+
+  // Sync new module data from DB
+  useEffect(() => { if (isAuthenticated) setIncidents(db.incidents); }, [db.incidents]);
+  useEffect(() => { if (isAuthenticated) setTempLocations(db.tempLocations); }, [db.tempLocations]);
+  useEffect(() => { if (isAuthenticated) setTempLogs(db.tempLogs); }, [db.tempLogs]);
+  useEffect(() => { if (isAuthenticated) setObjectives(db.objectives); }, [db.objectives]);
+
   return (
     <AppContext.Provider
       value={{
         users, tasks, templates, teamScores, gamificationSettings,
         currentUser, restaurantName, validationLog, toast,
+        realtimeStatus: db.realtimeStatus,
         login, logout, setPin, validatePin, resetPin,
         setStationPin, resetStationPin, validateStationPin,
         completeTask, createPunctualTask, createTemplate, updateTemplate,
@@ -736,6 +794,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         products, stockLogs, addProduct, updateProduct, deleteProduct, updateStock,
         dayReports, dayCloseState, triggerCloseDay, saveManagerNotes,
         shifts, clockAction, getUserShifts, getAllShiftsForDate,
+        incidents, addIncident, updateIncident, deleteIncident,
+        tempLocations, tempLogs, addTempLog, addTempLocation,
+        objectives, addObjective, updateObjective, deleteObjective,
       }}
     >
       {children}

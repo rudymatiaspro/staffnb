@@ -163,6 +163,7 @@ export function IncidentModule({ canManage = false, canDelete = false, teamFilte
           onSubmit={(data) => {
             addIncident({
               ...data,
+              status: 'open',
               team: (currentUser?.team || 'ALL') as Team,
               reporterName: data.anonymous ? undefined : currentUser?.name,
               reporterUserId: data.anonymous ? undefined : currentUser?.id,

@@ -6,11 +6,16 @@ import { CreateTaskModal } from '../tasks/CreateTaskModal';
 import { ProductCatalogue } from '../catalogue/ProductCatalogue';
 import { ReportsView } from '../reports/EndOfDayReport';
 import { TimesheetView } from '../timesheets/TimesheetView';
+import { IncidentModule } from '../incidents/IncidentModule';
+import { HACCPModule } from '../haccp/HACCPModule';
+import { ObjectivesModule } from '../objectives/ObjectivesModule';
+import { PinManagement } from '../pins/PinManagement';
 import { Team } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import {
   Plus, LayoutGrid, List, Activity, CheckCircle, Clock,
   AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe, Package, FileText,
+  Thermometer, Target, KeyRound,
 } from 'lucide-react';
 
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -24,7 +29,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Globe className="w-4 h-4" />,
 };
 
-type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'timesheets' | 'reports';
+type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'timesheets' | 'reports' | 'incidents' | 'haccp' | 'objectives' | 'pins';
 
 export function ManagerView() {
   const { getTodayTasks, deleteTask, validationLog, getTeamScore, users, dayCloseState, dayReports, triggerCloseDay, currentUser } = useApp();
@@ -65,6 +70,10 @@ export function ManagerView() {
     { id: 'catalogue' as ManagerTab, label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheets' as ManagerTab, label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'reports' as ManagerTab, label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'incidents' as ManagerTab, label: 'Incidents', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    { id: 'haccp' as ManagerTab, label: 'HACCP', icon: <Thermometer className="w-3.5 h-3.5" /> },
+    { id: 'objectives' as ManagerTab, label: 'Objectives', icon: <Target className="w-3.5 h-3.5" /> },
+    { id: 'pins' as ManagerTab, label: 'PINs', icon: <KeyRound className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -341,6 +350,18 @@ export function ManagerView() {
 
       {/* === REPORTS TAB === */}
       {activeTab === 'reports' && <ReportsView canCloseDay />}
+
+      {/* === INCIDENTS TAB === */}
+      {activeTab === 'incidents' && <IncidentModule />}
+
+      {/* === HACCP TAB === */}
+      {activeTab === 'haccp' && <HACCPModule />}
+
+      {/* === OBJECTIVES TAB === */}
+      {activeTab === 'objectives' && <ObjectivesModule canManage />}
+
+      {/* === PINS TAB === */}
+      {activeTab === 'pins' && <PinManagement />}
 
       {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
     </div>
