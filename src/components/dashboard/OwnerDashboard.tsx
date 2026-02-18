@@ -3,10 +3,13 @@ import { useApp } from '../../context/AppContext';
 import { Team } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import { Leaderboard } from '../leaderboard/Leaderboard';
+import { ProductCatalogue } from '../catalogue/ProductCatalogue';
+import { ReportsView } from '../reports/EndOfDayReport';
+import { TimesheetView } from '../timesheets/TimesheetView';
 import {
   Users, CheckCircle, AlertTriangle, TrendingUp, Trophy,
   Wine, ChefHat, Layers, PersonStanding, Settings,
-  Clock, ChevronRight, BarChart2, Star, Bell,
+  Clock, ChevronRight, BarChart2, Star, Bell, Package, FileText,
 } from 'lucide-react';
 
 const ACTIVE_TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -20,7 +23,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Users className="w-4 h-4" />,
 };
 
-type OwnerTab = 'overview' | 'leaderboard' | 'settings';
+type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'timesheets' | 'reports' | 'settings';
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -30,8 +33,10 @@ function getInitials(name: string) {
 import { OwnerSettings } from './OwnerSettings';
 
 export function OwnerDashboard() {
-  const { users, getTodayTasks, getTeamScore, validationLog } = useApp();
+  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser } = useApp();
   const [activeTab, setActiveTab] = useState<OwnerTab>('overview');
+  const today = new Date().toISOString().split('T')[0];
+  const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
 
   const allTasks = getTodayTasks();
   const doneTasks = allTasks.filter((t) => t.status === 'done');
@@ -43,30 +48,45 @@ export function OwnerDashboard() {
   const alertsCount = overdueTasks.length;
 
   const todayLog = validationLog.filter((v) => {
-    const today = new Date().toISOString().split('T')[0];
     return v.validatedAt.toISOString().split('T')[0] === today;
   });
 
   const tabs: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart2 className="w-3.5 h-3.5" /> },
-    { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="w-3.5 h-3.5" /> },
+    { id: 'leaderboard', label: 'Board', icon: <Trophy className="w-3.5 h-3.5" /> },
+    { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
+    { id: 'timesheets', label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'reports', label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="space-y-5">
-      {/* Tab nav */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+      {/* Close Day button in header area */}
+      {!todayClosed && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => { if (currentUser) triggerCloseDay(currentUser.name); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-opacity"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Close Day
+          </button>
+        </div>
+      )}
+
+      {/* Tab nav — scrollable on mobile */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-1 justify-center transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0 transition-all ${
               activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.icon}
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -348,6 +368,15 @@ export function OwnerDashboard() {
 
       {/* ===== LEADERBOARD TAB ===== */}
       {activeTab === 'leaderboard' && <Leaderboard />}
+
+      {/* ===== CATALOGUE TAB ===== */}
+      {activeTab === 'catalogue' && <ProductCatalogue canEdit canDelete />}
+
+      {/* ===== TIMESHEETS TAB ===== */}
+      {activeTab === 'timesheets' && <TimesheetView canExport />}
+
+      {/* ===== REPORTS TAB ===== */}
+      {activeTab === 'reports' && <ReportsView canCloseDay />}
 
       {/* ===== SETTINGS TAB ===== */}
       {activeTab === 'settings' && <OwnerSettings />}

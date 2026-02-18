@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent } from '../types';
+import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, ClockEvent, Shift } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 
 export interface ValidationEvent {
@@ -33,6 +33,24 @@ interface AppContextType extends AppState {
   regenerateDailyTasks: () => void;
   toast: Toast | null;
   clearToast: () => void;
+  // Module 1 — Catalogue
+  products: Product[];
+  stockLogs: StockLog[];
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (productId: string) => void;
+  updateStock: (productId: string, delta: number, reason: StockUpdateReason) => void;
+  // Module 2 — End of Day
+  dayReports: DayReport[];
+  dayCloseState: DayCloseState | null;
+  triggerCloseDay: (triggeredByUser: string) => void;
+  saveManagerNotes: (reportId: string, notes: string) => void;
+  // Module 3 — Clock In/Out
+  clockEvents: ClockEvent[];
+  shifts: Shift[];
+  clockAction: (userId: string) => 'in' | 'out';
+  getUserShifts: (userId: string, dateStr?: string) => Shift[];
+  getAllShiftsForDate: (dateStr: string) => Shift[];
 }
 
 export interface Toast {
@@ -109,7 +127,8 @@ function initTeamScores(base: number): TeamScore[] {
   }));
 }
 
-function reviveDates(raw: string): Partial<AppState & { validationLog: ValidationEvent[]; teamScores: TeamScore[] }> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reviveDates(raw: string): Record<string, any> {
   try {
     const parsed = JSON.parse(raw);
     if (parsed.tasks) {
@@ -133,6 +152,38 @@ function reviveDates(raw: string): Partial<AppState & { validationLog: Validatio
       parsed.validationLog = parsed.validationLog.map((v: ValidationEvent) => ({
         ...v,
         validatedAt: new Date(v.validatedAt),
+      }));
+    }
+    // Revive product dates
+    if (parsed.products) {
+      parsed.products = parsed.products.map((p: Product) => ({
+        ...p,
+        createdAt: new Date(p.createdAt),
+        updatedAt: new Date(p.updatedAt),
+      }));
+    }
+    if (parsed.stockLogs) {
+      parsed.stockLogs = parsed.stockLogs.map((s: StockLog) => ({ ...s, timestamp: new Date(s.timestamp) }));
+    }
+    if (parsed.dayReports) {
+      parsed.dayReports = parsed.dayReports.map((r: DayReport) => ({ ...r, generatedAt: new Date(r.generatedAt) }));
+    }
+    if (parsed.dayCloseState) {
+      const ds = parsed.dayCloseState as DayCloseState;
+      parsed.dayCloseState = {
+        ...ds,
+        triggeredAt: ds.triggeredAt ? new Date(ds.triggeredAt) : undefined,
+        reportReadyAt: ds.reportReadyAt ? new Date(ds.reportReadyAt) : undefined,
+      };
+    }
+    if (parsed.clockEvents) {
+      parsed.clockEvents = parsed.clockEvents.map((e: ClockEvent) => ({ ...e, timestamp: new Date(e.timestamp) }));
+    }
+    if (parsed.shifts) {
+      parsed.shifts = parsed.shifts.map((s: Shift) => ({
+        ...s,
+        clockIn: new Date(s.clockIn),
+        clockOut: s.clockOut ? new Date(s.clockOut) : undefined,
       }));
     }
     return parsed;
@@ -185,10 +236,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Persist state
-  useEffect(() => {
-    const state = { users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog]);
+  // Persistence is handled by the module-level effect below
 
   // Live update task statuses every 5s
   const gamifRef = useRef(gamificationSettings);
@@ -365,6 +413,192 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [templates]);
 
+  // ─── MODULE 1: CATALOGUE ─────────────────────────────────────────────────────
+  const [products, setProducts] = useState<Product[]>(saved.products || []);
+  const [stockLogs, setStockLogs] = useState<StockLog[]>(saved.stockLogs || []);
+
+  const addProduct = useCallback((product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date();
+    const newProduct: Product = { ...product, id: generateId(), createdAt: now, updatedAt: now };
+    setProducts((prev) => [...prev, newProduct]);
+    showToast({ type: 'success', message: `"${product.name}" added to catalogue` });
+  }, [showToast]);
+
+  const updateProduct = useCallback((product: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...product, updatedAt: new Date() } : p)));
+    showToast({ type: 'success', message: 'Product updated' });
+  }, [showToast]);
+
+  const deleteProduct = useCallback((productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    showToast({ type: 'info', message: 'Product deleted' });
+  }, [showToast]);
+
+  const updateStock = useCallback((productId: string, delta: number, reason: StockUpdateReason) => {
+    if (!currentUser) return;
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, currentStock: Math.max(0, p.currentStock + delta), updatedAt: new Date() }
+          : p
+      )
+    );
+    const log: StockLog = {
+      id: generateId(),
+      productId,
+      delta,
+      reason,
+      updatedBy: currentUser.name,
+      timestamp: new Date(),
+    };
+    setStockLogs((prev) => [log, ...prev].slice(0, 500));
+    showToast({ type: 'success', message: `Stock updated (${delta > 0 ? '+' : ''}${delta})` });
+  }, [currentUser, showToast]);
+
+  // ─── MODULE 2: END OF DAY REPORT ─────────────────────────────────────────────
+  const [dayReports, setDayReports] = useState<DayReport[]>(saved.dayReports || []);
+  const [dayCloseState, setDayCloseState] = useState<DayCloseState | null>(saved.dayCloseState || null);
+
+  const generateReport = useCallback((triggeredBy: 'manual' | 'auto', triggeredByUser?: string) => {
+    const today = todayStr();
+    const allTasks = tasks.filter((t) => {
+      const day = t.createdAt.toISOString().split('T')[0];
+      return day === today;
+    });
+    const completedTasks = allTasks.filter((t) => t.status === 'done');
+
+    const teamRates: Record<string, number> = {};
+    TEAMS.forEach((team) => {
+      const tt = allTasks.filter((t) => t.team === team);
+      teamRates[team] = tt.length > 0 ? Math.round((tt.filter((t) => t.status === 'done').length / tt.length) * 100) : 100;
+    });
+
+    const stockAlerts = products.map((p) => {
+      const status: StockStatus = p.currentStock <= p.minThreshold ? 'critical' : p.currentStock <= p.minThreshold * 1.5 ? 'warning' : 'healthy';
+      return { productId: p.id, productName: p.name, currentStock: p.currentStock, minThreshold: p.minThreshold, status };
+    }).filter((a) => a.status !== 'healthy');
+
+    const staffPerf = users.filter((u) => u.role === 'staff').map((u) => {
+      const validated = validationLog.filter((v) => v.validatedBy === u.name && v.validatedAt.toISOString().split('T')[0] === today);
+      return { userId: u.id, userName: u.name, tasksCompleted: validated.length, pointsEarned: validated.length * 10, penaltiesApplied: 0 };
+    });
+
+    const report: DayReport = {
+      id: generateId(),
+      date: today,
+      generatedAt: new Date(),
+      triggeredBy,
+      triggeredByUser,
+      managerNotes: '',
+      totalTasks: allTasks.length,
+      completedTasks: completedTasks.length,
+      teamCompletionRates: teamRates,
+      stockAlerts,
+      staffPerformance: staffPerf,
+    };
+    setDayReports((prev) => [report, ...prev]);
+    setDayCloseState((prev) => prev ? { ...prev, reportId: report.id } : null);
+    showToast({ type: 'success', message: "Tonight's report is ready!" });
+    return report;
+  }, [tasks, products, users, validationLog, showToast]);
+
+  const triggerCloseDay = useCallback((triggeredByUser: string) => {
+    const now = new Date();
+    const readyAt = new Date(now.getTime() + 10 * 60 * 1000);
+    const state: DayCloseState = {
+      date: todayStr(),
+      triggered: true,
+      triggeredAt: now,
+      reportReadyAt: readyAt,
+    };
+    setDayCloseState(state);
+    showToast({ type: 'info', message: `Report will be ready at ${readyAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` });
+    // Schedule report generation
+    setTimeout(() => {
+      generateReport('manual', triggeredByUser);
+    }, 10 * 60 * 1000);
+  }, [showToast, generateReport]);
+
+  const saveManagerNotes = useCallback((reportId: string, notes: string) => {
+    setDayReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, managerNotes: notes } : r)));
+    showToast({ type: 'success', message: 'Notes saved' });
+  }, [showToast]);
+
+  // Auto-generate at 23:30 if not already done
+  useEffect(() => {
+    const checkAutoReport = () => {
+      const now = new Date();
+      const today = todayStr();
+      if (now.getHours() === 23 && now.getMinutes() >= 30) {
+        const alreadyDone = dayReports.some((r) => r.date === today) || (dayCloseState?.date === today && dayCloseState.triggered);
+        if (!alreadyDone) generateReport('auto');
+      }
+    };
+    const interval = setInterval(checkAutoReport, 60000);
+    return () => clearInterval(interval);
+  }, [dayReports, dayCloseState, generateReport]);
+
+  // ─── MODULE 3: CLOCK IN/OUT ───────────────────────────────────────────────────
+  const [clockEvents, setClockEvents] = useState<ClockEvent[]>(saved.clockEvents || []);
+  const [shifts, setShifts] = useState<Shift[]>(saved.shifts || []);
+
+  const clockAction = useCallback((userId: string): 'in' | 'out' => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return 'in';
+    const today = todayStr();
+    const todayShifts = shifts.filter((s) => s.userId === userId && s.date === today);
+    const lastShift = todayShifts[todayShifts.length - 1];
+    const isClockIn = !lastShift || lastShift.clockOut !== undefined;
+
+    const event: ClockEvent = {
+      id: generateId(),
+      userId,
+      userName: user.name,
+      team: user.team,
+      type: isClockIn ? 'in' : 'out',
+      timestamp: new Date(),
+    };
+    setClockEvents((prev) => [event, ...prev]);
+
+    if (isClockIn) {
+      const shift: Shift = {
+        id: generateId(),
+        userId,
+        userName: user.name,
+        team: user.team,
+        clockIn: new Date(),
+        date: today,
+      };
+      setShifts((prev) => [...prev, shift]);
+    } else if (lastShift) {
+      const clockOut = new Date();
+      const totalMinutes = Math.round((clockOut.getTime() - lastShift.clockIn.getTime()) / 60000);
+      setShifts((prev) =>
+        prev.map((s) => (s.id === lastShift.id ? { ...s, clockOut, totalMinutes } : s))
+      );
+    }
+
+    return isClockIn ? 'in' : 'out';
+  }, [users, shifts]);
+
+  const getUserShifts = useCallback((userId: string, dateStr?: string): Shift[] => {
+    return shifts.filter((s) => s.userId === userId && (!dateStr || s.date === dateStr));
+  }, [shifts]);
+
+  const getAllShiftsForDate = useCallback((dateStr: string): Shift[] => {
+    return shifts.filter((s) => s.date === dateStr);
+  }, [shifts]);
+
+  // ─── PERSIST ALL STATE ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const state = {
+      users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
+      products, stockLogs, dayReports, dayCloseState, clockEvents, shifts,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
+      products, stockLogs, dayReports, dayCloseState, clockEvents, shifts]);
+
   return (
     <AppContext.Provider
       value={{
@@ -375,6 +609,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteTemplate, deleteTask, updateGamificationSettings,
         addUser, removeUser, updateUser,
         getTeamScore, getTodayTasks, regenerateDailyTasks, clearToast,
+        // Module 1
+        products, stockLogs, addProduct, updateProduct, deleteProduct, updateStock,
+        // Module 2
+        dayReports, dayCloseState, triggerCloseDay, saveManagerNotes,
+        // Module 3
+        clockEvents, shifts, clockAction, getUserShifts, getAllShiftsForDate,
       }}
     >
       {children}
@@ -387,3 +627,4 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
+

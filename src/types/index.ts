@@ -117,3 +117,96 @@ export interface ValidationLog {
 // Legacy alias for backward compat
 export type Zone = Team;
 export type ZoneScore = TeamScore;
+
+// ─── MODULE 1: PRODUCT CATALOGUE ─────────────────────────────────────────────
+
+export type ProductCategory =
+  | 'Red Wine' | 'White Wine' | 'Rosé Wine' | 'Champagne & Sparkling'
+  | 'Beer' | 'Spirits' | 'Cocktail Ingredients' | 'Soft Drinks & Juices'
+  | 'Fresh Produce' | 'Dry & Canned Goods' | 'Snacks & Tapas'
+  | 'Packaging' | 'Cleaning Products' | 'Kitchen Supplies';
+
+export type ProductCategoryGroup = 'BEVERAGES' | 'FOOD' | 'SUPPLIES';
+
+export const PRODUCT_CATEGORIES: Record<ProductCategoryGroup, ProductCategory[]> = {
+  BEVERAGES: ['Red Wine', 'White Wine', 'Rosé Wine', 'Champagne & Sparkling', 'Beer', 'Spirits', 'Cocktail Ingredients', 'Soft Drinks & Juices'],
+  FOOD: ['Fresh Produce', 'Dry & Canned Goods', 'Snacks & Tapas'],
+  SUPPLIES: ['Packaging', 'Cleaning Products', 'Kitchen Supplies'],
+};
+
+export type UnitType = 'btl' | 'pcs';
+
+export type StockStatus = 'healthy' | 'warning' | 'critical';
+
+export interface Product {
+  id: string;
+  name: string;
+  category: ProductCategory;
+  brand?: string;
+  supplier?: string;
+  supplierContact?: string;
+  unit: UnitType;
+  currentStock: number;
+  minThreshold: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type StockUpdateReason = 'Delivery received' | 'Consumed' | 'Damaged' | 'Inventory correction';
+
+export interface StockLog {
+  id: string;
+  productId: string;
+  delta: number; // positive = added, negative = removed
+  reason: StockUpdateReason;
+  updatedBy: string;
+  timestamp: Date;
+}
+
+// ─── MODULE 2: END OF DAY REPORT ─────────────────────────────────────────────
+
+export interface DayReport {
+  id: string;
+  date: string; // YYYY-MM-DD
+  generatedAt: Date;
+  triggeredBy: 'manual' | 'auto';
+  triggeredByUser?: string;
+  managerNotes: string;
+  // snapshot data
+  totalTasks: number;
+  completedTasks: number;
+  teamCompletionRates: Record<string, number>;
+  stockAlerts: { productId: string; productName: string; currentStock: number; minThreshold: number; status: StockStatus }[];
+  staffPerformance: { userId: string; userName: string; tasksCompleted: number; pointsEarned: number; penaltiesApplied: number }[];
+}
+
+export interface DayCloseState {
+  date: string; // YYYY-MM-DD
+  triggered: boolean;
+  triggeredAt?: Date;
+  reportReadyAt?: Date; // triggeredAt + 10 min
+  reportId?: string;
+}
+
+// ─── MODULE 3: CLOCK IN/OUT ───────────────────────────────────────────────────
+
+export interface ClockEvent {
+  id: string;
+  userId: string;
+  userName: string;
+  team: Team;
+  type: 'in' | 'out';
+  timestamp: Date;
+}
+
+export interface Shift {
+  id: string;
+  userId: string;
+  userName: string;
+  team: Team;
+  clockIn: Date;
+  clockOut?: Date;
+  totalMinutes?: number;
+  date: string; // YYYY-MM-DD
+}
