@@ -12,6 +12,9 @@ export const INITIAL_USERS: User[] = [
   { id: 'staff-ken', name: 'Ken', role: 'staff', team: 'KITCHEN', pinSet: false, pin: '' },
   { id: 'staff-thinh', name: 'Thinh', role: 'staff', team: 'KITCHEN', pinSet: false, pin: '' },
   { id: 'staff-hoa', name: 'Hoa', role: 'staff', team: 'KITCHEN', pinSet: false, pin: '' },
+  // FLOOR staff
+  { id: 'staff-mai', name: 'Mai', role: 'staff', team: 'FLOOR', pinSet: false, pin: '' },
+  { id: 'staff-duc', name: 'Duc', role: 'staff', team: 'FLOOR', pinSet: false, pin: '' },
   // ATELIER staff
   { id: 'staff-quynh', name: 'Quynh', role: 'staff', team: 'ATELIER', pinSet: false, pin: '' },
 ];
