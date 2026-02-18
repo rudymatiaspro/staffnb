@@ -335,7 +335,33 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
 
       supabase.channel('profiles-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAll(); }).subscribe(),
 
-      supabase.channel('incidents-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, () => { fetchAll(); }).subscribe(),
+      supabase.channel('incidents-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setIncidents((p) => p.filter((i) => i.id !== payload.old.id));
+        } else if (payload.eventType === 'INSERT') {
+          const r = payload.new as Record<string, unknown>;
+          const inc: Incident = {
+            id: r.id as string, type: r.type as Incident['type'], description: r.description as string,
+            location: r.location as Incident['location'], severity: r.severity as Incident['severity'],
+            team: r.team as Team, reporterName: (r.reporter_name as string) ?? undefined,
+            reporterUserId: (r.reporter_user_id as string) ?? undefined, anonymous: r.anonymous as boolean,
+            status: r.status as Incident['status'], resolutionNote: (r.resolution_note as string) ?? undefined,
+            resolvedBy: (r.resolved_by as string) ?? undefined,
+            resolvedAt: r.resolved_at ? new Date(r.resolved_at as string) : undefined,
+            createdAt: new Date(r.created_at as string), updatedAt: new Date(r.updated_at as string),
+          };
+          setIncidents((p) => [inc, ...p]);
+        } else if (payload.eventType === 'UPDATE') {
+          const r = payload.new as Record<string, unknown>;
+          setIncidents((p) => p.map((i) => i.id === r.id ? {
+            ...i, status: r.status as Incident['status'],
+            resolutionNote: (r.resolution_note as string) ?? undefined,
+            resolvedBy: (r.resolved_by as string) ?? undefined,
+            resolvedAt: r.resolved_at ? new Date(r.resolved_at as string) : undefined,
+            updatedAt: new Date(r.updated_at as string),
+          } : i));
+        }
+      }).subscribe(),
 
       supabase.channel('temp-logs-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'temperature_logs' }, () => { fetchAll(); }).subscribe(),
 
