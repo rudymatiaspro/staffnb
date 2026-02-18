@@ -3,29 +3,37 @@ import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../tasks/TaskCard';
 import { BonusScoreCard } from '../zones/BonusScoreCard';
 import { CreateTaskModal } from '../tasks/CreateTaskModal';
-import { Zone } from '../../types';
-import { ZONE_CSS, ZONE_EMOJI } from '../../data/initialData';
+import { Team } from '../../types';
+import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import {
   Plus, LayoutGrid, List, Activity, CheckCircle, Clock,
-  AlertTriangle, Users, ChevronDown, ChevronUp
+  AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe
 } from 'lucide-react';
 
-const ZONES: Zone[] = ['BAR', 'CUISINE', 'ATELIER'];
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER'];
+
+const TEAM_ICONS: Record<string, React.ReactNode> = {
+  BAR: <Wine className="w-4 h-4" />,
+  KITCHEN: <ChefHat className="w-4 h-4" />,
+  FLOOR: <Users className="w-4 h-4" />,
+  ATELIER: <Layers className="w-4 h-4" />,
+  ALL: <Globe className="w-4 h-4" />,
+};
 
 type ManagerTab = 'tasks' | 'activity' | 'scores';
 
 export function ManagerView() {
-  const { getTodayTasks, deleteTask, validationLog, getZoneScore, users } = useApp();
+  const { getTodayTasks, deleteTask, validationLog, getTeamScore, users } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [filterZone, setFilterZone] = useState<Zone | 'ALL'>('ALL');
+  const [filterTeam, setFilterTeam] = useState<Team | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<ManagerTab>('tasks');
-  const [expandedZones, setExpandedZones] = useState<Set<Zone>>(new Set(ZONES));
+  const [expandedTeams, setExpandedTeams] = useState<Set<Team>>(new Set(TEAMS));
 
   const allTasks = getTodayTasks();
-  const filteredTasks = filterZone === 'ALL'
+  const filteredTasks = filterTeam === 'ALL'
     ? allTasks
-    : allTasks.filter((t) => t.zone === filterZone || t.zone === 'ALL');
+    : allTasks.filter((t) => t.team === filterTeam || t.team === 'ALL');
 
   const pendingCount = allTasks.filter((t) => t.status === 'pending').length;
   const overdueCount = allTasks.filter((t) => t.status === 'overdue').length;
@@ -35,19 +43,19 @@ export function ManagerView() {
     return v.validatedAt.toISOString().split('T')[0] === today;
   });
 
-  const toggleZone = (zone: Zone) => {
-    setExpandedZones((prev) => {
+  const toggleTeam = (team: Team) => {
+    setExpandedTeams((prev) => {
       const next = new Set(prev);
-      if (next.has(zone)) next.delete(zone);
-      else next.add(zone);
+      if (next.has(team)) next.delete(team);
+      else next.add(team);
       return next;
     });
   };
 
   const tabs = [
-    { id: 'tasks' as ManagerTab, label: 'Tâches', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'tasks' as ManagerTab, label: 'Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'scores' as ManagerTab, label: 'Scores', icon: <Activity className="w-3.5 h-3.5" /> },
-    { id: 'activity' as ManagerTab, label: 'Activité', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'activity' as ManagerTab, label: 'Activity', icon: <Users className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -56,15 +64,15 @@ export function ManagerView() {
       <div className="grid grid-cols-3 gap-3">
         <div className="glass-card rounded-xl p-3 text-center">
           <p className="text-2xl font-bold text-primary">{pendingCount}</p>
-          <p className="text-xs text-muted-foreground">En attente</p>
+          <p className="text-xs text-muted-foreground">Pending</p>
         </div>
         <div className={`rounded-xl p-3 text-center ${overdueCount > 0 ? 'bg-destructive/10 border border-destructive/20' : 'glass-card'}`}>
           <p className={`text-2xl font-bold ${overdueCount > 0 ? 'text-timer-danger' : 'text-foreground'}`}>{overdueCount}</p>
-          <p className="text-xs text-muted-foreground">En retard</p>
+          <p className="text-xs text-muted-foreground">Overdue</p>
         </div>
         <div className="glass-card rounded-xl p-3 text-center">
           <p className="text-2xl font-bold text-timer-safe">{doneCount}</p>
-          <p className="text-xs text-muted-foreground">Complétées</p>
+          <p className="text-xs text-muted-foreground">Done</p>
         </div>
       </div>
 
@@ -91,18 +99,19 @@ export function ManagerView() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => setFilterZone('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filterZone === 'ALL' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-muted'}`}
+                onClick={() => setFilterTeam('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filterTeam === 'ALL' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-muted'}`}
               >
-                Toutes
+                All Teams
               </button>
-              {[...ZONES, 'ALL' as Zone].map((zone) => (
+              {([...TEAMS, 'ALL' as Team]).map((team) => (
                 <button
-                  key={zone}
-                  onClick={() => setFilterZone(zone === filterZone ? 'ALL' : zone)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all zone-badge ${ZONE_CSS[zone]} ${filterZone === zone ? 'ring-1 ring-current' : 'opacity-70 hover:opacity-100'}`}
+                  key={team}
+                  onClick={() => setFilterTeam(team === filterTeam ? 'ALL' : team)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all team-badge ${TEAM_CSS[team]} ${filterTeam === team ? 'ring-1 ring-current' : 'opacity-70 hover:opacity-100'}`}
                 >
-                  {ZONE_EMOJI[zone]} {zone}
+                  {TEAM_ICONS[team]}
+                  {TEAM_LABELS[team]}
                 </button>
               ))}
             </div>
@@ -110,7 +119,6 @@ export function ManagerView() {
               <button
                 onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
                 className="p-2 rounded-lg bg-secondary hover:bg-muted transition-colors"
-                title={view === 'grid' ? 'Vue liste' : 'Vue colonnes'}
               >
                 {view === 'grid'
                   ? <List className="w-4 h-4 text-muted-foreground" />
@@ -121,38 +129,38 @@ export function ManagerView() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
               >
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nouvelle tâche</span>
+                <span className="hidden sm:inline">New Task</span>
                 <span className="sm:hidden">+</span>
               </button>
             </div>
           </div>
 
-          {/* Grid view — zones side by side */}
+          {/* Grid view */}
           {view === 'grid' ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {([...ZONES, 'ALL' as Zone]).filter((z) => filterZone === 'ALL' || filterZone === z).map((zone) => {
-                const zoneTasks = zone === 'ALL'
-                  ? allTasks.filter((t) => t.zone === 'ALL')
-                  : allTasks.filter((t) => t.zone === zone || t.zone === 'ALL');
-                const pending = zoneTasks.filter((t) => t.status !== 'done').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
-                const done = zoneTasks.filter((t) => t.status === 'done');
-                const overdue = zoneTasks.filter((t) => t.status === 'overdue');
-                const expanded = expandedZones.has(zone);
+              {([...TEAMS, 'ALL' as Team]).filter((t) => filterTeam === 'ALL' || filterTeam === t).map((team) => {
+                const teamTasks = team === 'ALL'
+                  ? allTasks.filter((t) => t.team === 'ALL')
+                  : allTasks.filter((t) => t.team === team || t.team === 'ALL');
+                const pending = teamTasks.filter((t) => t.status !== 'done').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
+                const done = teamTasks.filter((t) => t.status === 'done');
+                const overdue = teamTasks.filter((t) => t.status === 'overdue');
+                const expanded = expandedTeams.has(team);
 
                 return (
-                  <div key={zone} className={`rounded-xl border zone-card ${ZONE_CSS[zone]}`}>
+                  <div key={team} className={`rounded-xl border team-card ${TEAM_CSS[team]}`}>
                     <button
                       className="w-full flex items-center gap-2 p-4 text-left"
-                      onClick={() => toggleZone(zone)}
+                      onClick={() => toggleTeam(team)}
                     >
-                      <span className="text-lg">{ZONE_EMOJI[zone]}</span>
+                      <span className="text-muted-foreground">{TEAM_ICONS[team]}</span>
                       <div className="flex-1">
-                        <h3 className="font-bold text-sm text-foreground">{zone}</h3>
-                        <p className="text-xs text-muted-foreground">{done.length}/{zoneTasks.length} complétées</p>
+                        <h3 className="font-bold text-sm text-foreground">{TEAM_LABELS[team]}</h3>
+                        <p className="text-xs text-muted-foreground">{done.length}/{teamTasks.length} done</p>
                       </div>
                       {overdue.length > 0 && (
                         <span className="text-xs bg-red-500/15 text-timer-danger border border-red-500/20 px-2 py-0.5 rounded-full font-medium">
-                          {overdue.length} retard
+                          {overdue.length} late
                         </span>
                       )}
                       {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -165,8 +173,8 @@ export function ManagerView() {
                         {done.map((task) => (
                           <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} compact />
                         ))}
-                        {zoneTasks.length === 0 && (
-                          <p className="text-xs text-muted-foreground text-center py-4">Aucune tâche</p>
+                        {teamTasks.length === 0 && (
+                          <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
                         )}
                       </div>
                     )}
@@ -175,26 +183,22 @@ export function ManagerView() {
               })}
             </div>
           ) : (
-            /* List view — flat list sorted by urgency */
             <div className="space-y-3">
-              {/* Overdue first */}
               {filteredTasks.filter(t => t.status === 'overdue').map(task => (
                 <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
               ))}
-              {/* Then pending */}
               {filteredTasks.filter(t => t.status === 'pending')
                 .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
                 .map(task => (
                   <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
                 ))}
-              {/* Then done */}
               {filteredTasks.filter(t => t.status === 'done').map(task => (
                 <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} />
               ))}
               {filteredTasks.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <CheckCircle className="w-10 h-10 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">Aucune tâche pour aujourd'hui</p>
+                  <p className="text-sm">No tasks for today</p>
                 </div>
               )}
             </div>
@@ -205,8 +209,8 @@ export function ManagerView() {
       {/* === SCORES TAB === */}
       {activeTab === 'scores' && (
         <div className="space-y-4">
-          {ZONES.map((zone) => (
-            <BonusScoreCard key={zone} zone={zone} />
+          {TEAMS.map((team) => (
+            <BonusScoreCard key={team} team={team} />
           ))}
         </div>
       )}
@@ -214,28 +218,27 @@ export function ManagerView() {
       {/* === ACTIVITY TAB === */}
       {activeTab === 'activity' && (
         <div className="space-y-4">
-          {/* Who validated what */}
           <div className="glass-card rounded-xl p-4">
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle className="w-4 h-4 text-timer-safe" />
-              <h3 className="text-sm font-semibold text-foreground">Validations du jour</h3>
+              <h3 className="text-sm font-semibold text-foreground">Today's Validations</h3>
               <span className="ml-auto text-xs text-muted-foreground">{todayLog.length} total</span>
             </div>
             {todayLog.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Aucune validation pour le moment</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No validations yet</p>
             ) : (
               <div className="space-y-2">
                 {todayLog.map((v) => (
                   <div key={v.id} className="flex items-center justify-between gap-3 py-2 border-b border-border/30 last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm">{ZONE_EMOJI[v.zone]}</span>
+                      <span className="text-muted-foreground">{TEAM_ICONS[v.team]}</span>
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-foreground truncate">{v.taskName}</p>
-                        <p className="text-xs text-muted-foreground">{v.zone} · par {v.validatedBy}</p>
+                        <p className="text-xs text-muted-foreground">{TEAM_LABELS[v.team]} · by {v.validatedBy}</p>
                       </div>
                     </div>
                     <span className="text-xs text-timer-safe font-medium flex-shrink-0">
-                      {v.validatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      {v.validatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 ))}
@@ -243,15 +246,15 @@ export function ManagerView() {
             )}
           </div>
 
-          {/* Malus log per zone */}
-          {ZONES.map((zone) => {
-            const score = getZoneScore(zone);
+          {/* Penalty log per team */}
+          {TEAMS.map((team) => {
+            const score = getTeamScore(team);
             if (score.malusEvents.length === 0) return null;
             return (
-              <div key={zone} className={`rounded-xl p-4 zone-card ${ZONE_CSS[zone]}`}>
+              <div key={team} className={`rounded-xl p-4 team-card ${TEAM_CSS[team]}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 text-timer-danger" />
-                  <h3 className="text-sm font-semibold text-foreground">Malus {zone}</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Penalties — {TEAM_LABELS[team]}</h3>
                   <span className="ml-auto text-xs text-timer-danger font-bold">-{score.totalMalus} pts</span>
                 </div>
                 <div className="space-y-1.5">
@@ -259,7 +262,7 @@ export function ManagerView() {
                     <div key={me.id} className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{me.taskName}</span>
                       <div className="flex items-center gap-2 text-timer-danger">
-                        <span>{me.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{me.timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
                         <span className="font-bold">-{me.points}pts</span>
                       </div>
                     </div>
@@ -273,17 +276,17 @@ export function ManagerView() {
           <div className="glass-card rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">Activité par personne</h3>
+              <h3 className="text-sm font-semibold text-foreground">Staff Activity</h3>
             </div>
-            {ZONES.map((zone) => {
-              const zoneStaff = users.filter((u) => u.zone === zone && u.role === 'staff');
+            {TEAMS.map((team) => {
+              const teamStaff = users.filter((u) => u.team === team && u.role === 'staff');
               return (
-                <div key={zone} className="mb-3 last:mb-0">
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                    {ZONE_EMOJI[zone]} {zone}
+                <div key={team} className="mb-3 last:mb-0">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1">
+                    {TEAM_ICONS[team]} {TEAM_LABELS[team]}
                   </p>
                   <div className="space-y-1.5">
-                    {zoneStaff.map((staff) => {
+                    {teamStaff.map((staff) => {
                       const staffValidations = todayLog.filter((v) => v.validatedBy === staff.name);
                       return (
                         <div key={staff.id} className="flex items-center justify-between text-xs py-1">
@@ -291,10 +294,10 @@ export function ManagerView() {
                           <div className="flex items-center gap-2">
                             {staffValidations.length > 0 ? (
                               <span className="text-timer-safe font-medium">
-                                {staffValidations.length} tâche{staffValidations.length > 1 ? 's' : ''} validée{staffValidations.length > 1 ? 's' : ''}
+                                {staffValidations.length} task{staffValidations.length > 1 ? 's' : ''} validated
                               </span>
                             ) : (
-                              <span className="text-muted-foreground">Aucune validation</span>
+                              <span className="text-muted-foreground">No validations</span>
                             )}
                           </div>
                         </div>

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, User, Task, TaskTemplate, GamificationSettings, Zone, ZoneScore, MalusEvent } from '../types';
+import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 
 export interface ValidationEvent {
   id: string;
   taskId: string;
   taskName: string;
-  zone: Zone;
+  team: Team;
   validatedBy: string;
   validatedAt: Date;
 }
@@ -28,8 +28,8 @@ interface AppContextType extends AppState {
   addUser: (user: Omit<User, 'id'>) => void;
   removeUser: (userId: string) => void;
   updateUser: (user: User) => void;
-  getZoneScore: (zone: Zone) => ZoneScore;
-  getTodayTasks: (zone?: Zone) => Task[];
+  getTeamScore: (team: Team) => TeamScore;
+  getTodayTasks: (team?: Team) => Task[];
   regenerateDailyTasks: () => void;
   toast: Toast | null;
   clearToast: () => void;
@@ -42,7 +42,7 @@ export interface Toast {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = 'casinha-manager-v2';
+const STORAGE_KEY = 'staffb-manager-v1';
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 function generateId() {
@@ -80,13 +80,14 @@ function generateDailyTasks(templates: TaskTemplate[], existingTasks: Task[]): T
         id: generateId(),
         templateId: tpl.id,
         name: tpl.name,
-        zone: tpl.zone,
+        team: tpl.team,
         assignedUserId: tpl.assignedUserId,
         deadline,
         status,
         isRecurring: true,
         isPunctual: false,
         description: tpl.description,
+        points: tpl.points || 10,
         createdAt: new Date(),
         createdBy: 'system',
       });
@@ -95,10 +96,11 @@ function generateDailyTasks(templates: TaskTemplate[], existingTasks: Task[]): T
   return newTasks;
 }
 
-function initZoneScores(base: number): ZoneScore[] {
-  const zones: Zone[] = ['BAR', 'CUISINE', 'ATELIER', 'MANAGEMENT', 'ALL'];
-  return zones.map((zone) => ({
-    zone,
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER', 'MANAGEMENT', 'ALL'];
+
+function initTeamScores(base: number): TeamScore[] {
+  return TEAMS.map((team) => ({
+    team,
     baseBonus: base,
     totalMalus: 0,
     currentBonus: base,
@@ -107,7 +109,7 @@ function initZoneScores(base: number): ZoneScore[] {
   }));
 }
 
-function reviveDates(raw: string): Partial<AppState & { validationLog: ValidationEvent[] }> {
+function reviveDates(raw: string): Partial<AppState & { validationLog: ValidationEvent[]; teamScores: TeamScore[] }> {
   try {
     const parsed = JSON.parse(raw);
     if (parsed.tasks) {
@@ -118,8 +120,8 @@ function reviveDates(raw: string): Partial<AppState & { validationLog: Validatio
         validatedAt: t.validatedAt ? new Date(t.validatedAt) : undefined,
       }));
     }
-    if (parsed.zoneScores) {
-      parsed.zoneScores = parsed.zoneScores.map((zs: ZoneScore) => ({
+    if (parsed.teamScores) {
+      parsed.teamScores = parsed.teamScores.map((zs: TeamScore) => ({
         ...zs,
         malusEvents: (zs.malusEvents || []).map((me: MalusEvent) => ({
           ...me,
@@ -160,15 +162,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return [...savedTasks, ...generated];
   });
 
-  const [zoneScores, setZoneScores] = useState<ZoneScore[]>(() => {
+  const [teamScores, setTeamScores] = useState<TeamScore[]>(() => {
     const base = saved.gamificationSettings?.dailyBonusBase || INITIAL_GAMIFICATION.dailyBonusBase;
-    if (saved.zoneScores && saved.zoneScores.length > 0) {
-      if (saved.zoneScores[0]?.date !== todayStr()) {
-        return initZoneScores(base);
+    if (saved.teamScores && saved.teamScores.length > 0) {
+      if (saved.teamScores[0]?.date !== todayStr()) {
+        return initTeamScores(base);
       }
-      return saved.zoneScores;
+      return saved.teamScores;
     }
-    return initZoneScores(base);
+    return initTeamScores(base);
   });
 
   const showToast = useCallback((t: Toast) => {
@@ -184,9 +186,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Persist state
   useEffect(() => {
-    const state = { users, templates, tasks, zoneScores, gamificationSettings, restaurantName, validationLog };
+    const state = { users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [users, templates, tasks, zoneScores, gamificationSettings, restaurantName, validationLog]);
+  }, [users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog]);
 
   // Live update task statuses every 5s
   const gamifRef = useRef(gamificationSettings);
@@ -199,30 +201,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const next = prev.map((task) => {
           if (task.status === 'pending' && task.deadline < new Date()) {
             changed = true;
-            setZoneScores((scores) =>
-              scores.map((zs) => {
-                if (zs.zone === task.zone || (task.zone === 'ALL' && zs.zone !== 'ALL')) {
+            setTeamScores((scores) =>
+              scores.map((ts) => {
+                if (ts.team === task.team || (task.team === 'ALL' && ts.team !== 'ALL')) {
                   const pts = gamifRef.current.malusPerLateTask;
                   const malus: MalusEvent = {
                     id: generateId(),
-                    zone: task.zone,
+                    team: task.team,
                     taskId: task.id,
                     taskName: task.name,
                     points: pts,
                     timestamp: new Date(),
                   };
-                  const newTotal = zs.totalMalus + pts;
+                  const newTotal = ts.totalMalus + pts;
                   return {
-                    ...zs,
+                    ...ts,
                     totalMalus: newTotal,
-                    currentBonus: Math.max(0, zs.baseBonus - newTotal),
-                    malusEvents: [...zs.malusEvents, malus],
+                    currentBonus: Math.max(0, ts.baseBonus - newTotal),
+                    malusEvents: [...ts.malusEvents, malus],
                   };
                 }
-                return zs;
+                return ts;
               })
             );
-            showToast({ type: 'malus', message: `⚠ Malus : "${task.name}" en retard !` });
+            showToast({ type: 'malus', message: `Task overdue: "${task.name}"` });
             return { ...task, status: 'overdue' as const };
           }
           return task;
@@ -250,7 +252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resetPin = useCallback((userId: string) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, pin: '', pinSet: false } : u)));
-    showToast({ type: 'info', message: 'PIN réinitialisé avec succès' });
+    showToast({ type: 'info', message: 'PIN reset successfully' });
   }, [showToast]);
 
   const completeTask = useCallback(
@@ -269,12 +271,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           id: generateId(),
           taskId,
           taskName: task.name,
-          zone: task.zone,
+          team: task.team,
           validatedBy: currentUser.name,
           validatedAt: new Date(),
         };
         setValidationLog((prev) => [event, ...prev].slice(0, 100));
-        showToast({ type: 'success', message: `✓ "${task.name}" validé !` });
+        showToast({ type: 'success', message: `"${task.name}" completed! +${task.points || 10} pts` });
       }
     },
     [currentUser, tasks, showToast]
@@ -284,7 +286,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (task: Omit<Task, 'id' | 'createdAt'>) => {
       const newTask: Task = { ...task, id: generateId(), createdAt: new Date() };
       setTasks((prev) => [...prev, newTask]);
-      showToast({ type: 'success', message: `Tâche "${task.name}" créée !` });
+      showToast({ type: 'success', message: `Task "${task.name}" created!` });
     },
     [showToast]
   );
@@ -292,7 +294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createTemplate = useCallback((template: Omit<TaskTemplate, 'id'>) => {
     const newTpl: TaskTemplate = { ...template, id: generateId() };
     setTemplates((prev) => [...prev, newTpl]);
-    showToast({ type: 'success', message: `Modèle "${template.name}" créé !` });
+    showToast({ type: 'success', message: `Template "${template.name}" created!` });
   }, [showToast]);
 
   const updateTemplate = useCallback((template: TaskTemplate) => {
@@ -301,7 +303,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTemplate = useCallback((templateId: string) => {
     setTemplates((prev) => prev.filter((t) => t.id !== templateId));
-    showToast({ type: 'info', message: 'Modèle supprimé' });
+    showToast({ type: 'info', message: 'Template deleted' });
   }, [showToast]);
 
   const deleteTask = useCallback((taskId: string) => {
@@ -310,13 +312,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateGamificationSettings = useCallback((settings: GamificationSettings) => {
     setGamificationSettings(settings);
-    showToast({ type: 'success', message: 'Paramètres sauvegardés !' });
+    showToast({ type: 'success', message: 'Settings saved!' });
   }, [showToast]);
 
   const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser: User = { ...user, id: generateId() };
     setUsers((prev) => [...prev, newUser]);
-    showToast({ type: 'success', message: `${user.name} ajouté(e) !` });
+    showToast({ type: 'success', message: `${user.name} added!` });
   }, [showToast]);
 
   const removeUser = useCallback((userId: string) => {
@@ -327,30 +329,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
   }, []);
 
-  const getZoneScore = useCallback(
-    (zone: Zone): ZoneScore =>
-      zoneScores.find((zs) => zs.zone === zone) || {
-        zone,
+  const getTeamScore = useCallback(
+    (team: Team): TeamScore =>
+      teamScores.find((ts) => ts.team === team) || {
+        team,
         baseBonus: gamificationSettings.dailyBonusBase,
         totalMalus: 0,
         currentBonus: gamificationSettings.dailyBonusBase,
         malusEvents: [],
         date: todayStr(),
       },
-    [zoneScores, gamificationSettings.dailyBonusBase]
+    [teamScores, gamificationSettings.dailyBonusBase]
   );
 
   const getTodayTasks = useCallback(
-    (zone?: Zone): Task[] => {
+    (team?: Team): Task[] => {
       const today = todayStr();
       return tasks.filter((t) => {
         const taskDay = t.createdAt.toISOString().split('T')[0];
         const deadlineDay = t.deadline.toISOString().split('T')[0];
         const isToday = taskDay === today || deadlineDay === today;
         if (!isToday) return false;
-        if (!zone) return true;
-        if (zone === 'ALL') return true;
-        return t.zone === zone || t.zone === 'ALL';
+        if (!team) return true;
+        if (team === 'ALL') return true;
+        return t.team === team || t.team === 'ALL';
       });
     },
     [tasks]
@@ -366,13 +368,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        users, tasks, templates, zoneScores, gamificationSettings,
+        users, tasks, templates, teamScores, gamificationSettings,
         currentUser, restaurantName, validationLog, toast,
         login, logout, setPin, validatePin, resetPin,
         completeTask, createPunctualTask, createTemplate, updateTemplate,
         deleteTemplate, deleteTask, updateGamificationSettings,
         addUser, removeUser, updateUser,
-        getZoneScore, getTodayTasks, regenerateDailyTasks, clearToast,
+        getTeamScore, getTodayTasks, regenerateDailyTasks, clearToast,
       }}
     >
       {children}

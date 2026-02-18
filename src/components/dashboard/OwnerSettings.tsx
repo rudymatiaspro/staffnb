@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Zone, User } from '../../types';
-import { ZONE_CSS, ZONE_EMOJI, ZONE_LABELS, INITIAL_GAMIFICATION } from '../../data/initialData';
-import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Team, User } from '../../types';
+import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
+import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings } from 'lucide-react';
 
 type Tab = 'staff' | 'templates' | 'gamification';
-const ZONES: Zone[] = ['BAR', 'CUISINE', 'ATELIER', 'MANAGEMENT'];
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER', 'MANAGEMENT'];
+
+const TEAM_ICON_ELS: Record<string, React.ReactNode> = {
+  BAR: <Wine className="w-4 h-4" />,
+  KITCHEN: <ChefHat className="w-4 h-4" />,
+  FLOOR: <Users className="w-4 h-4" />,
+  ATELIER: <Layers className="w-4 h-4" />,
+  MANAGEMENT: <Settings className="w-4 h-4" />,
+};
 
 export function OwnerSettings() {
   const {
@@ -19,41 +27,42 @@ export function OwnerSettings() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddTemplate, setShowAddTemplate] = useState(false);
   const [newUserName, setNewUserName] = useState('');
-  const [newUserZone, setNewUserZone] = useState<Zone>('BAR');
+  const [newUserTeam, setNewUserTeam] = useState<Team>('BAR');
   const [newUserRole, setNewUserRole] = useState<'staff' | 'manager'>('staff');
   const [newTplName, setNewTplName] = useState('');
-  const [newTplZone, setNewTplZone] = useState<Zone>('BAR');
+  const [newTplTeam, setNewTplTeam] = useState<Team>('BAR');
   const [newTplTime, setNewTplTime] = useState('09:00');
   const [newTplFreq, setNewTplFreq] = useState<'daily' | 'weekly'>('daily');
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [expandedZones, setExpandedZones] = useState<Set<Zone>>(new Set(ZONES));
+  const [expandedTeams, setExpandedTeams] = useState<Set<Team>>(new Set(TEAMS));
 
-  const toggleZone = (z: Zone) => {
-    setExpandedZones(prev => {
+  const toggleTeam = (t: Team) => {
+    setExpandedTeams(prev => {
       const next = new Set(prev);
-      if (next.has(z)) next.delete(z); else next.add(z);
+      if (next.has(t)) next.delete(t); else next.add(t);
       return next;
     });
   };
 
   const tabs = [
-    { id: 'staff' as Tab, label: 'Personnel', icon: <Users className="w-4 h-4" /> },
-    { id: 'templates' as Tab, label: 'Tâches récurrentes', icon: <Repeat className="w-4 h-4" /> },
-    { id: 'gamification' as Tab, label: 'Gamification', icon: <Trophy className="w-4 h-4" /> },
+    { id: 'staff' as Tab, label: 'Staff', icon: <Users className="w-4 h-4" /> },
+    { id: 'templates' as Tab, label: 'Templates', icon: <Repeat className="w-4 h-4" /> },
+    { id: 'gamification' as Tab, label: 'Scoring', icon: <Trophy className="w-4 h-4" /> },
   ];
 
   const handleAddUser = () => {
     if (!newUserName.trim()) return;
-    addUser({ name: newUserName.trim(), role: newUserRole, zone: newUserZone, pinSet: false, pin: '' });
+    addUser({ name: newUserName.trim(), role: newUserRole, team: newUserTeam, pinSet: false, pin: '' });
     setNewUserName(''); setShowAddUser(false);
   };
 
   const handleAddTemplate = () => {
     if (!newTplName.trim()) return;
     createTemplate({
-      name: newTplName.trim(), zone: newTplZone, frequency: newTplFreq, time: newTplTime,
+      name: newTplName.trim(), team: newTplTeam, frequency: newTplFreq, time: newTplTime,
       days: newTplFreq === 'weekly' ? [1] : undefined,
+      points: 10,
     });
     setNewTplName(''); setShowAddTemplate(false);
   };
@@ -89,26 +98,26 @@ export function OwnerSettings() {
       {/* ======= STAFF TAB ======= */}
       {activeTab === 'staff' && (
         <div className="space-y-3">
-          {ZONES.map((zone) => {
-            const zoneUsers = users.filter((u) => u.zone === zone);
-            if (zoneUsers.length === 0) return null;
-            const expanded = expandedZones.has(zone);
+          {TEAMS.map((team) => {
+            const teamUsers = users.filter((u) => u.team === team);
+            if (teamUsers.length === 0) return null;
+            const expanded = expandedTeams.has(team);
             return (
-              <div key={zone} className={`rounded-xl zone-card ${ZONE_CSS[zone]}`}>
+              <div key={team} className={`rounded-xl team-card ${TEAM_CSS[team]}`}>
                 <button
                   className="w-full flex items-center gap-3 p-4"
-                  onClick={() => toggleZone(zone)}
+                  onClick={() => toggleTeam(team)}
                 >
-                  <span className="text-lg">{ZONE_EMOJI[zone]}</span>
-                  <span className="font-bold text-sm text-foreground">{zone}</span>
-                  <span className="text-xs text-muted-foreground">{zoneUsers.length} membre{zoneUsers.length > 1 ? 's' : ''}</span>
+                  <span className="text-muted-foreground">{TEAM_ICON_ELS[team]}</span>
+                  <span className="font-bold text-sm text-foreground">{TEAM_LABELS[team]}</span>
+                  <span className="text-xs text-muted-foreground">{teamUsers.length} member{teamUsers.length > 1 ? 's' : ''}</span>
                   <span className="ml-auto">
                     {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                   </span>
                 </button>
                 {expanded && (
                   <div className="px-4 pb-4 space-y-2 animate-slide-up">
-                    {zoneUsers.map((user) => (
+                    {teamUsers.map((user) => (
                       <div key={user.id} className="flex items-center gap-2 py-2 border-t border-border/30">
                         {editingUser === user.id ? (
                           <>
@@ -127,20 +136,20 @@ export function OwnerSettings() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground">{user.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {user.role === 'owner' ? '👑 Owner' : user.role === 'manager' ? '🔵 Manager' : '👤 Staff'} ·
-                                PIN : {user.pinSet ? '••••' : <span className="text-timer-warning">Non défini</span>}
+                                {user.role === 'owner' ? 'Owner' : user.role === 'manager' ? 'Manager' : 'Staff'} ·
+                                PIN: {user.pinSet ? '••••' : <span className="text-amber-400">Not set</span>}
                               </p>
                             </div>
                             <div className="flex gap-1.5 flex-shrink-0">
                               {user.role !== 'owner' && (
-                                <button onClick={() => startEdit(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground" title="Renommer">
+                                <button onClick={() => startEdit(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground" title="Rename">
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
                               <button
                                 onClick={() => resetPin(user.id)}
                                 className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                                title="Réinitialiser le PIN"
+                                title="Reset PIN"
                               >
                                 <RotateCcw className="w-3 h-3" />
                                 <span className="hidden sm:inline">Reset PIN</span>
@@ -149,7 +158,7 @@ export function OwnerSettings() {
                                 <button
                                   onClick={() => removeUser(user.id)}
                                   className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
-                                  title="Supprimer"
+                                  title="Remove"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -170,26 +179,26 @@ export function OwnerSettings() {
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary transition-all text-sm"
           >
             <Plus className="w-4 h-4" />
-            Ajouter un membre
+            Add team member
           </button>
 
           {showAddUser && (
             <div className="glass-card rounded-xl p-4 space-y-3 animate-slide-up">
-              <h3 className="text-sm font-semibold text-foreground">Nouveau membre</h3>
+              <h3 className="text-sm font-semibold text-foreground">New Member</h3>
               <input
                 type="text"
-                placeholder="Prénom"
+                placeholder="First name"
                 value={newUserName}
                 onChange={(e) => setNewUserName(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
               />
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  value={newUserZone}
-                  onChange={(e) => setNewUserZone(e.target.value as Zone)}
+                  value={newUserTeam}
+                  onChange={(e) => setNewUserTeam(e.target.value as Team)}
                   className="px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
                 >
-                  {ZONES.map((z) => <option key={z} value={z}>{ZONE_LABELS[z]}</option>)}
+                  {TEAMS.map((t) => <option key={t} value={t}>{TEAM_LABELS[t]}</option>)}
                 </select>
                 <select
                   value={newUserRole}
@@ -201,8 +210,8 @@ export function OwnerSettings() {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setShowAddUser(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm text-secondary-foreground">Annuler</button>
-                <button onClick={handleAddUser} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Ajouter</button>
+                <button onClick={() => setShowAddUser(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm text-secondary-foreground">Cancel</button>
+                <button onClick={handleAddUser} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Add</button>
               </div>
             </div>
           )}
@@ -213,17 +222,18 @@ export function OwnerSettings() {
       {activeTab === 'templates' && (
         <div className="space-y-3">
           {templates.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">Aucun modèle de tâche</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No recurring templates</p>
           )}
           {templates.map((tpl) => (
-            <div key={tpl.id} className={`flex items-center gap-3 p-4 rounded-xl zone-card ${ZONE_CSS[tpl.zone]}`}>
+            <div key={tpl.id} className={`flex items-center gap-3 p-4 rounded-xl team-card ${TEAM_CSS[tpl.team]}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span>{ZONE_EMOJI[tpl.zone]}</span>
+                  <span className="text-muted-foreground">{TEAM_ICON_ELS[tpl.team]}</span>
                   <p className="text-sm font-semibold text-foreground truncate">{tpl.name}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {tpl.frequency === 'daily' ? '📅 Quotidien' : '📅 Hebdomadaire (lundi)'} · ⏰ {tpl.time}
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Repeat className="w-3 h-3" />
+                  {tpl.frequency === 'daily' ? 'Daily' : 'Weekly (Monday)'} · {tpl.time}
                 </p>
                 {tpl.description && (
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{tpl.description}</p>
@@ -243,27 +253,27 @@ export function OwnerSettings() {
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary transition-all text-sm"
           >
             <Plus className="w-4 h-4" />
-            Ajouter un modèle récurrent
+            Add recurring template
           </button>
 
           {showAddTemplate && (
             <div className="glass-card rounded-xl p-4 space-y-3 animate-slide-up">
-              <h3 className="text-sm font-semibold text-foreground">Nouveau modèle</h3>
+              <h3 className="text-sm font-semibold text-foreground">New Template</h3>
               <input
                 type="text"
-                placeholder="Nom de la tâche"
+                placeholder="Task name"
                 value={newTplName}
                 onChange={(e) => setNewTplName(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
               />
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  value={newTplZone}
-                  onChange={(e) => setNewTplZone(e.target.value as Zone)}
+                  value={newTplTeam}
+                  onChange={(e) => setNewTplTeam(e.target.value as Team)}
                   className="px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
                 >
-                  {(['BAR', 'CUISINE', 'ATELIER', 'ALL'] as Zone[]).map((z) => (
-                    <option key={z} value={z}>{ZONE_LABELS[z]}</option>
+                  {(['BAR', 'KITCHEN', 'ATELIER', 'ALL'] as Team[]).map((t) => (
+                    <option key={t} value={t}>{TEAM_LABELS[t]}</option>
                   ))}
                 </select>
                 <input
@@ -278,12 +288,12 @@ export function OwnerSettings() {
                 onChange={(e) => setNewTplFreq(e.target.value as 'daily' | 'weekly')}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
               >
-                <option value="daily">Quotidien (tous les jours)</option>
-                <option value="weekly">Hebdomadaire (lundi)</option>
+                <option value="daily">Daily (every day)</option>
+                <option value="weekly">Weekly (Monday)</option>
               </select>
               <div className="flex gap-2">
-                <button onClick={() => setShowAddTemplate(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm text-secondary-foreground">Annuler</button>
-                <button onClick={handleAddTemplate} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Créer</button>
+                <button onClick={() => setShowAddTemplate(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm text-secondary-foreground">Cancel</button>
+                <button onClick={handleAddTemplate} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Create</button>
               </div>
             </div>
           )}
@@ -294,84 +304,89 @@ export function OwnerSettings() {
       {activeTab === 'gamification' && (
         <div className="space-y-4">
           <div className="glass-card rounded-xl p-5 space-y-5">
-            <h3 className="text-sm font-semibold text-foreground">Règles de gamification</h3>
+            <h3 className="text-sm font-semibold text-foreground">Individual Bonuses</h3>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
-                🏆 Bonus de base par jour (points)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="1000"
-                value={gamifSettings.dailyBonusBase}
-                onChange={(e) => setGamifSettings({ ...gamifSettings, dailyBonusBase: Math.max(0, +e.target.value) })}
-                className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Chaque zone commence la journée avec ce score</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: 'pointsOnTime', label: 'Task on time', suffix: '+pts' },
+                { key: 'pointsEarly', label: 'Task early', suffix: '+pts' },
+                { key: 'pointsWithPhoto', label: 'With photo', suffix: '+pts' },
+                { key: 'pointsClockIn', label: 'Clock-in on time', suffix: '+pts' },
+                { key: 'pointsPerfectDay', label: 'Perfect day', suffix: '+pts' },
+              ].map(({ key, label, suffix }) => (
+                <div key={key}>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">{label}</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={(gamifSettings as unknown as Record<string, number>)[key]}
+                      onChange={(e) => setGamifSettings({ ...gamifSettings, [key]: Math.max(0, +e.target.value) })}
+                      className="w-full px-2 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                    />
+                    <span className="text-xs text-timer-safe font-medium w-8 flex-shrink-0">{suffix}</span>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
-                ⚠ Malus par tâche en retard (points)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={gamifSettings.malusPerLateTask}
-                onChange={(e) => setGamifSettings({ ...gamifSettings, malusPerLateTask: Math.max(0, +e.target.value) })}
-                className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Appliqué automatiquement quand une tâche passe en retard</p>
+            <h3 className="text-sm font-semibold text-foreground pt-2 border-t border-border">Penalties</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: 'penaltyOverdue', label: 'Task overdue', suffix: '-pts' },
+                { key: 'penaltyLateClock', label: 'Late clock-in', suffix: '-pts' },
+                { key: 'penaltyNoClock', label: 'No clock-in', suffix: '-pts' },
+                { key: 'malusPerLateTask', label: 'Team penalty/task', suffix: '-pts' },
+              ].map(({ key, label, suffix }) => (
+                <div key={key}>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">{label}</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={(gamifSettings as unknown as Record<string, number>)[key]}
+                      onChange={(e) => setGamifSettings({ ...gamifSettings, [key]: Math.max(0, +e.target.value) })}
+                      className="w-full px-2 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                    />
+                    <span className="text-xs text-timer-danger font-medium w-8 flex-shrink-0">{suffix}</span>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">
-                🕐 Heure de remise à zéro
-              </label>
-              <input
-                type="time"
-                value={gamifSettings.bonusResetTime}
-                onChange={(e) => setGamifSettings({ ...gamifSettings, bonusResetTime: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Les scores sont remis à zéro chaque jour à cette heure</p>
+            <h3 className="text-sm font-semibold text-foreground pt-2 border-t border-border">General</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Daily base bonus</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  value={gamifSettings.dailyBonusBase}
+                  onChange={(e) => setGamifSettings({ ...gamifSettings, dailyBonusBase: Math.max(0, +e.target.value) })}
+                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Reset time</label>
+                <input
+                  type="time"
+                  value={gamifSettings.bonusResetTime}
+                  onChange={(e) => setGamifSettings({ ...gamifSettings, bonusResetTime: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
             </div>
 
             <button
               onClick={() => updateGamificationSettings(gamifSettings)}
-              className="w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+              className="w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
             >
-              💾 Sauvegarder les paramètres
+              <Save className="w-4 h-4" />
+              Save Settings
             </button>
-          </div>
-
-          {/* Current settings recap */}
-          <div className="glass-card rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Paramètres actuels</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Bonus de base</span>
-                <span className="text-timer-safe font-bold">{gamificationSettings.dailyBonusBase} pts/jour</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Malus par retard</span>
-                <span className="text-timer-danger font-bold">-{gamificationSettings.malusPerLateTask} pts</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Remise à zéro</span>
-                <span className="text-foreground font-medium">{gamificationSettings.bonusResetTime}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tâches max avant 0pt</span>
-                <span className="text-foreground font-medium">
-                  {gamificationSettings.malusPerLateTask > 0
-                    ? Math.floor(gamificationSettings.dailyBonusBase / gamificationSettings.malusPerLateTask)
-                    : '∞'}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       )}
