@@ -245,8 +245,8 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
 
       // Fetch today's day close state
       const today = new Date().toISOString().split('T')[0];
-      const { data: dcsData } = await supabase.from('day_close_states').select('*').eq('date', today).single();
-      if (dcsData) setDayCloseState(dbRowToDayCloseState(dcsData as Record<string, unknown>));
+      const { data: dcsRows } = await supabase.from('day_close_states').select('*').eq('date', today).limit(1);
+      if (dcsRows && dcsRows.length > 0) setDayCloseState(dbRowToDayCloseState(dcsRows[0] as Record<string, unknown>));
 
     } catch (err) {
       console.error('Supabase fetch error:', err);
@@ -441,8 +441,9 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
   }, []);
 
   const saveGamification = useCallback(async (settings: GamificationSettings) => {
-    const { data } = await supabase.from('gamification_settings').select('id').limit(1).single();
-    if (data) {
+    const { data: rows } = await supabase.from('gamification_settings').select('id').limit(1);
+    const row = rows && rows.length > 0 ? rows[0] : null;
+    if (row) {
       await supabase.from('gamification_settings').update({
         daily_bonus_base: settings.dailyBonusBase,
         malus_per_late_task: settings.malusPerLateTask,
@@ -457,7 +458,7 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
         penalty_no_clock: settings.penaltyNoClock,
         collective_penalty_threshold: settings.collectivePenaltyThreshold,
         collective_penalty_points: settings.collectivePenaltyPoints,
-      }).eq('id', data.id);
+      }).eq('id', row.id);
     }
   }, []);
 
