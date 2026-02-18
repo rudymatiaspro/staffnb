@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UtensilsCrossed, Zap, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import logo from '../assets/logo.svg';
 
 export default function AuthLogin() {
   const { signIn, signUp } = useAuth();
@@ -57,13 +58,7 @@ export default function AuthLogin() {
       <div className="w-full max-w-sm relative z-10">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="relative inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4 shadow-lg">
-            <UtensilsCrossed className="w-8 h-8 text-primary-foreground" />
-            <Zap className="absolute -top-1.5 -right-1.5 w-5 h-5 text-accent fill-accent" />
-          </div>
-          <h1 className="text-4xl font-black text-foreground tracking-tight">
-            Staff<span className="text-accent">&amp;</span>B
-          </h1>
+          <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2" />
           <p className="text-muted-foreground mt-1.5 text-sm font-medium">Casinha · Team Management</p>
         </div>
 

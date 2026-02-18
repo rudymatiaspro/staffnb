@@ -6,7 +6,8 @@ import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
 import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
-import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff } from 'lucide-react';
+import { LogOut, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff } from 'lucide-react';
+import logo from '../assets/logo.svg';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 import type { Incident } from '../types';
 
@@ -88,11 +89,8 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-primary/15 rounded-lg flex items-center justify-center">
-              <UtensilsCrossed className="w-4 h-4 text-primary" />
-            </div>
+            <img src={logo} alt="Staff&B" className="h-7" />
             <div className="hidden sm:block">
-              <span className="font-black text-foreground text-sm tracking-tight">Staff&B</span>
               <span className="text-muted-foreground text-xs"> · {restaurantName}</span>
             </div>
           </div>
