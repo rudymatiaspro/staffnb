@@ -12,13 +12,24 @@ export default function AuthLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Map username aliases to emails (for god / shared accounts)
+  const USERNAME_MAP: Record<string, string> = {
+    rudy: 'rudy@staffandb.app',
+  };
+
+  const resolveEmail = (input: string) => {
+    const lower = input.trim().toLowerCase();
+    return USERNAME_MAP[lower] ?? input.trim();
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { error: err } = await signIn(email, password);
+    const resolvedEmail = resolveEmail(email);
+    const { error: err } = await signIn(resolvedEmail, password);
     if (err) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || 'Invalid username or password');
     }
     setLoading(false);
   };
@@ -89,14 +100,14 @@ export default function AuthLogin() {
             )}
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email or username</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@casinha.com"
+                  placeholder="you@casinha.com or rudy"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
                   required
                 />
