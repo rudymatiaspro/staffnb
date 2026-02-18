@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, Shift } from '../types';
+import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, Shift, Incident, TemperatureLocation, TemperatureLog, TeamObjective } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 import { useSupabaseData } from '../integrations/supabase/hooks';
 import { useAuth } from './AuthContext';
@@ -15,6 +15,7 @@ export interface ValidationEvent {
 
 interface AppContextType extends AppState {
   validationLog: ValidationEvent[];
+  realtimeStatus: 'connected' | 'connecting' | 'disconnected';
   login: (user: User) => void;
   logout: () => void;
   setPin: (userId: string, pin: string) => void;
@@ -38,23 +39,33 @@ interface AppContextType extends AppState {
   regenerateDailyTasks: () => void;
   toast: Toast | null;
   clearToast: () => void;
-  // Module 1 — Catalogue
   products: Product[];
   stockLogs: StockLog[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
   updateStock: (productId: string, delta: number, reason: StockUpdateReason) => void;
-  // Module 2 — End of Day
   dayReports: DayReport[];
   dayCloseState: DayCloseState | null;
   triggerCloseDay: (triggeredByUser: string) => void;
   saveManagerNotes: (reportId: string, notes: string) => void;
-  // Module 3 — Clock In/Out
   shifts: Shift[];
   clockAction: (userId: string) => 'in' | 'out';
   getUserShifts: (userId: string, dateStr?: string) => Shift[];
   getAllShiftsForDate: (dateStr: string) => Shift[];
+  // New modules
+  incidents: Incident[];
+  addIncident: (incident: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateIncident: (id: string, updates: Partial<Incident>) => void;
+  deleteIncident: (id: string) => void;
+  tempLocations: TemperatureLocation[];
+  tempLogs: TemperatureLog[];
+  addTempLog: (log: Omit<TemperatureLog, 'id' | 'createdAt'>) => void;
+  addTempLocation: (loc: Omit<TemperatureLocation, 'id' | 'createdAt'>) => void;
+  objectives: TeamObjective[];
+  addObjective: (obj: Omit<TeamObjective, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateObjective: (id: string, updates: Partial<TeamObjective>) => void;
+  deleteObjective: (id: string) => void;
 }
 
 export interface Toast {
@@ -237,6 +248,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dayReports, setDayReports] = useState<DayReport[]>(isAuthenticated ? [] : (saved.dayReports || []));
   const [dayCloseState, setDayCloseState] = useState<DayCloseState | null>(isAuthenticated ? null : (saved.dayCloseState || null));
   const [shifts, setShifts] = useState<Shift[]>(isAuthenticated ? [] : (saved.shifts || []));
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [tempLocations, setTempLocations] = useState<TemperatureLocation[]>([]);
+  const [tempLogs, setTempLogs] = useState<TemperatureLog[]>([]);
+  const [objectives, setObjectives] = useState<TeamObjective[]>([]);
 
   // ─── Sync DB data into local state when it loads ─────────────────────────────
   useEffect(() => {

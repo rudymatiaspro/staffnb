@@ -191,7 +191,76 @@ export interface DayCloseState {
   reportId?: string;
 }
 
-// ─── MODULE 3: CLOCK IN/OUT ───────────────────────────────────────────────────
+// ─── MODULE 3 (NEW): INCIDENT REPORTING ──────────────────────────────────────
+
+export type IncidentType = 'Equipment failure' | 'Customer complaint' | 'Hygiene issue' | 'Accident / Injury' | 'Security concern' | 'Other';
+export type IncidentSeverity = 'low' | 'medium' | 'high';
+export type IncidentStatus = 'open' | 'in_progress' | 'resolved';
+export type IncidentLocation = 'Bar' | 'Kitchen' | 'Atelier' | 'Floor' | 'Other';
+
+export interface Incident {
+  id: string;
+  type: IncidentType;
+  description: string;
+  location: IncidentLocation;
+  severity: IncidentSeverity;
+  team: Team;
+  reporterName?: string;
+  reporterUserId?: string;
+  anonymous: boolean;
+  status: IncidentStatus;
+  resolutionNote?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── MODULE 4 (NEW): HACCP TEMPERATURE LOG ───────────────────────────────────
+
+export interface TemperatureLocation {
+  id: string;
+  name: string;
+  minThreshold?: number;
+  maxThreshold: number;
+  isCustom: boolean;
+  createdAt: Date;
+}
+
+export interface TemperatureLog {
+  id: string;
+  locationId: string;
+  locationName: string;
+  temperature: number;
+  unit: string;
+  isAlert: boolean;
+  note?: string;
+  loggedBy: string;
+  loggedByUserId?: string;
+  createdAt: Date;
+}
+
+// ─── MODULE 5 (NEW): TEAM OBJECTIVES ─────────────────────────────────────────
+
+export interface TeamObjective {
+  id: string;
+  title: string;
+  description?: string;
+  targetValue: number;
+  currentValue: number;
+  unit: string;
+  team: Team | 'ALL';
+  deadline: string; // YYYY-MM-DD
+  autoTrack: boolean;
+  autoTrackMetric?: string;
+  createdBy?: string;
+  createdByUserId?: string;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── MODULE 3 (ORIGINAL): CLOCK IN/OUT ───────────────────────────────────────
 
 export interface ClockEvent {
   id: string;
