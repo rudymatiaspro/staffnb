@@ -1,7 +1,7 @@
 import { Task } from '../../types';
 import { ZONE_CSS, ZONE_EMOJI } from '../../data/initialData';
 import { useApp } from '../../context/AppContext';
-import { CheckCircle, Clock, User, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, User, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface TaskCardProps {
@@ -9,6 +9,11 @@ interface TaskCardProps {
   canComplete?: boolean;
   canDelete?: boolean;
   onDelete?: () => void;
+  compact?: boolean;
+}
+
+function getTimeLeftMs(deadline: Date): number {
+  return deadline.getTime() - Date.now();
 }
 
 function formatDuration(ms: number): string {
@@ -22,62 +27,97 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
-function getTimerClass(ms: number): string {
-  if (ms <= 0) return 'timer-danger animate-pulse-danger';
-  if (ms <= 5 * 60 * 1000) return 'timer-danger';
-  if (ms <= 15 * 60 * 1000) return 'timer-warning';
-  return 'timer-safe';
+function getTimerState(ms: number): 'safe' | 'warning' | 'danger' | 'overdue' {
+  if (ms <= 0) return 'overdue';
+  if (ms <= 5 * 60 * 1000) return 'danger';
+  if (ms <= 15 * 60 * 1000) return 'warning';
+  return 'safe';
 }
 
-function getTimerLabel(ms: number): string {
-  if (ms <= 0) return '⬛ EN RETARD';
+function getTimerEmoji(ms: number): string {
+  if (ms <= 0) return '⬛';
   if (ms <= 5 * 60 * 1000) return '🔴';
   if (ms <= 15 * 60 * 1000) return '🟠';
   return '🟢';
 }
 
-function getStatusBadge(status: Task['status']) {
+const timerClasses = {
+  safe: 'text-timer-safe',
+  warning: 'text-timer-warning',
+  danger: 'text-timer-danger animate-pulse-danger',
+  overdue: 'text-timer-danger animate-pulse-danger',
+};
+
+function getStatusStyle(status: Task['status']): { label: string; cls: string } {
   switch (status) {
-    case 'done': return { label: '✓ Validé', className: 'bg-green-500/10 text-green-400 border-green-500/20' };
-    case 'overdue': return { label: '⚠ En retard', className: 'bg-destructive/10 text-destructive border-destructive/20' };
-    case 'in_progress': return { label: '⏳ En cours', className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
-    default: return { label: '○ En attente', className: 'bg-muted text-muted-foreground border-border' };
+    case 'done': return { label: '✓ Validé', cls: 'bg-green-500/10 text-green-400 border-green-500/20' };
+    case 'overdue': return { label: '⚠ En retard', cls: 'bg-red-500/10 text-red-400 border-red-500/20' };
+    case 'in_progress': return { label: '⏳ En cours', cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
+    default: return { label: '○ En attente', cls: 'bg-muted text-muted-foreground border-border' };
   }
 }
 
-export function TaskCard({ task, canComplete = true, canDelete = false, onDelete }: TaskCardProps) {
-  const { completeTask, currentUser } = useApp();
-  const [timeLeft, setTimeLeft] = useState(task.deadline.getTime() - Date.now());
+export function TaskCard({ task, canComplete = true, canDelete = false, onDelete, compact = false }: TaskCardProps) {
+  const { completeTask } = useApp();
+  const [timeLeft, setTimeLeft] = useState(getTimeLeftMs(task.deadline));
 
   useEffect(() => {
     if (task.status === 'done') return;
     const interval = setInterval(() => {
-      setTimeLeft(task.deadline.getTime() - Date.now());
+      setTimeLeft(getTimeLeftMs(task.deadline));
     }, 1000);
     return () => clearInterval(interval);
   }, [task.deadline, task.status]);
 
-  const isOverdue = task.status === 'overdue' || timeLeft <= 0;
   const isDone = task.status === 'done';
-  const statusBadge = getStatusBadge(task.status);
-  const timerClass = getTimerClass(timeLeft);
+  const isOverdue = task.status === 'overdue' || (task.status !== 'done' && timeLeft <= 0);
+  const timerState = isDone ? 'safe' : getTimerState(timeLeft);
+  const statusStyle = getStatusStyle(task.status);
 
-  const handleComplete = () => {
-    if (!isDone && currentUser) {
-      completeTask(task.id);
-    }
-  };
+  const cardBg = isDone
+    ? 'bg-muted/30 border-border/50 opacity-75'
+    : isOverdue
+    ? 'bg-red-950/30 border-red-500/25'
+    : `zone-card ${ZONE_CSS[task.zone]}`;
+
+  if (compact) {
+    return (
+      <div className={`rounded-lg p-3 border transition-all ${cardBg}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm flex-shrink-0">{ZONE_EMOJI[task.zone]}</span>
+            <p className={`text-xs font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+              {task.name}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {!isDone && (
+              <span className={`text-xs font-mono font-bold ${timerClasses[timerState]}`}>
+                {getTimerEmoji(timeLeft)} {formatDuration(timeLeft)}
+              </span>
+            )}
+            {canComplete && !isDone && (
+              <button
+                onClick={() => completeTask(task.id)}
+                className="p-1 rounded-md bg-primary/15 hover:bg-primary/30 text-primary transition-all active:scale-95"
+                title="Valider"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {canDelete && onDelete && (
+              <button onClick={onDelete} className="p-1 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={`rounded-xl p-4 border transition-all animate-slide-up ${
-        isDone
-          ? 'opacity-60 glass-card'
-          : isOverdue
-          ? 'timer-overdue border-destructive/30 bg-destructive/5'
-          : `zone-card ${ZONE_CSS[task.zone]}`
-      }`}
-    >
+    <div className={`rounded-xl p-4 border transition-all animate-slide-up ${cardBg}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex-1 min-w-0">
@@ -86,46 +126,58 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
             <h3 className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
               {task.name}
             </h3>
+            {task.isPunctual && (
+              <span className="text-[10px] bg-primary/15 text-primary border border-primary/20 px-1.5 rounded-full flex-shrink-0">
+                Ponctuel
+              </span>
+            )}
           </div>
           {task.description && (
-            <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed pl-7">{task.description}</p>
+          )}
+          {task.assignedUserName && !isDone && (
+            <p className="text-xs text-muted-foreground pl-7 mt-0.5 flex items-center gap-1">
+              <User className="w-3 h-3" /> {task.assignedUserName}
+            </p>
           )}
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-md border flex-shrink-0 ${statusBadge.className}`}>
-          {statusBadge.label}
+        <span className={`text-xs px-2 py-0.5 rounded-md border flex-shrink-0 ${statusStyle.cls}`}>
+          {statusStyle.label}
         </span>
       </div>
 
-      {/* Timer + Zone badges */}
+      {/* Timer row */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          {!isDone && (
-            <div className={`flex items-center gap-1.5 text-sm font-mono font-bold ${timerClass}`}>
+        <div className="flex items-center gap-2">
+          {!isDone ? (
+            <div className={`flex items-center gap-1.5 text-sm font-mono font-bold ${timerClasses[timerState]}`}>
               <Clock className="w-3.5 h-3.5" />
-              <span>{getTimerLabel(timeLeft)} {formatDuration(timeLeft)}</span>
+              {getTimerEmoji(timeLeft)} {formatDuration(timeLeft)}
             </div>
-          )}
-          {isDone && task.validatedBy && (
+          ) : (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
-              <span>{task.validatedBy} · {task.validatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span>
+                {task.validatedBy} ·{' '}
+                {task.validatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           )}
         </div>
-
         <div className="flex items-center gap-2">
           {canDelete && onDelete && (
             <button
               onClick={onDelete}
-              className="text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1"
+              className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all"
+              title="Supprimer"
             >
-              ✕
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
           {canComplete && !isDone && (
             <button
-              onClick={handleComplete}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 transition-all active:scale-95"
+              onClick={() => completeTask(task.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 transition-all active:scale-95 select-none"
             >
               <CheckCircle className="w-3.5 h-3.5" />
               Valider
@@ -134,13 +186,13 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
         </div>
       </div>
 
-      {/* Deadline time */}
-      <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between">
+      {/* Footer */}
+      <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           Deadline : {task.deadline.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
         </span>
         <span className={`text-xs px-1.5 py-0.5 rounded zone-badge ${ZONE_CSS[task.zone]}`}>
-          {task.zone}
+          {task.zone === 'ALL' ? '🌐 TOUTES ZONES' : task.zone}
         </span>
       </div>
     </div>

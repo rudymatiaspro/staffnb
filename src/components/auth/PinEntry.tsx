@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User } from '../../types';
-import { Delete, Eye, EyeOff } from 'lucide-react';
+import { Delete } from 'lucide-react';
 import { ZONE_CSS, ZONE_EMOJI } from '../../data/initialData';
 
 interface PinEntryProps {
@@ -15,78 +15,90 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
   const [confirmPin, setConfirmPin] = useState('');
   const [step, setStep] = useState<'enter' | 'confirm'>('enter');
   const [error, setError] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const currentPin = step === 'enter' ? pin : confirmPin;
+  const setCurrentPin = step === 'enter' ? setPin : setConfirmPin;
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+  };
 
   const handleDigit = (digit: string) => {
-    if (step === 'enter' && pin.length < 4) {
-      const newPin = pin + digit;
-      setPin(newPin);
-      setError('');
-      if (!isFirstTime && newPin.length === 4) {
-        onSuccess(newPin);
-      }
-      if (isFirstTime && newPin.length === 4) {
-        setStep('confirm');
-      }
-    } else if (step === 'confirm' && confirmPin.length < 4) {
-      const newConfirm = confirmPin + digit;
-      setConfirmPin(newConfirm);
-      setError('');
-      if (newConfirm.length === 4) {
-        if (newConfirm === pin) {
-          onSuccess(pin);
-        } else {
-          setError('Les PINs ne correspondent pas. Réessayez.');
-          setPin('');
+    if (currentPin.length >= 4) return;
+    const newPin = currentPin + digit;
+    setCurrentPin(newPin);
+    setError('');
+
+    if (newPin.length === 4) {
+      setTimeout(() => {
+        if (!isFirstTime) {
+          onSuccess(newPin);
+        } else if (step === 'enter') {
+          setStep('confirm');
           setConfirmPin('');
-          setStep('enter');
+        } else {
+          if (newPin === pin) {
+            onSuccess(pin);
+          } else {
+            triggerShake();
+            setError('Les PINs ne correspondent pas. Réessayez.');
+            setPin('');
+            setConfirmPin('');
+            setStep('enter');
+          }
         }
-      }
+      }, 150);
     }
   };
 
   const handleDelete = () => {
-    if (step === 'enter') setPin((p) => p.slice(0, -1));
-    else setConfirmPin((p) => p.slice(0, -1));
+    setCurrentPin((p) => p.slice(0, -1));
+    setError('');
   };
 
-  const currentPin = step === 'enter' ? pin : confirmPin;
   const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
 
+  const stepLabel = isFirstTime
+    ? step === 'enter'
+      ? 'Créez votre PIN à 4 chiffres'
+      : 'Confirmez votre PIN'
+    : 'Entrez votre PIN';
+
   return (
-    <div className="animate-slide-up space-y-6">
+    <div className="space-y-6 animate-slide-up">
+      {/* User badge */}
       <div className="text-center">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center zone-card ${ZONE_CSS[user.zone]} text-3xl mx-auto mb-3`}>
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center zone-card ${ZONE_CSS[user.zone]} text-3xl mx-auto mb-3 shadow-lg`}>
           {ZONE_EMOJI[user.zone]}
         </div>
         <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isFirstTime
-            ? step === 'enter'
-              ? 'Choisissez votre PIN à 4 chiffres'
-              : 'Confirmez votre PIN'
-            : 'Entrez votre PIN'}
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">{stepLabel}</p>
+        {isFirstTime && step === 'enter' && (
+          <p className="text-xs text-primary/80 mt-1 bg-primary/5 border border-primary/15 rounded-lg px-3 py-1.5 inline-block">
+            ℹ Ce PIN sera confidentiel
+          </p>
+        )}
       </div>
 
       {/* PIN dots */}
-      <div className="flex justify-center gap-4">
+      <div className={`flex justify-center gap-5 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
             className={`w-4 h-4 rounded-full transition-all duration-200 ${
-              i < currentPin.length
-                ? 'bg-primary scale-110'
-                : 'bg-border'
+              i < currentPin.length ? 'bg-primary scale-125' : 'bg-border'
             }`}
           />
         ))}
       </div>
 
+      {/* Error */}
       {error && (
-        <p className="text-center text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+        <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-2.5 animate-slide-up">
           {error}
-        </p>
+        </div>
       )}
 
       {/* Numpad */}
@@ -99,7 +111,7 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
                 key={i}
                 className="pin-btn"
                 onClick={handleDelete}
-                aria-label="Supprimer"
+                aria-label="Supprimer le dernier chiffre"
               >
                 <Delete className="w-5 h-5" />
               </button>
@@ -111,7 +123,7 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
               className="pin-btn"
               onClick={() => handleDigit(d)}
             >
-              {d}
+              <span className="text-xl font-bold">{d}</span>
             </button>
           );
         })}
@@ -119,9 +131,9 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
 
       <button
         onClick={onBack}
-        className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+        className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2 hover:underline underline-offset-2"
       >
-        ← Retour
+        ← Changer d'utilisateur
       </button>
     </div>
   );
