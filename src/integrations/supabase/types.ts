@@ -137,6 +137,68 @@ export type Database = {
         }
         Relationships: []
       }
+      incidents: {
+        Row: {
+          anonymous: boolean
+          created_at: string
+          description: string
+          id: string
+          location: string
+          reporter_name: string | null
+          reporter_user_id: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          team: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          anonymous?: boolean
+          created_at?: string
+          description: string
+          id?: string
+          location: string
+          reporter_name?: string | null
+          reporter_user_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string
+          team: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          anonymous?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string
+          reporter_name?: string | null
+          reporter_user_id?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          team?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_reporter_user_id_fkey"
+            columns: ["reporter_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       malus_events: {
         Row: {
           id: string
@@ -515,6 +577,68 @@ export type Database = {
           },
         ]
       }
+      team_objectives: {
+        Row: {
+          auto_track: boolean
+          auto_track_metric: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_user_id: string | null
+          current_value: number
+          deadline: string
+          description: string | null
+          id: string
+          target_value: number
+          team: string
+          title: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          auto_track?: boolean
+          auto_track_metric?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_user_id?: string | null
+          current_value?: number
+          deadline: string
+          description?: string | null
+          id?: string
+          target_value: number
+          team?: string
+          title: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_track?: boolean
+          auto_track_metric?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_user_id?: string | null
+          current_value?: number
+          deadline?: string
+          description?: string | null
+          id?: string
+          target_value?: number
+          team?: string
+          title?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_objectives_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_scores: {
         Row: {
           base_bonus: number
@@ -544,6 +668,87 @@ export type Database = {
           total_malus?: number
         }
         Relationships: []
+      }
+      temperature_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_custom: boolean
+          max_threshold: number
+          min_threshold: number | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          max_threshold: number
+          min_threshold?: number | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          max_threshold?: number
+          min_threshold?: number | null
+          name?: string
+        }
+        Relationships: []
+      }
+      temperature_logs: {
+        Row: {
+          created_at: string
+          id: string
+          is_alert: boolean
+          location_id: string
+          location_name: string
+          logged_by: string
+          logged_by_user_id: string | null
+          note: string | null
+          temperature: number
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_alert?: boolean
+          location_id: string
+          location_name: string
+          logged_by: string
+          logged_by_user_id?: string | null
+          note?: string | null
+          temperature: number
+          unit?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_alert?: boolean
+          location_id?: string
+          location_name?: string
+          logged_by?: string
+          logged_by_user_id?: string | null
+          note?: string | null
+          temperature?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temperature_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "temperature_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temperature_logs_logged_by_user_id_fkey"
+            columns: ["logged_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
