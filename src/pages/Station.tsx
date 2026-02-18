@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { UtensilsCrossed, Delete, Clock, CheckCircle, LogIn, LogOut } from 'lucide-react';
+import { Delete, Clock, CheckCircle, LogIn, LogOut } from 'lucide-react';
+import logo from '../assets/logo.svg';
 import { useApp } from '../context/AppContext';
 
 function LiveClock() {
@@ -74,10 +75,7 @@ export default function Station() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 select-none">
       {/* Logo */}
       <div className="flex flex-col items-center gap-2 mb-10">
-        <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center">
-          <UtensilsCrossed className="w-7 h-7 text-primary" />
-        </div>
-        <p className="text-xl font-black text-foreground tracking-tight">staff&b</p>
+        <img src={logo} alt="Staff&B" className="h-10" />
         <p className="text-sm text-muted-foreground">Casinha</p>
       </div>
 
