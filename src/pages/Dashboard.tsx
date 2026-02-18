@@ -2,25 +2,22 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
-import { OwnerSettings } from '../components/dashboard/OwnerSettings';
+import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
-import { LogOut, UtensilsCrossed, Settings, LayoutDashboard, ChevronDown, Bell, Wine, ChefHat, Layers, Users } from 'lucide-react';
+import { LogOut, UtensilsCrossed, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown } from 'lucide-react';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
-
-type DashTab = 'tasks' | 'settings';
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
   BAR: <Wine className="w-3.5 h-3.5" />,
   KITCHEN: <ChefHat className="w-3.5 h-3.5" />,
-  FLOOR: <Users className="w-3.5 h-3.5" />,
+  FLOOR: <PersonStanding className="w-3.5 h-3.5" />,
   ATELIER: <Layers className="w-3.5 h-3.5" />,
-  MANAGEMENT: <Users className="w-3.5 h-3.5" />,
+  MANAGEMENT: <Settings className="w-3.5 h-3.5" />,
   ALL: <Users className="w-3.5 h-3.5" />,
 };
 
 export default function Dashboard() {
   const { currentUser, logout, restaurantName, getTodayTasks } = useApp();
-  const [activeTab, setActiveTab] = useState<DashTab>('tasks');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   if (!currentUser) return null;
@@ -28,7 +25,6 @@ export default function Dashboard() {
   const isOwner = currentUser.role === 'owner';
   const isManager = currentUser.role === 'manager' || isOwner;
 
-  // Count overdue for badge
   const myTasks = getTodayTasks(isManager ? undefined : currentUser.team);
   const overdueCount = myTasks.filter((t) => t.status === 'overdue').length;
 
@@ -53,30 +49,6 @@ export default function Dashboard() {
               <span className="text-muted-foreground text-xs"> · {restaurantName}</span>
             </div>
           </div>
-
-          {/* Center tabs — owner/manager only */}
-          {isOwner && (
-            <div className="flex items-center gap-1 bg-secondary rounded-xl p-1">
-              <button
-                onClick={() => setActiveTab('tasks')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === 'tasks' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Dashboard</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === 'settings' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-            </div>
-          )}
 
           {/* Right — alert + user menu */}
           <div className="flex items-center gap-2">
@@ -132,8 +104,8 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {activeTab === 'settings' && isOwner ? (
-          <OwnerSettings />
+        {isOwner ? (
+          <OwnerDashboard />
         ) : isManager ? (
           <ManagerView />
         ) : (

@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Team, User } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
-import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings } from 'lucide-react';
+import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding } from 'lucide-react';
 
 type Tab = 'staff' | 'templates' | 'gamification';
-const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER', 'MANAGEMENT'];
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
 
 const TEAM_ICON_ELS: Record<string, React.ReactNode> = {
   BAR: <Wine className="w-4 h-4" />,
   KITCHEN: <ChefHat className="w-4 h-4" />,
-  FLOOR: <Users className="w-4 h-4" />,
+  FLOOR: <PersonStanding className="w-4 h-4" />,
   ATELIER: <Layers className="w-4 h-4" />,
   MANAGEMENT: <Settings className="w-4 h-4" />,
 };
@@ -272,7 +272,7 @@ export function OwnerSettings() {
                   onChange={(e) => setNewTplTeam(e.target.value as Team)}
                   className="px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
                 >
-                  {(['BAR', 'KITCHEN', 'ATELIER', 'ALL'] as Team[]).map((t) => (
+                  {(['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'ALL'] as Team[]).map((t) => (
                     <option key={t} value={t}>{TEAM_LABELS[t]}</option>
                   ))}
                 </select>

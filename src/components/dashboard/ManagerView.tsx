@@ -10,13 +10,14 @@ import {
   AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe
 } from 'lucide-react';
 
-const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER'];
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
   BAR: <Wine className="w-4 h-4" />,
   KITCHEN: <ChefHat className="w-4 h-4" />,
   FLOOR: <Users className="w-4 h-4" />,
   ATELIER: <Layers className="w-4 h-4" />,
+  MANAGEMENT: <Users className="w-4 h-4" />,
   ALL: <Globe className="w-4 h-4" />,
 };
 

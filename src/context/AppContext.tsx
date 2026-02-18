@@ -96,7 +96,7 @@ function generateDailyTasks(templates: TaskTemplate[], existingTasks: Task[]): T
   return newTasks;
 }
 
-const TEAMS: Team[] = ['BAR', 'KITCHEN', 'ATELIER', 'MANAGEMENT', 'ALL'];
+const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT', 'ALL'];
 
 function initTeamScores(base: number): TeamScore[] {
   return TEAMS.map((team) => ({
