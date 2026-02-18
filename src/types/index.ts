@@ -7,8 +7,10 @@ export interface User {
   name: string;
   role: UserRole;
   team: Team;
-  pin?: string;
-  pinSet: boolean;
+  pin?: string;          // app login PIN
+  pinSet: boolean;       // app login PIN set
+  stationPin?: string;   // clock-in/out station PIN (separate)
+  stationPinSet?: boolean;
   photo?: string; // base64 or URL
   score?: number; // current shift score
 }

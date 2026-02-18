@@ -25,7 +25,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 type StationState = 'idle' | 'confirmed';
 
 export default function Station() {
-  const { users, clockAction } = useApp();
+  const { validateStationPin, clockAction } = useApp();
   const [pin, setPin] = useState('');
   const [state, setState] = useState<StationState>('idle');
   const [result, setResult] = useState<{ name: string; action: 'in' | 'out' } | null>(null);
@@ -39,9 +39,8 @@ export default function Station() {
     const next = pin + key;
     setPin(next);
     if (next.length === 4) {
-      // identify user
       setTimeout(() => {
-        const user = users.find((u) => u.pin === next && u.pinSet);
+        const user = validateStationPin(next);
         if (!user) {
           setError(true);
           setPin('');
@@ -51,7 +50,6 @@ export default function Station() {
         const action = clockAction(user.id);
         setResult({ name: user.name, action });
         setState('confirmed');
-        // reset after 4s
         setTimeout(() => {
           setState('idle');
           setPin('');
@@ -59,7 +57,7 @@ export default function Station() {
         }, 4000);
       }, 100);
     }
-  }, [pin, state, users, clockAction]);
+  }, [pin, state, validateStationPin, clockAction]);
 
   // Keyboard support
   useEffect(() => {
