@@ -38,7 +38,7 @@ function getInitials(name: string) {
 import { OwnerSettings } from './OwnerSettings';
 
 export function OwnerDashboard() {
-  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge } = useApp();
+  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents } = useApp();
   const [activeTab, setActiveTab] = useState<OwnerTab>('overview');
   const today = new Date().toISOString().split('T')[0];
   const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
@@ -176,6 +176,48 @@ export function OwnerDashboard() {
               {completionRate >= 70 ? '✓ On track — great performance!' : completionRate >= 40 ? 'Getting there — push the team!' : 'Needs attention — check overdue tasks'}
             </p>
           </div>
+
+          {/* Incident Summary Card */}
+          {(() => {
+            const openCount = incidents.filter((i) => i.status === 'open').length;
+            const inProgressCount = incidents.filter((i) => i.status === 'in_progress').length;
+            const resolvedCount = incidents.filter((i) => i.status === 'resolved').length;
+            const highCount = incidents.filter((i) => i.severity === 'high' && i.status !== 'resolved').length;
+            if (incidents.length === 0) return null;
+            return (
+              <button
+                onClick={() => { setActiveTab('incidents'); clearIncidentBadge(); }}
+                className="w-full text-left glass-card rounded-xl p-4 border border-border hover:border-primary/30 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className={`w-4 h-4 ${highCount > 0 ? 'text-destructive animate-pulse-danger' : 'text-muted-foreground'}`} />
+                  <span className="text-sm font-semibold text-foreground">Incidents</span>
+                  {highCount > 0 && (
+                    <span className="ml-auto text-[10px] font-bold text-destructive bg-destructive/10 border border-destructive/20 px-2 py-0.5 rounded-full">
+                      {highCount} HIGH
+                    </span>
+                  )}
+                  {highCount === 0 && (
+                    <span className="ml-auto text-[10px] text-muted-foreground group-hover:text-primary transition-colors">View all →</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center">
+                    <p className={`text-xl font-black ${openCount > 0 ? 'text-timer-warning' : 'text-foreground'}`}>{openCount}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Open</p>
+                  </div>
+                  <div className="text-center border-x border-border">
+                    <p className={`text-xl font-black ${inProgressCount > 0 ? 'text-primary' : 'text-foreground'}`}>{inProgressCount}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">In Progress</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black text-timer-safe">{resolvedCount}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Resolved</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })()}
 
           {/* Team Performance cards */}
           <div>
