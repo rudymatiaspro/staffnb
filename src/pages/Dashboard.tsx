@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
@@ -18,6 +19,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
 
 export default function Dashboard() {
   const { currentUser, logout, restaurantName, getTodayTasks } = useApp();
+  const { signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   if (!currentUser) return null;
@@ -84,6 +86,13 @@ export default function Dashboard() {
                   <button
                     onClick={() => { logout(); setShowUserMenu(false); }}
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Change user
+                  </button>
+                  <button
+                    onClick={() => { signOut(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-destructive hover:bg-destructive/10 transition-colors border-t border-border"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     Sign out

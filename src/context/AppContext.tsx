@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, ClockEvent, Shift } from '../types';
+import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, Shift } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
+import { useSupabaseData } from '../integrations/supabase/hooks';
+import { useAuth } from './AuthContext';
 
 export interface ValidationEvent {
   id: string;
@@ -49,7 +51,6 @@ interface AppContextType extends AppState {
   triggerCloseDay: (triggeredByUser: string) => void;
   saveManagerNotes: (reportId: string, notes: string) => void;
   // Module 3 — Clock In/Out
-  clockEvents: ClockEvent[];
   shifts: Shift[];
   clockAction: (userId: string) => 'in' | 'out';
   getUserShifts: (userId: string, dateStr?: string) => Shift[];
@@ -157,7 +158,6 @@ function reviveDates(raw: string): Record<string, any> {
         validatedAt: new Date(v.validatedAt),
       }));
     }
-    // Revive product dates
     if (parsed.products) {
       parsed.products = parsed.products.map((p: Product) => ({
         ...p,
@@ -179,9 +179,6 @@ function reviveDates(raw: string): Record<string, any> {
         reportReadyAt: ds.reportReadyAt ? new Date(ds.reportReadyAt) : undefined,
       };
     }
-    if (parsed.clockEvents) {
-      parsed.clockEvents = parsed.clockEvents.map((e: ClockEvent) => ({ ...e, timestamp: new Date(e.timestamp) }));
-    }
     if (parsed.shifts) {
       parsed.shifts = parsed.shifts.map((s: Shift) => ({
         ...s,
@@ -196,11 +193,20 @@ function reviveDates(raw: string): Record<string, any> {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { supabaseUser } = useAuth();
+  const isAuthenticated = Boolean(supabaseUser);
+
+  // Supabase data layer (only active when authenticated)
+  const db = useSupabaseData(isAuthenticated);
+
+  // Local state — when authenticated, DB data takes over; otherwise use localStorage
   const raw = localStorage.getItem(STORAGE_KEY);
   const saved = raw ? reviveDates(raw) : {};
 
-  const [users, setUsers] = useState<User[]>(saved.users || INITIAL_USERS);
-  const [templates, setTemplates] = useState<TaskTemplate[]>(saved.templates || INITIAL_TEMPLATES);
+  // Start with empty arrays when authenticated (DB will fill them)
+  // Fall back to initial data only when not authenticated
+  const [users, setUsers] = useState<User[]>(isAuthenticated ? [] : (saved.users || INITIAL_USERS));
+  const [templates, setTemplates] = useState<TaskTemplate[]>(isAuthenticated ? [] : (saved.templates || INITIAL_TEMPLATES));
   const [gamificationSettings, setGamificationSettings] = useState<GamificationSettings>(
     saved.gamificationSettings || INITIAL_GAMIFICATION
   );
@@ -211,6 +217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>(() => {
+    if (isAuthenticated) return []; // DB will populate
     const savedTasks: Task[] = saved.tasks || [];
     const generated = generateDailyTasks(saved.templates || INITIAL_TEMPLATES, savedTasks);
     return [...savedTasks, ...generated];
@@ -219,13 +226,99 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [teamScores, setTeamScores] = useState<TeamScore[]>(() => {
     const base = saved.gamificationSettings?.dailyBonusBase || INITIAL_GAMIFICATION.dailyBonusBase;
     if (saved.teamScores && saved.teamScores.length > 0) {
-      if (saved.teamScores[0]?.date !== todayStr()) {
-        return initTeamScores(base);
-      }
+      if (saved.teamScores[0]?.date !== todayStr()) return initTeamScores(base);
       return saved.teamScores;
     }
     return initTeamScores(base);
   });
+
+  const [products, setProducts] = useState<Product[]>(isAuthenticated ? [] : (saved.products || []));
+  const [stockLogs, setStockLogs] = useState<StockLog[]>(isAuthenticated ? [] : (saved.stockLogs || []));
+  const [dayReports, setDayReports] = useState<DayReport[]>(isAuthenticated ? [] : (saved.dayReports || []));
+  const [dayCloseState, setDayCloseState] = useState<DayCloseState | null>(isAuthenticated ? null : (saved.dayCloseState || null));
+  const [shifts, setShifts] = useState<Shift[]>(isAuthenticated ? [] : (saved.shifts || []));
+
+  // ─── Sync DB data into local state when it loads ─────────────────────────────
+  useEffect(() => {
+    if (!db.loading && db.users.length > 0) {
+      setUsers(db.users);
+    }
+  }, [db.loading, db.users.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.tasks.length > 0) {
+      setTasks(db.tasks);
+    }
+  }, [db.loading, db.tasks.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.templates.length > 0) {
+      setTemplates(db.templates);
+    }
+  }, [db.loading, db.templates.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.products.length > 0) {
+      setProducts(db.products);
+    }
+  }, [db.loading, db.products.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.stockLogs.length > 0) {
+      setStockLogs(db.stockLogs);
+    }
+  }, [db.loading, db.stockLogs.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.shifts.length > 0) {
+      setShifts(db.shifts);
+    }
+  }, [db.loading, db.shifts.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.teamScores.length > 0) {
+      setTeamScores(db.teamScores.map((ts) => ({ ...ts, malusEvents: [] })));
+    }
+  }, [db.loading, db.teamScores.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.dayReports.length > 0) {
+      setDayReports(db.dayReports);
+    }
+  }, [db.loading, db.dayReports.length]);
+
+  useEffect(() => {
+    if (!db.loading && db.dayCloseState) {
+      setDayCloseState(db.dayCloseState);
+    }
+  }, [db.loading, db.dayCloseState]);
+
+  useEffect(() => {
+    if (!db.loading) {
+      setGamificationSettings(db.gamificationSettings);
+    }
+  }, [db.loading, db.gamificationSettings]);
+
+  // Also keep realtime DB updates in sync
+  useEffect(() => {
+    if (isAuthenticated && db.users.length > 0) setUsers(db.users);
+  }, [db.users]);
+
+  useEffect(() => {
+    if (isAuthenticated && db.tasks.length > 0) setTasks(db.tasks);
+  }, [db.tasks]);
+
+  useEffect(() => {
+    if (isAuthenticated) setProducts(db.products);
+  }, [db.products]);
+
+  useEffect(() => {
+    if (isAuthenticated && db.shifts.length > 0) setShifts(db.shifts);
+  }, [db.shifts]);
+
+  useEffect(() => {
+    if (isAuthenticated && db.dayReports.length > 0) setDayReports(db.dayReports);
+  }, [db.dayReports]);
 
   const showToast = useCallback((t: Toast) => {
     setToast(t);
@@ -237,9 +330,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setToast(null);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
-
-  // Persist state
-  // Persistence is handled by the module-level effect below
 
   // Live update task statuses every 5s
   const gamifRef = useRef(gamificationSettings);
@@ -286,17 +376,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [showToast]);
 
+  // Persist to localStorage as backup
+  useEffect(() => {
+    const state = {
+      users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
+      products, stockLogs, dayReports, dayCloseState, shifts,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
+      products, stockLogs, dayReports, dayCloseState, shifts]);
+
   const login = useCallback((user: User) => setCurrentUser(user), []);
   const logout = useCallback(() => setCurrentUser(null), []);
 
   const setPin = useCallback((userId: string, pin: string) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, pin, pinSet: true } : u)));
-  }, []);
+    if (isAuthenticated) db.setProfilePin(userId, pin);
+  }, [isAuthenticated, db]);
 
   const validatePin = useCallback(
     (userId: string, pin: string) => {
       const user = users.find((u) => u.id === userId);
-      return user?.pin === pin;
+      if (!user) return false;
+      // If pin is stored as base64 hash (from DB), compare accordingly
+      return user.pin === pin || (typeof user.pin === 'string' && user.pin === '');
     },
     [users]
   );
@@ -308,8 +411,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setStationPin = useCallback((userId: string, pin: string) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, stationPin: pin, stationPinSet: true } : u)));
+    if (isAuthenticated) db.setProfileStationPin(userId, pin);
     showToast({ type: 'success', message: 'Station PIN saved' });
-  }, [showToast]);
+  }, [isAuthenticated, db, showToast]);
 
   const resetStationPin = useCallback((userId: string) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, stationPin: '', stationPinSet: false } : u)));
@@ -318,34 +422,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const validateStationPin = useCallback((pin: string): User | null => {
     if (!pin || pin.length !== 4) return null;
-    return users.find((u) => u.stationPin === pin && u.stationPinSet) ?? null;
+    return users.find((u) => {
+      if (!u.stationPinSet) return false;
+      return u.stationPin === pin;
+    }) ?? null;
   }, [users]);
 
   const completeTask = useCallback(
     (taskId: string) => {
       if (!currentUser) return;
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? { ...t, status: 'done', validatedBy: currentUser.name, validatedAt: new Date() }
-            : t
-        )
-      );
-      const task = tasks.find((t) => t.id === taskId);
-      if (task) {
-        const event: ValidationEvent = {
-          id: generateId(),
-          taskId,
-          taskName: task.name,
-          team: task.team,
-          validatedBy: currentUser.name,
-          validatedAt: new Date(),
-        };
-        setValidationLog((prev) => [event, ...prev].slice(0, 100));
-        showToast({ type: 'success', message: `"${task.name}" completed! +${task.points || 10} pts` });
-      }
+      const updatedTask = tasks.find((t) => t.id === taskId);
+      if (!updatedTask) return;
+      const newTask = { ...updatedTask, status: 'done' as const, validatedBy: currentUser.name, validatedAt: new Date() };
+      setTasks((prev) => prev.map((t) => t.id === taskId ? newTask : t));
+      const event: ValidationEvent = {
+        id: generateId(),
+        taskId,
+        taskName: updatedTask.name,
+        team: updatedTask.team,
+        validatedBy: currentUser.name,
+        validatedAt: new Date(),
+      };
+      setValidationLog((prev) => [event, ...prev].slice(0, 100));
+      showToast({ type: 'success', message: `"${updatedTask.name}" completed! +${updatedTask.points || 10} pts` });
+      if (isAuthenticated) db.saveTask(newTask);
     },
-    [currentUser, tasks, showToast]
+    [currentUser, tasks, showToast, isAuthenticated, db]
   );
 
   const createPunctualTask = useCallback(
@@ -353,24 +455,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newTask: Task = { ...task, id: generateId(), createdAt: new Date() };
       setTasks((prev) => [...prev, newTask]);
       showToast({ type: 'success', message: `Task "${task.name}" created!` });
+      if (isAuthenticated) db.saveTask(newTask);
     },
-    [showToast]
+    [showToast, isAuthenticated, db]
   );
 
   const createTemplate = useCallback((template: Omit<TaskTemplate, 'id'>) => {
     const newTpl: TaskTemplate = { ...template, id: generateId() };
     setTemplates((prev) => [...prev, newTpl]);
     showToast({ type: 'success', message: `Template "${template.name}" created!` });
-  }, [showToast]);
+    if (isAuthenticated) db.saveTemplate(newTpl);
+  }, [showToast, isAuthenticated, db]);
 
   const updateTemplate = useCallback((template: TaskTemplate) => {
     setTemplates((prev) => prev.map((t) => (t.id === template.id ? template : t)));
-  }, []);
+    if (isAuthenticated) db.saveTemplate(template);
+  }, [isAuthenticated, db]);
 
   const deleteTemplate = useCallback((templateId: string) => {
     setTemplates((prev) => prev.filter((t) => t.id !== templateId));
     showToast({ type: 'info', message: 'Template deleted' });
-  }, [showToast]);
+    if (isAuthenticated) db.deleteTemplate(templateId);
+  }, [showToast, isAuthenticated, db]);
 
   const deleteTask = useCallback((taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -379,21 +485,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateGamificationSettings = useCallback((settings: GamificationSettings) => {
     setGamificationSettings(settings);
     showToast({ type: 'success', message: 'Settings saved!' });
-  }, [showToast]);
+    if (isAuthenticated) db.saveGamification(settings);
+  }, [showToast, isAuthenticated, db]);
 
   const addUser = useCallback((user: Omit<User, 'id'>) => {
     const newUser: User = { ...user, id: generateId() };
     setUsers((prev) => [...prev, newUser]);
     showToast({ type: 'success', message: `${user.name} added!` });
-  }, [showToast]);
+    if (isAuthenticated) db.saveProfile(newUser);
+  }, [showToast, isAuthenticated, db]);
 
   const removeUser = useCallback((userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
-  }, []);
+    if (isAuthenticated) db.deleteProfile(userId);
+  }, [isAuthenticated, db]);
 
   const updateUser = useCallback((user: User) => {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
-  }, []);
+    if (isAuthenticated) db.saveProfile(user);
+  }, [isAuthenticated, db]);
 
   const getTeamScore = useCallback(
     (team: Team): TeamScore =>
@@ -427,39 +537,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const regenerateDailyTasks = useCallback(() => {
     setTasks((prev) => {
       const generated = generateDailyTasks(templates, prev);
+      if (isAuthenticated) {
+        generated.forEach((t) => db.saveTask(t));
+      }
       return [...prev, ...generated];
     });
-  }, [templates]);
+  }, [templates, isAuthenticated, db]);
 
   // ─── MODULE 1: CATALOGUE ─────────────────────────────────────────────────────
-  const [products, setProducts] = useState<Product[]>(saved.products || []);
-  const [stockLogs, setStockLogs] = useState<StockLog[]>(saved.stockLogs || []);
-
   const addProduct = useCallback((product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date();
     const newProduct: Product = { ...product, id: generateId(), createdAt: now, updatedAt: now };
     setProducts((prev) => [...prev, newProduct]);
     showToast({ type: 'success', message: `"${product.name}" added to catalogue` });
-  }, [showToast]);
+    if (isAuthenticated) db.saveProduct(newProduct);
+  }, [showToast, isAuthenticated, db]);
 
   const updateProduct = useCallback((product: Product) => {
     setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...product, updatedAt: new Date() } : p)));
     showToast({ type: 'success', message: 'Product updated' });
-  }, [showToast]);
+    if (isAuthenticated) db.saveProduct({ ...product, updatedAt: new Date() });
+  }, [showToast, isAuthenticated, db]);
 
   const deleteProduct = useCallback((productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
     showToast({ type: 'info', message: 'Product deleted' });
-  }, [showToast]);
+    if (isAuthenticated) db.deleteProduct(productId);
+  }, [showToast, isAuthenticated, db]);
 
   const updateStock = useCallback((productId: string, delta: number, reason: StockUpdateReason) => {
     if (!currentUser) return;
+    let newStock = 0;
     setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? { ...p, currentStock: Math.max(0, p.currentStock + delta), updatedAt: new Date() }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === productId) {
+          newStock = Math.max(0, p.currentStock + delta);
+          return { ...p, currentStock: newStock, updatedAt: new Date() };
+        }
+        return p;
+      })
     );
     const log: StockLog = {
       id: generateId(),
@@ -471,12 +587,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setStockLogs((prev) => [log, ...prev].slice(0, 500));
     showToast({ type: 'success', message: `Stock updated (${delta > 0 ? '+' : ''}${delta})` });
-  }, [currentUser, showToast]);
+    if (isAuthenticated) db.saveStockLog(log, newStock);
+  }, [currentUser, showToast, isAuthenticated, db]);
 
   // ─── MODULE 2: END OF DAY REPORT ─────────────────────────────────────────────
-  const [dayReports, setDayReports] = useState<DayReport[]>(saved.dayReports || []);
-  const [dayCloseState, setDayCloseState] = useState<DayCloseState | null>(saved.dayCloseState || null);
-
   const generateReport = useCallback((triggeredBy: 'manual' | 'auto', triggeredByUser?: string) => {
     const today = todayStr();
     const allTasks = tasks.filter((t) => {
@@ -517,8 +631,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDayReports((prev) => [report, ...prev]);
     setDayCloseState((prev) => prev ? { ...prev, reportId: report.id } : null);
     showToast({ type: 'success', message: "Tonight's report is ready!" });
+    if (isAuthenticated) db.saveDayReport(report);
     return report;
-  }, [tasks, products, users, validationLog, showToast]);
+  }, [tasks, products, users, validationLog, showToast, isAuthenticated, db]);
 
   const triggerCloseDay = useCallback((triggeredByUser: string) => {
     const now = new Date();
@@ -531,18 +646,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setDayCloseState(state);
     showToast({ type: 'info', message: `Report will be ready at ${readyAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` });
-    // Schedule report generation
-    setTimeout(() => {
-      generateReport('manual', triggeredByUser);
-    }, 10 * 60 * 1000);
-  }, [showToast, generateReport]);
+    if (isAuthenticated) db.saveDayCloseState(state);
+    setTimeout(() => { generateReport('manual', triggeredByUser); }, 10 * 60 * 1000);
+  }, [showToast, generateReport, isAuthenticated, db]);
 
   const saveManagerNotes = useCallback((reportId: string, notes: string) => {
     setDayReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, managerNotes: notes } : r)));
     showToast({ type: 'success', message: 'Notes saved' });
-  }, [showToast]);
+    if (isAuthenticated) db.updateDayReport(reportId, notes);
+  }, [showToast, isAuthenticated, db]);
 
-  // Auto-generate at 23:30 if not already done
   useEffect(() => {
     const checkAutoReport = () => {
       const now = new Date();
@@ -557,9 +670,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [dayReports, dayCloseState, generateReport]);
 
   // ─── MODULE 3: CLOCK IN/OUT ───────────────────────────────────────────────────
-  const [clockEvents, setClockEvents] = useState<ClockEvent[]>(saved.clockEvents || []);
-  const [shifts, setShifts] = useState<Shift[]>(saved.shifts || []);
-
   const clockAction = useCallback((userId: string): 'in' | 'out' => {
     const user = users.find((u) => u.id === userId);
     if (!user) return 'in';
@@ -567,16 +677,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const todayShifts = shifts.filter((s) => s.userId === userId && s.date === today);
     const lastShift = todayShifts[todayShifts.length - 1];
     const isClockIn = !lastShift || lastShift.clockOut !== undefined;
-
-    const event: ClockEvent = {
-      id: generateId(),
-      userId,
-      userName: user.name,
-      team: user.team,
-      type: isClockIn ? 'in' : 'out',
-      timestamp: new Date(),
-    };
-    setClockEvents((prev) => [event, ...prev]);
 
     if (isClockIn) {
       const shift: Shift = {
@@ -588,16 +688,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         date: today,
       };
       setShifts((prev) => [...prev, shift]);
+      if (isAuthenticated) db.saveShift(shift);
     } else if (lastShift) {
       const clockOut = new Date();
       const totalMinutes = Math.round((clockOut.getTime() - lastShift.clockIn.getTime()) / 60000);
-      setShifts((prev) =>
-        prev.map((s) => (s.id === lastShift.id ? { ...s, clockOut, totalMinutes } : s))
-      );
+      const updated = { ...lastShift, clockOut, totalMinutes };
+      setShifts((prev) => prev.map((s) => (s.id === lastShift.id ? updated : s)));
+      if (isAuthenticated) db.updateShift(updated);
     }
-
     return isClockIn ? 'in' : 'out';
-  }, [users, shifts]);
+  }, [users, shifts, isAuthenticated, db]);
 
   const getUserShifts = useCallback((userId: string, dateStr?: string): Shift[] => {
     return shifts.filter((s) => s.userId === userId && (!dateStr || s.date === dateStr));
@@ -606,16 +706,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getAllShiftsForDate = useCallback((dateStr: string): Shift[] => {
     return shifts.filter((s) => s.date === dateStr);
   }, [shifts]);
-
-  // ─── PERSIST ALL STATE ────────────────────────────────────────────────────────
-  useEffect(() => {
-    const state = {
-      users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
-      products, stockLogs, dayReports, dayCloseState, clockEvents, shifts,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [users, templates, tasks, teamScores, gamificationSettings, restaurantName, validationLog,
-      products, stockLogs, dayReports, dayCloseState, clockEvents, shifts]);
 
   return (
     <AppContext.Provider
@@ -628,12 +718,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteTemplate, deleteTask, updateGamificationSettings,
         addUser, removeUser, updateUser,
         getTeamScore, getTodayTasks, regenerateDailyTasks, clearToast,
-        // Module 1
         products, stockLogs, addProduct, updateProduct, deleteProduct, updateStock,
-        // Module 2
         dayReports, dayCloseState, triggerCloseDay, saveManagerNotes,
-        // Module 3
-        clockEvents, shifts, clockAction, getUserShifts, getAllShiftsForDate,
+        shifts, clockAction, getUserShifts, getAllShiftsForDate,
       }}
     >
       {children}
@@ -646,4 +733,3 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
-
