@@ -4,10 +4,19 @@ import { StaffView } from '../components/dashboard/StaffView';
 import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerSettings } from '../components/dashboard/OwnerSettings';
 import { ToastNotification } from '../components/ui/ToastNotification';
-import { LogOut, UtensilsCrossed, Settings, LayoutDashboard, ChevronDown, Bell } from 'lucide-react';
-import { ZONE_CSS, ZONE_EMOJI } from '../data/initialData';
+import { LogOut, UtensilsCrossed, Settings, LayoutDashboard, ChevronDown, Bell, Wine, ChefHat, Layers, Users } from 'lucide-react';
+import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 
 type DashTab = 'tasks' | 'settings';
+
+const TEAM_ICONS: Record<string, React.ReactNode> = {
+  BAR: <Wine className="w-3.5 h-3.5" />,
+  KITCHEN: <ChefHat className="w-3.5 h-3.5" />,
+  FLOOR: <Users className="w-3.5 h-3.5" />,
+  ATELIER: <Layers className="w-3.5 h-3.5" />,
+  MANAGEMENT: <Users className="w-3.5 h-3.5" />,
+  ALL: <Users className="w-3.5 h-3.5" />,
+};
 
 export default function Dashboard() {
   const { currentUser, logout, restaurantName, getTodayTasks } = useApp();
@@ -20,13 +29,13 @@ export default function Dashboard() {
   const isManager = currentUser.role === 'manager' || isOwner;
 
   // Count overdue for badge
-  const myTasks = getTodayTasks(isManager ? undefined : currentUser.zone);
+  const myTasks = getTodayTasks(isManager ? undefined : currentUser.team);
   const overdueCount = myTasks.filter((t) => t.status === 'overdue').length;
 
   const getRoleLabel = () => {
-    if (isOwner) return '👑 Vue Owner';
-    if (isManager) return '🔵 Vue Manager';
-    return `${ZONE_EMOJI[currentUser.zone]} Zone ${currentUser.zone}`;
+    if (isOwner) return 'Owner Dashboard';
+    if (isManager) return 'Manager Dashboard';
+    return `${TEAM_LABELS[currentUser.team]} — ${currentUser.name}`;
   };
 
   return (
@@ -40,8 +49,8 @@ export default function Dashboard() {
               <UtensilsCrossed className="w-4 h-4 text-primary" />
             </div>
             <div className="hidden sm:block">
-              <span className="font-bold text-foreground text-sm">{restaurantName}</span>
-              <span className="text-muted-foreground text-xs"> · Manager</span>
+              <span className="font-black text-foreground text-sm tracking-tight">Staff&B</span>
+              <span className="text-muted-foreground text-xs"> · {restaurantName}</span>
             </div>
           </div>
 
@@ -55,7 +64,7 @@ export default function Dashboard() {
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tableau de bord</span>
+                <span className="hidden sm:inline">Dashboard</span>
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
@@ -64,7 +73,7 @@ export default function Dashboard() {
                 }`}
               >
                 <Settings className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Paramètres</span>
+                <span className="hidden sm:inline">Settings</span>
               </button>
             </div>
           )}
@@ -82,7 +91,9 @@ export default function Dashboard() {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors"
               >
-                <span className="text-sm">{ZONE_EMOJI[currentUser.zone]}</span>
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center team-badge ${TEAM_CSS[currentUser.team]}`}>
+                  {TEAM_ICONS[currentUser.team]}
+                </div>
                 <span className="text-xs font-medium text-foreground hidden sm:block max-w-[100px] truncate">
                   {currentUser.name}
                 </span>
@@ -93,8 +104,9 @@ export default function Dashboard() {
                 <div className="absolute right-0 top-full mt-2 glass-card rounded-xl py-1 min-w-[180px] z-50 shadow-2xl animate-slide-up border border-border">
                   <div className="px-4 py-3 border-b border-border">
                     <p className="text-sm font-bold text-foreground">{currentUser.name}</p>
-                    <p className={`text-xs zone-badge px-2 py-0.5 rounded-md inline-block mt-1 ${ZONE_CSS[currentUser.zone]}`}>
-                      {currentUser.zone} · {currentUser.role === 'owner' ? 'Owner' : currentUser.role === 'manager' ? 'Manager' : 'Staff'}
+                    <p className={`text-xs team-badge px-2 py-0.5 rounded-md inline-flex items-center gap-1 mt-1 ${TEAM_CSS[currentUser.team]}`}>
+                      {TEAM_ICONS[currentUser.team]}
+                      {TEAM_LABELS[currentUser.team]} · {currentUser.role === 'owner' ? 'Owner' : currentUser.role === 'manager' ? 'Manager' : 'Staff'}
                     </p>
                   </div>
                   <button
@@ -102,7 +114,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    Se déconnecter
+                    Sign out
                   </button>
                 </div>
               )}
@@ -116,7 +128,7 @@ export default function Dashboard() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">{getRoleLabel()}</h1>
           <p className="text-sm text-muted-foreground mt-1 capitalize">
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
 

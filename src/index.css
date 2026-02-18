@@ -4,81 +4,149 @@
 
 @layer base {
   :root {
-    /* === DARK MODE DEFAULT === */
-    --background: 222 25% 7%;
-    --foreground: 210 20% 92%;
+    /* === NEW PALETTE === */
+    --background: 220 15% 97%;
+    --foreground: 222 47% 11%;
 
-    --card: 222 22% 11%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 222 22% 11%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 215 80% 58%;
-    --primary-foreground: 222 25% 7%;
+    /* Primary: dark navy accent */
+    --primary: 230 60% 35%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 20% 18%;
-    --secondary-foreground: 210 20% 80%;
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 222 47% 20%;
 
-    --muted: 222 20% 15%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 220 14% 88%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 215 80% 58%;
-    --accent-foreground: 222 25% 7%;
+    --accent: 351 85% 56%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 210 20% 92%;
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 222 18% 20%;
-    --input: 222 18% 20%;
-    --ring: 215 80% 58%;
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 230 60% 35%;
 
     --radius: 0.75rem;
 
-    /* === ZONE COLORS === */
-    --zone-bar: 25 55% 42%;
-    --zone-bar-light: 25 60% 55%;
-    --zone-bar-bg: 25 45% 12%;
-    --zone-bar-border: 25 50% 30%;
+    /* === TEAM COLORS === */
+    --team-bar: 25 65% 45%;
+    --team-bar-light: 25 70% 58%;
+    --team-bar-bg: 25 55% 94%;
+    --team-bar-border: 25 50% 82%;
 
-    --zone-cuisine: 43 75% 48%;
-    --zone-cuisine-light: 43 80% 62%;
-    --zone-cuisine-bg: 43 50% 10%;
-    --zone-cuisine-border: 43 60% 30%;
+    --team-kitchen: 43 85% 45%;
+    --team-kitchen-light: 43 90% 55%;
+    --team-kitchen-bg: 43 70% 94%;
+    --team-kitchen-border: 43 65% 80%;
 
-    --zone-atelier: 270 40% 58%;
-    --zone-atelier-light: 270 45% 70%;
-    --zone-atelier-bg: 270 35% 12%;
-    --zone-atelier-border: 270 38% 32%;
+    --team-floor: 160 55% 38%;
+    --team-floor-light: 160 60% 50%;
+    --team-floor-bg: 160 45% 93%;
+    --team-floor-border: 160 40% 78%;
 
-    --zone-management: 215 80% 54%;
-    --zone-management-light: 215 85% 68%;
-    --zone-management-bg: 215 50% 11%;
-    --zone-management-border: 215 60% 32%;
+    --team-atelier: 270 45% 52%;
+    --team-atelier-light: 270 50% 65%;
+    --team-atelier-bg: 270 40% 94%;
+    --team-atelier-border: 270 38% 82%;
 
-    --zone-all: 160 50% 45%;
-    --zone-all-light: 160 55% 58%;
-    --zone-all-bg: 160 40% 10%;
-    --zone-all-border: 160 45% 28%;
+    --team-management: 230 60% 45%;
+    --team-management-light: 230 65% 58%;
+    --team-management-bg: 230 50% 94%;
+    --team-management-border: 230 45% 80%;
+
+    --team-all: 160 50% 40%;
+    --team-all-light: 160 55% 52%;
+    --team-all-bg: 160 40% 93%;
+    --team-all-border: 160 40% 78%;
 
     /* === TIMER URGENCY COLORS === */
+    --timer-safe: 142 65% 38%;
+    --timer-warning: 38 92% 45%;
+    --timer-danger: 0 85% 52%;
+    --timer-overdue-bg: 0 30% 97%;
+    --timer-overdue-text: 0 85% 52%;
+
+    /* === GLASSMORPHISM === */
+    --glass-bg: 0 0% 100%;
+    --glass-border: 220 13% 87%;
+
+    /* === SIDEBAR === */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 92%;
+    --sidebar-primary: 230 60% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 40% 18%;
+    --sidebar-accent-foreground: 220 14% 92%;
+    --sidebar-border: 222 30% 20%;
+    --sidebar-ring: 230 60% 55%;
+  }
+
+  /* === DARK MODE === */
+  .dark {
+    --background: 222 25% 7%;
+    --foreground: 210 20% 92%;
+    --card: 222 22% 11%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 22% 11%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 230 65% 60%;
+    --primary-foreground: 222 25% 7%;
+    --secondary: 222 20% 18%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 222 20% 15%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 351 85% 62%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 210 20% 92%;
+    --border: 222 18% 20%;
+    --input: 222 18% 20%;
+    --ring: 230 65% 60%;
+
+    --team-bar: 25 55% 52%;
+    --team-bar-light: 25 60% 65%;
+    --team-bar-bg: 25 45% 12%;
+    --team-bar-border: 25 50% 28%;
+
+    --team-kitchen: 43 75% 48%;
+    --team-kitchen-light: 43 80% 62%;
+    --team-kitchen-bg: 43 50% 10%;
+    --team-kitchen-border: 43 60% 28%;
+
+    --team-floor: 160 50% 42%;
+    --team-floor-light: 160 55% 55%;
+    --team-floor-bg: 160 40% 10%;
+    --team-floor-border: 160 40% 26%;
+
+    --team-atelier: 270 40% 58%;
+    --team-atelier-light: 270 45% 70%;
+    --team-atelier-bg: 270 35% 12%;
+    --team-atelier-border: 270 38% 30%;
+
+    --team-management: 230 60% 55%;
+    --team-management-light: 230 65% 68%;
+    --team-management-bg: 230 50% 11%;
+    --team-management-border: 230 50% 30%;
+
+    --team-all: 160 50% 42%;
+    --team-all-light: 160 55% 55%;
+    --team-all-bg: 160 40% 10%;
+    --team-all-border: 160 40% 26%;
+
     --timer-safe: 142 65% 48%;
     --timer-warning: 38 92% 55%;
     --timer-danger: 0 85% 60%;
     --timer-overdue-bg: 222 20% 5%;
     --timer-overdue-text: 0 85% 60%;
 
-    /* === SIDEBAR === */
-    --sidebar-background: 222 25% 5%;
-    --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 215 80% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 22% 14%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 215 80% 58%;
-
-    /* === GLASSMORPHISM === */
     --glass-bg: 222 22% 13%;
     --glass-border: 222 20% 22%;
   }
@@ -95,7 +163,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -110,52 +177,77 @@
 }
 
 @layer components {
-  .zone-bar {
-    --zone-color: var(--zone-bar);
-    --zone-color-light: var(--zone-bar-light);
-    --zone-bg: var(--zone-bar-bg);
-    --zone-border-color: var(--zone-bar-border);
+  /* === TEAM CSS VARS === */
+  .team-bar {
+    --team-color: var(--team-bar);
+    --team-color-light: var(--team-bar-light);
+    --team-bg: var(--team-bar-bg);
+    --team-border-color: var(--team-bar-border);
   }
-  .zone-cuisine {
-    --zone-color: var(--zone-cuisine);
-    --zone-color-light: var(--zone-cuisine-light);
-    --zone-bg: var(--zone-cuisine-bg);
-    --zone-border-color: var(--zone-cuisine-border);
+  .team-kitchen {
+    --team-color: var(--team-kitchen);
+    --team-color-light: var(--team-kitchen-light);
+    --team-bg: var(--team-kitchen-bg);
+    --team-border-color: var(--team-kitchen-border);
   }
-  .zone-atelier {
-    --zone-color: var(--zone-atelier);
-    --zone-color-light: var(--zone-atelier-light);
-    --zone-bg: var(--zone-atelier-bg);
-    --zone-border-color: var(--zone-atelier-border);
+  .team-floor {
+    --team-color: var(--team-floor);
+    --team-color-light: var(--team-floor-light);
+    --team-bg: var(--team-floor-bg);
+    --team-border-color: var(--team-floor-border);
   }
-  .zone-management {
-    --zone-color: var(--zone-management);
-    --zone-color-light: var(--zone-management-light);
-    --zone-bg: var(--zone-management-bg);
-    --zone-border-color: var(--zone-management-border);
+  .team-atelier {
+    --team-color: var(--team-atelier);
+    --team-color-light: var(--team-atelier-light);
+    --team-bg: var(--team-atelier-bg);
+    --team-border-color: var(--team-atelier-border);
   }
-  .zone-all {
-    --zone-color: var(--zone-all);
-    --zone-color-light: var(--zone-all-light);
-    --zone-bg: var(--zone-all-bg);
-    --zone-border-color: var(--zone-all-border);
+  .team-management {
+    --team-color: var(--team-management);
+    --team-color-light: var(--team-management-light);
+    --team-bg: var(--team-management-bg);
+    --team-border-color: var(--team-management-border);
   }
+  .team-all {
+    --team-color: var(--team-all);
+    --team-color-light: var(--team-all-light);
+    --team-bg: var(--team-all-bg);
+    --team-border-color: var(--team-all-border);
+  }
+
+  /* Legacy zone aliases */
+  .zone-bar { --zone-color: var(--team-bar); --zone-color-light: var(--team-bar-light); --zone-bg: var(--team-bar-bg); --zone-border-color: var(--team-bar-border); }
+  .zone-cuisine { --zone-color: var(--team-kitchen); --zone-color-light: var(--team-kitchen-light); --zone-bg: var(--team-kitchen-bg); --zone-border-color: var(--team-kitchen-border); }
+  .zone-atelier { --zone-color: var(--team-atelier); --zone-color-light: var(--team-atelier-light); --zone-bg: var(--team-atelier-bg); --zone-border-color: var(--team-atelier-border); }
+  .zone-management { --zone-color: var(--team-management); --zone-color-light: var(--team-management-light); --zone-bg: var(--team-management-bg); --zone-border-color: var(--team-management-border); }
+  .zone-all { --zone-color: var(--team-all); --zone-color-light: var(--team-all-light); --zone-bg: var(--team-all-bg); --zone-border-color: var(--team-all-border); }
 
   .glass-card {
     background: hsl(var(--glass-bg));
     border: 1px solid hsl(var(--glass-border));
-    backdrop-filter: blur(12px);
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
   }
 
+  .team-card {
+    background: hsl(var(--team-bg));
+    border: 1px solid hsl(var(--team-border-color));
+  }
+
+  .team-badge {
+    background: hsl(var(--team-color) / 0.12);
+    color: hsl(var(--team-color));
+    border: 1px solid hsl(var(--team-border-color));
+  }
+
+  /* Legacy zone-card/zone-badge */
   .zone-card {
-    background: hsl(var(--zone-bg));
-    border: 1px solid hsl(var(--zone-border-color));
+    background: hsl(var(--team-bg, var(--zone-bg)));
+    border: 1px solid hsl(var(--team-border-color, var(--zone-border-color)));
   }
-
   .zone-badge {
-    background: hsl(var(--zone-color) / 0.15);
-    color: hsl(var(--zone-color-light));
-    border: 1px solid hsl(var(--zone-border-color));
+    background: hsl(var(--team-color, var(--zone-color)) / 0.12);
+    color: hsl(var(--team-color, var(--zone-color)));
+    border: 1px solid hsl(var(--team-border-color, var(--zone-border-color)));
   }
 
   .pin-btn {
@@ -164,6 +256,7 @@
     border: 1px solid hsl(var(--border));
     min-height: 64px;
     color: hsl(var(--foreground));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   }
   .pin-btn:hover {
     background: hsl(var(--muted));
@@ -174,39 +267,55 @@
     transform: scale(0.97);
   }
 
+  .text-timer-safe { color: hsl(var(--timer-safe)); }
+  .text-timer-warning { color: hsl(var(--timer-warning)); }
+  .text-timer-danger { color: hsl(var(--timer-danger)); }
+  .bg-timer-safe { background-color: hsl(var(--timer-safe)); }
+  .bg-timer-warning { background-color: hsl(var(--timer-warning)); }
+  .bg-timer-danger { background-color: hsl(var(--timer-danger)); }
   .timer-safe { color: hsl(var(--timer-safe)); }
   .timer-warning { color: hsl(var(--timer-warning)); }
   .timer-danger { color: hsl(var(--timer-danger)); }
-  .timer-overdue {
-    background: hsl(var(--timer-overdue-bg));
-    color: hsl(var(--timer-overdue-text));
-  }
 
   @keyframes pulse-danger {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    50% { opacity: 0.5; }
   }
   .animate-pulse-danger {
     animation: pulse-danger 1.5s ease-in-out infinite;
   }
 
   @keyframes slide-up {
-    from { transform: translateY(16px); opacity: 0; }
+    from { transform: translateY(12px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
   .animate-slide-up {
-    animation: slide-up 0.3s ease-out;
+    animation: slide-up 0.25s ease-out;
   }
 
   @keyframes wiggle {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-8px); }
     40% { transform: translateX(8px); }
-    60% { transform: translateX(-6px); }
-    80% { transform: translateX(6px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
   }
   .animate-wiggle {
     animation: wiggle 0.4s ease-in-out;
   }
-}
 
+  @keyframes gold-glow {
+    0%, 100% { box-shadow: 0 0 10px 2px hsl(43 100% 60% / 0.6); }
+    50% { box-shadow: 0 0 20px 6px hsl(43 100% 60% / 0.9); }
+  }
+  .rank-gold {
+    animation: gold-glow 2s ease-in-out infinite;
+    border: 2px solid hsl(43 100% 60%);
+  }
+  .rank-silver {
+    border: 2px solid hsl(220 10% 65%);
+  }
+  .rank-bronze {
+    border: 2px solid hsl(25 65% 50%);
+  }
+}

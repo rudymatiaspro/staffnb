@@ -1,16 +1,16 @@
 import { useApp } from '../../context/AppContext';
-import { Zone } from '../../types';
-import { ZONE_CSS, ZONE_EMOJI } from '../../data/initialData';
-import { Trophy, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Team } from '../../types';
+import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
+import { Trophy, TrendingDown, AlertTriangle, Medal } from 'lucide-react';
 
-interface BonusScoreCardProps {
-  zone: Zone;
+interface TeamScoreCardProps {
+  team: Team;
   compact?: boolean;
 }
 
-export function BonusScoreCard({ zone, compact = false }: BonusScoreCardProps) {
-  const { getZoneScore } = useApp();
-  const score = getZoneScore(zone);
+export function BonusScoreCard({ team, compact = false }: TeamScoreCardProps) {
+  const { getTeamScore } = useApp();
+  const score = getTeamScore(team);
   const percentage = score.baseBonus > 0 ? Math.max(0, Math.min(100, (score.currentBonus / score.baseBonus) * 100)) : 0;
 
   const colorClass =
@@ -25,10 +25,9 @@ export function BonusScoreCard({ zone, compact = false }: BonusScoreCardProps) {
 
   if (compact) {
     return (
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl zone-card ${ZONE_CSS[zone]} border`}>
-        <span className="text-base">{ZONE_EMOJI[zone]}</span>
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl team-card ${TEAM_CSS[team]} border`}>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">{zone}</p>
+          <p className="text-xs text-muted-foreground">{TEAM_LABELS[team]}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="flex-1 h-1 bg-background/30 rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${percentage}%` }} />
@@ -42,14 +41,14 @@ export function BonusScoreCard({ zone, compact = false }: BonusScoreCardProps) {
   }
 
   return (
-    <div className={`rounded-2xl p-5 zone-card ${ZONE_CSS[zone]}`}>
+    <div className={`rounded-2xl p-5 team-card ${TEAM_CSS[team]}`}>
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">{ZONE_EMOJI[zone]}</span>
+            <Medal className="w-5 h-5 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Zone {zone}</p>
-              <p className="text-sm font-semibold text-foreground">Bonus du jour</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">{TEAM_LABELS[team]}</p>
+              <p className="text-sm font-semibold text-foreground">Daily ShiftScore</p>
             </div>
           </div>
         </div>
@@ -71,12 +70,12 @@ export function BonusScoreCard({ zone, compact = false }: BonusScoreCardProps) {
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
           <Trophy className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">{Math.round(percentage)}% du bonus</span>
+          <span className="text-muted-foreground">{Math.round(percentage)}% of base bonus</span>
         </div>
         {score.malusEvents.length > 0 && (
           <div className="flex items-center gap-1 text-timer-danger">
             <TrendingDown className="w-3.5 h-3.5" />
-            <span>{score.malusEvents.length} malus · -{score.totalMalus} pts</span>
+            <span>{score.malusEvents.length} penalties · -{score.totalMalus} pts</span>
           </div>
         )}
       </div>
@@ -84,7 +83,7 @@ export function BonusScoreCard({ zone, compact = false }: BonusScoreCardProps) {
       {/* Recent malus events */}
       {score.malusEvents.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border/30 space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Malus récents</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Penalties</p>
           {score.malusEvents.slice(-3).reverse().map((me) => (
             <div key={me.id} className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground truncate">{me.taskName}</span>

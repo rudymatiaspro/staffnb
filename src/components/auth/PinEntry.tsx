@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { User } from '../../types';
-import { Delete } from 'lucide-react';
-import { ZONE_CSS, ZONE_EMOJI } from '../../data/initialData';
+import { Delete, ShieldCheck } from 'lucide-react';
+import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 
 interface PinEntryProps {
   user: User;
@@ -9,6 +9,8 @@ interface PinEntryProps {
   onSuccess: (pin: string) => void;
   onBack: () => void;
 }
+
+const getInitials = (name: string) => name.slice(0, 2).toUpperCase();
 
 export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps) {
   const [pin, setPin] = useState('');
@@ -43,7 +45,7 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
             onSuccess(pin);
           } else {
             triggerShake();
-            setError('Les PINs ne correspondent pas. Réessayez.');
+            setError('PINs do not match. Please try again.');
             setPin('');
             setConfirmPin('');
             setStep('enter');
@@ -62,23 +64,29 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
 
   const stepLabel = isFirstTime
     ? step === 'enter'
-      ? 'Créez votre PIN à 4 chiffres'
-      : 'Confirmez votre PIN'
-    : 'Entrez votre PIN';
+      ? 'Create your 4-digit PIN'
+      : 'Confirm your PIN'
+    : 'Enter your PIN';
 
   return (
     <div className="space-y-6 animate-slide-up">
       {/* User badge */}
       <div className="text-center">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center zone-card ${ZONE_CSS[user.zone]} text-3xl mx-auto mb-3 shadow-lg`}>
-          {ZONE_EMOJI[user.zone]}
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center team-card ${TEAM_CSS[user.team]} mx-auto mb-3 shadow-lg overflow-hidden`}>
+          {user.photo ? (
+            <img src={user.photo} alt={user.name} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-2xl font-bold">{getInitials(user.name)}</span>
+          )}
         </div>
         <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">{TEAM_LABELS[user.team]}</p>
         <p className="text-sm text-muted-foreground mt-1">{stepLabel}</p>
         {isFirstTime && step === 'enter' && (
-          <p className="text-xs text-primary/80 mt-1 bg-primary/5 border border-primary/15 rounded-lg px-3 py-1.5 inline-block">
-            ℹ Ce PIN sera confidentiel
-          </p>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-primary/80 mt-2 bg-primary/5 border border-primary/15 rounded-lg px-3 py-1.5 inline-flex mx-auto">
+            <ShieldCheck className="w-3 h-3" />
+            This PIN is personal and confidential
+          </div>
         )}
       </div>
 
@@ -111,7 +119,7 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
                 key={i}
                 className="pin-btn"
                 onClick={handleDelete}
-                aria-label="Supprimer le dernier chiffre"
+                aria-label="Delete last digit"
               >
                 <Delete className="w-5 h-5" />
               </button>
@@ -133,7 +141,7 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
         onClick={onBack}
         className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2 hover:underline underline-offset-2"
       >
-        ← Changer d'utilisateur
+        ← Change user
       </button>
     </div>
   );

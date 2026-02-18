@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Zone } from '../../types';
-import { X, Clock, MapPin } from 'lucide-react';
-import { ZONE_LABELS } from '../../data/initialData';
+import { Team } from '../../types';
+import { X, Clock, Users } from 'lucide-react';
+import { TEAM_LABELS } from '../../data/initialData';
 
 interface CreateTaskModalProps {
   onClose: () => void;
@@ -11,13 +11,13 @@ interface CreateTaskModalProps {
 export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
   const { createPunctualTask, currentUser, users } = useApp();
   const [name, setName] = useState('');
-  const [zone, setZone] = useState<Zone>('BAR');
+  const [team, setTeam] = useState<Team>('BAR');
   const [description, setDescription] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
   const [assignedUserId, setAssignedUserId] = useState('');
 
-  const zones: Zone[] = ['BAR', 'CUISINE', 'ATELIER', 'ALL'];
-  const staffInZone = users.filter((u) => u.zone === zone && u.role === 'staff');
+  const teams: Team[] = ['BAR', 'KITCHEN', 'ATELIER', 'ALL'];
+  const staffInTeam = users.filter((u) => u.team === team && u.role === 'staff');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +31,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
 
     createPunctualTask({
       name: name.trim(),
-      zone,
+      team,
       description: description.trim(),
       deadline,
       status: deadline < new Date() ? 'overdue' : 'pending',
@@ -40,6 +40,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
       assignedUserId: assignedUserId || undefined,
       assignedUserName: assignedUser?.name,
       createdBy: currentUser?.name || 'Manager',
+      points: 10,
     });
     onClose();
   };
@@ -48,7 +49,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <div className="glass-card rounded-2xl w-full max-w-md animate-slide-up">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Nouvelle tâche ponctuelle</h2>
+          <h2 className="text-lg font-semibold text-foreground">New Task</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -57,13 +58,13 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Nom de la tâche
+              Task Name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Nettoyer les frigos..."
+              placeholder="e.g. Clean the fridges..."
               required
               className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
             />
@@ -72,15 +73,15 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                <MapPin className="w-3 h-3 inline mr-1" />Zone
+                <Users className="w-3 h-3 inline mr-1" />Team
               </label>
               <select
-                value={zone}
-                onChange={(e) => { setZone(e.target.value as Zone); setAssignedUserId(''); }}
+                value={team}
+                onChange={(e) => { setTeam(e.target.value as Team); setAssignedUserId(''); }}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary transition-colors"
               >
-                {zones.map((z) => (
-                  <option key={z} value={z}>{ZONE_LABELS[z]}</option>
+                {teams.map((t) => (
+                  <option key={t} value={t}>{TEAM_LABELS[t]}</option>
                 ))}
               </select>
             </div>
@@ -98,18 +99,18 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
             </div>
           </div>
 
-          {zone !== 'ALL' && staffInZone.length > 0 && (
+          {team !== 'ALL' && staffInTeam.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Assigner à (optionnel)
+                Assign to (optional)
               </label>
               <select
                 value={assignedUserId}
                 onChange={(e) => setAssignedUserId(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary transition-colors"
               >
-                <option value="">Toute la zone</option>
-                {staffInZone.map((u) => (
+                <option value="">Whole team</option>
+                {staffInTeam.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
@@ -118,12 +119,12 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
 
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-              Description (optionnel)
+              Description (optional)
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Instructions supplémentaires..."
+              placeholder="Additional instructions..."
               rows={2}
               className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors resize-none"
             />
@@ -135,13 +136,13 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
               onClick={onClose}
               className="flex-1 py-2.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium hover:bg-muted transition-colors"
             >
-              Annuler
+              Cancel
             </button>
             <button
               type="submit"
               className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
             >
-              Créer la tâche
+              Create Task
             </button>
           </div>
         </form>
