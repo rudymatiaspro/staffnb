@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
 import { Team, User } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
-import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding, KeyRound, Delete, ShieldCheck } from 'lucide-react';
+import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding, KeyRound, Delete, ShieldCheck, Download } from 'lucide-react';
 
 type Tab = 'staff' | 'templates' | 'gamification' | 'pins';
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
@@ -43,9 +44,35 @@ export function OwnerSettings() {
   const [pinConfirmInput, setPinConfirmInput] = useState('');
   const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
   const [pinError, setPinError] = useState('');
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
+
+  const handleSeedStaff = async () => {
+    setSeedLoading(true);
+    setSeedResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setSeedResult('❌ Non authentifié'); return; }
+      const res = await supabase.functions.invoke('seed-staff', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.error) {
+        setSeedResult(`❌ Erreur: ${res.error.message}`);
+      } else {
+        const s = res.data?.summary;
+        setSeedResult(`✅ ${s?.created ?? 0} créés, ${s?.skipped ?? 0} existants, ${s?.errors ?? 0} erreurs`);
+      }
+    } catch (e) {
+      setSeedResult(`❌ Exception: ${String(e)}`);
+    } finally {
+      setSeedLoading(false);
+    }
+  };
 
   const toggleNewUserTeam = (t: Team) => {
     setNewUserTeams(prev =>
+
       prev.includes(t) ? (prev.length > 1 ? prev.filter(x => x !== t) : prev) : [...prev, t]
     );
   };
@@ -259,12 +286,28 @@ export function OwnerSettings() {
             );
           })}
 
+          {/* Seed Staff button (admin only) */}
+          <div className="pt-1 pb-1 flex flex-col gap-2">
+            <button
+              onClick={handleSeedStaff}
+              disabled={seedLoading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-all text-sm font-medium disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {seedLoading ? 'Création en cours…' : 'Seed — Créer les 11 comptes staff'}
+            </button>
+            {seedResult && (
+              <p className="text-xs text-center text-muted-foreground">{seedResult}</p>
+            )}
+          </div>
+
           <button
             onClick={() => setShowAddUser(!showAddUser)}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary transition-all text-sm"
           >
             <Plus className="w-4 h-4" />
             Add team member
+
           </button>
 
           {showAddUser && (

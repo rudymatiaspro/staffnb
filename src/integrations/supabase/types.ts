@@ -64,6 +64,45 @@ export type Database = {
           },
         ]
       }
+      daily_menu_items: {
+        Row: {
+          category: string
+          created_at: string
+          date: string
+          display_order: number
+          id: string
+          name: string
+          portions_left: number | null
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          date?: string
+          display_order?: number
+          id?: string
+          name: string
+          portions_left?: number | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          date?: string
+          display_order?: number
+          id?: string
+          name?: string
+          portions_left?: number | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       day_close_states: {
         Row: {
           date: string

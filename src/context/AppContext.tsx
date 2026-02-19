@@ -428,10 +428,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (userId: string, pin: string) => {
       const user = users.find((u) => u.id === userId);
       if (!user) return false;
-      // If pin is stored as base64 hash (from DB), compare accordingly
+      // When authenticated: pin field contains the btoa hash from DB
+      // Compare both the raw pin and the btoa hash
+      if (isAuthenticated && user.pin) {
+        try {
+          return user.pin === btoa(pin);
+        } catch {
+          return false;
+        }
+      }
+      // Unauthenticated (localStorage mode): direct comparison or empty (first login)
       return user.pin === pin || (typeof user.pin === 'string' && user.pin === '');
     },
-    [users]
+    [users, isAuthenticated]
   );
 
   const resetPin = useCallback((userId: string) => {
