@@ -34,46 +34,53 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Require Authorization header (must be called by an authenticated admin/owner)
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
   // Use service role to bypass RLS for seeding
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Validate caller is admin or owner
-  const callerClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const token = authHeader.replace('Bearer ', '');
-  const { data: claims } = await callerClient.auth.getClaims(token);
-  if (!claims?.claims?.sub) {
-    return new Response(JSON.stringify({ error: 'Invalid token' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  const callerId = claims.claims.sub as string;
-  const { data: callerRole } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', callerId)
-    .single();
-  if (!callerRole || !['admin', 'owner'].includes(callerRole.role)) {
-    return new Response(JSON.stringify({ error: 'Forbidden — admin or owner required' }), {
-      status: 403,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  // Check if profiles table is empty — allow seed without auth in that case
+  const { count: profileCount } = await supabase
+    .from('profiles')
+    .select('*', { count: 'exact', head: true });
+
+  const isEmpty = (profileCount ?? 0) === 0;
+
+  if (!isEmpty) {
+    // Table not empty: require admin/owner auth
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const callerClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claims } = await callerClient.auth.getClaims(token);
+    if (!claims?.claims?.sub) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const callerId = claims.claims.sub as string;
+    const { data: callerRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', callerId)
+      .single();
+    if (!callerRole || !['admin', 'owner'].includes(callerRole.role)) {
+      return new Response(JSON.stringify({ error: 'Forbidden — admin or owner required' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const results: Array<{ name: string; status: string; id?: string; error?: string }> = [];

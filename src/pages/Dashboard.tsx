@@ -57,6 +57,8 @@ type AppRole = 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
 function isOwnerOrAdmin(role?: AppRole) { return role === 'owner' || role === 'admin'; }
 function isManagerOrAbove(role?: AppRole) { return role === 'manager' || isOwnerOrAdmin(role); }
 function isChefOrAbove(role?: AppRole) { return role === 'chef' || isManagerOrAbove(role); }
+// Owner = lecture seule (Hanh). Admin = accès complet en écriture (Rudy).
+function canEdit(role?: AppRole) { return role === 'admin' || role === 'manager'; }
 
 const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', medium: '⚠️', low: 'ℹ️' };
 
@@ -90,9 +92,12 @@ export default function Dashboard() {
 
   const role = currentUser?.role as AppRole | undefined;
   const team = currentUser?.team as Team | undefined;
-  const isOwner = isOwnerOrAdmin(role);
+  const isOwner = isOwnerOrAdmin(role);          // owner OR admin (both see Settings tile)
+  const isAdmin = role === 'admin';              // Rudy only — full write access
+  const isPureOwner = role === 'owner';          // Hanh — read-only
   const isManager = isManagerOrAbove(role);
   const isChef = isChefOrAbove(role);
+  const canManageContent = canEdit(role);        // admin + manager can write
 
   // Browser notifications for high-severity incidents
   useEffect(() => {
@@ -121,21 +126,30 @@ export default function Dashboard() {
     ];
 
     if (isChef && !isManager) {
-      // Chef / Sous-Chef
-      return [...base, { id: 'haccp', label: 'HACCP', emoji: '🌡️', icon: <Thermometer className="w-6 h-6" /> }, { id: 'menu', label: 'Menu', emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> }];
+      // Chef / Sous-Chef → grille cuisine + HACCP
+      return [...base,
+        { id: 'haccp',    label: 'HACCP',   emoji: '🌡️', icon: <Thermometer className="w-6 h-6" /> },
+        { id: 'menu',     label: 'Menu',     emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
+      ];
     }
 
     if (isManager) {
+      // Manager / Admin / Owner
+      const menuLabel = canManageContent ? 'Menu ✏️' : 'Menu';
       const mgr: Tile[] = [...base,
-        { id: 'planning', label: 'Planning', emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> },
-        { id: 'menu',     label: 'Menu ✏️',  emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
+        { id: 'planning', label: 'Planning',  emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> },
+        { id: 'menu',     label: menuLabel,   emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
       ];
+      // Settings tile: visible to admin (Rudy) and owner (Hanh)
       if (isOwner) mgr.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-6 h-6" /> });
       return mgr;
     }
 
-    // Staff Salle
-    return [...base, { id: 'planning', label: 'Planning', emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> }, { id: 'menu', label: 'Menu', emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> }];
+    // Staff Salle → grille salle
+    return [...base,
+      { id: 'planning', label: 'Planning', emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> },
+      { id: 'menu',     label: 'Menu',     emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
+    ];
   };
 
   const tiles = buildTiles();
@@ -155,17 +169,17 @@ export default function Dashboard() {
       case 'tasks': return <TasksModule role={role} team={team} isManager={isManager} onCreateTask={() => setShowCreateModal(true)} />;
       case 'chat': return <MessagingModule />;
       case 'sos': return <IncidentModule />;
-      case 'orders': return <OrdersModule canManage={isManager} />;
+      case 'orders':    return <OrdersModule canManage={canManageContent} />;
       case 'timesheet': return currentUser ? <TimesheetView userId={currentUser.id} /> : null;
-      case 'objectives': return <ObjectivesModule canManage={isManager} />;
-      case 'planning': return isManager ? <PlanningModule /> : <StaffShiftsView />;
-      case 'menu': return <MenuModule canEdit={isManager} />;
-      case 'haccp': return <HACCPModule />;
-      case 'scores': return <Leaderboard />;
-      case 'reports': return <ReportsView />;
-      case 'catalogue': return <ProductCatalogue canEdit={isManager} canDelete={isOwner} />;
-      case 'pins': return <PinManagement />;
-      case 'settings': return <OwnerSettings />;
+      case 'objectives':return <ObjectivesModule canManage={canManageContent} />;
+      case 'planning':  return canManageContent ? <PlanningModule /> : <StaffShiftsView />;
+      case 'menu':      return <MenuModule canEdit={canManageContent} />;
+      case 'haccp':     return <HACCPModule />;
+      case 'scores':    return <Leaderboard />;
+      case 'reports':   return <ReportsView />;
+      case 'catalogue': return <ProductCatalogue canEdit={canManageContent} canDelete={isAdmin} />;
+      case 'pins':      return <PinManagement />;
+      case 'settings':  return <OwnerSettings readOnly={isPureOwner} />;
       case 'contests': return <MalusContestModule />;
       case 'swaps': return <ShiftSwapModule canManage={isManager} />;
       case 'availability': return <StaffAvailabilityView />;

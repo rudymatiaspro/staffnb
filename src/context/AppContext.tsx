@@ -268,6 +268,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnreadHighIncidents(0);
   }, []);
 
+  // ─── Auto-seed: if profiles table is empty after first load, call seed-staff ──
+  const seedAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (db.loading) return;
+    if (seedAttemptedRef.current) return;
+    if (db.users.length > 0) return; // already seeded
+    seedAttemptedRef.current = true;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const url = `https://${projectId}.supabase.co/functions/v1/seed-staff`;
+    fetch(url, { method: 'POST' })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (body?.summary?.created > 0) {
+          // Refetch users after seed
+          window.location.reload();
+        }
+      })
+      .catch((err) => console.error('Auto-seed failed:', err));
+  }, [isAuthenticated, db.loading, db.users.length]);
+
   // ─── Sync DB data into local state when it loads ─────────────────────────────
   useEffect(() => {
     if (!db.loading && db.users.length > 0) {
