@@ -9,6 +9,7 @@ import { TimesheetView } from '../timesheets/TimesheetView';
 import { IncidentModule } from '../incidents/IncidentModule';
 import { HACCPModule } from '../haccp/HACCPModule';
 import { ObjectivesModule } from '../objectives/ObjectivesModule';
+import { DailyObjectiveBar } from '../objectives/DailyObjectiveBar';
 import { PinManagement } from '../pins/PinManagement';
 import { PlanningModule } from '../planning/PlanningModule';
 import { OrdersModule } from '../orders/OrdersModule';
@@ -140,6 +141,9 @@ export function ManagerView() {
           <p className="text-xs text-muted-foreground">Done</p>
         </div>
       </div>
+
+      {/* Daily objective progress bar */}
+      <DailyObjectiveBar compact />
 
       {/* Incident Summary Card */}
       {(() => {

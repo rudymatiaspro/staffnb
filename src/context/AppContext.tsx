@@ -492,7 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [users]);
 
   const completeTask = useCallback(
-    (taskId: string) => {
+    async (taskId: string) => {
       if (!currentUser) return;
       const updatedTask = tasks.find((t) => t.id === taskId);
       if (!updatedTask) return;
@@ -508,7 +508,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       setValidationLog((prev) => [event, ...prev].slice(0, 100));
       showToast({ type: 'success', message: `"${updatedTask.name}" completed! +${updatedTask.points || 10} pts` });
-      if (isAuthenticated) db.saveTask(newTask);
+      if (isAuthenticated) {
+        db.saveTask(newTask);
+        // Trigger server-side objective progress recalculation
+        try {
+          const { supabase } = await import('../integrations/supabase/client');
+          await supabase.rpc('update_objective_progress');
+        } catch (e) {
+          console.warn('update_objective_progress failed silently:', e);
+        }
+      }
     },
     [currentUser, tasks, showToast, isAuthenticated, db]
   );
