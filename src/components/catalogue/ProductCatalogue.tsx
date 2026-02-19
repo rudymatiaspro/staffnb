@@ -1,13 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory, PRODUCT_CATEGORIES, UnitType, StockUpdateReason } from '../../types';
 import {
   Package, Plus, Search, AlertTriangle, CheckCircle, Edit2, Trash2,
   ChevronDown, ChevronUp, X, Minus, BarChart2, Phone, Mail,
+  Download, Upload, FileText, AlertCircle,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { supabase } from '../../integrations/supabase/client';
 
 const ALL_CATEGORIES = Object.values(PRODUCT_CATEGORIES).flat() as ProductCategory[];
 const ALL_GROUPS = Object.keys(PRODUCT_CATEGORIES) as (keyof typeof PRODUCT_CATEGORIES)[];
+
+// ─── CSV template columns ──────────────────────────────────────────────────────
+const TEMPLATE_COLUMNS = ['Nom', 'Catégorie', 'Sous-catégorie', 'Unité', 'Prix unitaire', 'Fournisseur', 'Référence fournisseur', 'Seuil alerte stock'];
+const REQUIRED_COLS = ['Nom', 'Catégorie', 'Fournisseur'];
 
 function getStockStatus(p: Product) {
   if (p.currentStock <= p.minThreshold) return 'critical';
@@ -34,6 +41,30 @@ function StockBadge({ status }: { status: string }) {
 }
 
 const STOCK_REASONS: StockUpdateReason[] = ['Delivery received', 'Consumed', 'Damaged', 'Inventory correction'];
+
+// ─── Import preview row ────────────────────────────────────────────────────────
+interface ImportRow {
+  name: string;
+  category: string;
+  subcategory: string;
+  unit: string;
+  unitPrice: number | null;
+  supplier: string;
+  supplierRef: string;
+  minThreshold: number;
+}
+
+// ─── CSV Download helper ───────────────────────────────────────────────────────
+function downloadCsvTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    TEMPLATE_COLUMNS,
+    ['Eau minérale 1L', 'Food', 'Boissons', 'pcs', 1.2, 'Metro', 'METRO-EAU-001', 10],
+    ['Vin rouge Bordeaux', 'Food', 'Vins', 'btl', 8.5, 'Transgourmet', 'TG-VIN-042', 5],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Catalogue');
+  XLSX.writeFile(wb, 'modele_catalogue.xlsx');
+}
 
 // ─── Product Form ─────────────────────────────────────────────────────────────
 interface ProductFormData {
@@ -72,25 +103,25 @@ function ProductForm({ initial, onSave, onCancel }: {
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Product Name *</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Nom *</label>
           <input
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
-            placeholder="e.g. Château Margaux"
+            placeholder="Ex: Eau minérale 1L"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Brand</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Marque</label>
           <input
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={form.brand}
             onChange={(e) => set('brand', e.target.value)}
-            placeholder="Brand name"
+            placeholder="Marque"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Category *</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Catégorie *</label>
           <select
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={form.category}
@@ -106,7 +137,7 @@ function ProductForm({ initial, onSave, onCancel }: {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Unit</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Unité</label>
           <div className="flex gap-2">
             {(['btl', 'pcs'] as UnitType[]).map((u) => (
               <button
@@ -119,31 +150,31 @@ function ProductForm({ initial, onSave, onCancel }: {
                     : 'bg-background border-input text-muted-foreground hover:bg-secondary'
                 }`}
               >
-                {u === 'btl' ? 'Bottles (btl)' : 'Pieces (pcs)'}
+                {u === 'btl' ? 'Bouteilles (btl)' : 'Pièces (pcs)'}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Supplier</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Fournisseur</label>
           <input
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={form.supplier}
             onChange={(e) => set('supplier', e.target.value)}
-            placeholder="Supplier / Distributor"
+            placeholder="Metro, Transgourmet…"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Supplier Contact</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Contact fournisseur</label>
           <input
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             value={form.supplierContact}
             onChange={(e) => set('supplierContact', e.target.value)}
-            placeholder="Phone or email"
+            placeholder="Téléphone ou email"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Current Stock</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Stock actuel</label>
           <input
             type="number" min={0}
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -152,7 +183,7 @@ function ProductForm({ initial, onSave, onCancel }: {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Min. Threshold (alert)</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Seuil d'alerte</label>
           <input
             type="number" min={0}
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -167,19 +198,19 @@ function ProductForm({ initial, onSave, onCancel }: {
           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[60px] resize-none"
           value={form.notes}
           onChange={(e) => set('notes', e.target.value)}
-          placeholder="Optional notes..."
+          placeholder="Notes optionnelles..."
         />
       </div>
       <div className="flex gap-2 justify-end">
         <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-muted-foreground border border-input hover:bg-secondary transition-colors">
-          Cancel
+          Annuler
         </button>
         <button
           onClick={() => { if (form.name) onSave(form); }}
           disabled={!form.name}
           className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
         >
-          Save Product
+          Enregistrer
         </button>
       </div>
     </div>
@@ -207,7 +238,7 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
       <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-foreground">Update Stock</h3>
+            <h3 className="font-bold text-foreground">Mise à jour stock</h3>
             <p className="text-xs text-muted-foreground mt-0.5">{product.name}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
@@ -216,7 +247,7 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
         </div>
 
         <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-secondary">
-          <span className="text-sm text-muted-foreground">Current stock</span>
+          <span className="text-sm text-muted-foreground">Stock actuel</span>
           <span className="font-bold text-foreground text-lg">{product.currentStock} {product.unit}</span>
         </div>
 
@@ -226,13 +257,13 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
               onClick={() => setIsPos(true)}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${isPos ? 'bg-emerald-600 text-white' : 'bg-secondary text-muted-foreground'}`}
             >
-              + Add
+              + Ajouter
             </button>
             <button
               onClick={() => setIsPos(false)}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${!isPos ? 'bg-red-500 text-white' : 'bg-secondary text-muted-foreground'}`}
             >
-              − Remove
+              − Retirer
             </button>
           </div>
           <div className="flex items-center gap-3">
@@ -257,7 +288,7 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Reason</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Raison</label>
             <select
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none"
               value={reason}
@@ -270,7 +301,7 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
 
         {delta > 0 && (
           <div className="flex items-center justify-between p-3 rounded-xl bg-secondary mb-4">
-            <span className="text-xs text-muted-foreground">New stock will be</span>
+            <span className="text-xs text-muted-foreground">Nouveau stock</span>
             <span className={`font-bold text-lg ${isPos ? 'text-emerald-600' : 'text-red-500'}`}>
               {newStock} {product.unit}
             </span>
@@ -282,7 +313,7 @@ function StockUpdateModal({ product, onClose }: { product: Product; onClose: () 
           disabled={delta === 0}
           className="w-full py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
         >
-          Confirm Update
+          Confirmer
         </button>
       </div>
     </div>
@@ -326,7 +357,6 @@ function ProductCard({ product, canEdit, onEdit, onDelete, onUpdateStock }: {
         )}
       </div>
 
-      {/* Stock bar */}
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-xs text-muted-foreground">Stock</span>
@@ -341,10 +371,9 @@ function ProductCard({ product, canEdit, onEdit, onDelete, onUpdateStock }: {
             }}
           />
         </div>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Min. threshold: {product.minThreshold} {product.unit}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Seuil min. : {product.minThreshold} {product.unit}</p>
       </div>
 
-      {/* Supplier row */}
       {(product.supplier || product.supplierContact) && (
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-3">
           {product.supplier && <span className="truncate">{product.supplier}</span>}
@@ -367,17 +396,98 @@ function ProductCard({ product, canEdit, onEdit, onDelete, onUpdateStock }: {
           className="w-full py-1.5 rounded-lg bg-secondary hover:bg-muted text-xs font-medium text-foreground transition-colors flex items-center justify-center gap-1.5"
         >
           <BarChart2 className="w-3.5 h-3.5" />
-          Update Stock
+          Modifier le stock
         </button>
       )}
     </div>
   );
 }
 
+// ─── Import Modal ─────────────────────────────────────────────────────────────
+function ImportCatalogueModal({
+  rows,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  rows: ImportRow[];
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const preview = rows.slice(0, 5);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl w-full max-w-lg border border-border shadow-xl animate-slide-up max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Aperçu de l'import</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{rows.length} produit(s) détecté(s)</p>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5">
+          <p className="text-xs text-muted-foreground mb-3">
+            Aperçu des 5 premières lignes :
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50">
+                  {['Nom', 'Catégorie', 'Unité', 'Fournisseur', 'Seuil'].map((h) => (
+                    <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((row, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="px-3 py-2 font-medium text-foreground">{row.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.category || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.unit || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.supplier || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.minThreshold || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 5 && (
+            <p className="text-[11px] text-muted-foreground mt-2 text-center">+ {rows.length - 5} autres lignes…</p>
+          )}
+        </div>
+
+        <div className="flex gap-3 p-5 border-t border-border flex-shrink-0">
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium text-muted-foreground">
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="text-xs">Import en cours…</span>
+            ) : (
+              <>
+                <Upload className="w-3.5 h-3.5" />
+                Confirmer l'import
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Catalogue Component ─────────────────────────────────────────────────
 interface ProductCatalogueProps {
-  canEdit?: boolean;  // manager or owner
-  canDelete?: boolean; // owner only
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 export function ProductCatalogue({ canEdit = false, canDelete = false }: ProductCatalogueProps) {
@@ -389,6 +499,12 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['BEVERAGES', 'FOOD', 'SUPPLIES']));
+
+  // Import state
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importError, setImportError] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -423,6 +539,106 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
     }
   };
 
+  // ─── Parse import file ────────────────────────────────────────────────────────
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        if (!rows || rows.length < 2) {
+          setImportError('Fichier vide ou format invalide.');
+          return;
+        }
+
+        const header = (rows[0] as string[]).map((h) => String(h).trim());
+
+        // Check required columns
+        for (const col of REQUIRED_COLS) {
+          if (!header.includes(col)) {
+            setImportError(`Colonne "${col}" manquante. Téléchargez le modèle.`);
+            return;
+          }
+        }
+
+        const colIdx = (name: string) => header.indexOf(name);
+
+        const parsed: ImportRow[] = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i] as unknown[];
+          const name = String(row[colIdx('Nom')] ?? '').trim();
+          if (!name) continue;
+          parsed.push({
+            name,
+            category: String(row[colIdx('Catégorie')] ?? '').trim(),
+            subcategory: String(row[colIdx('Sous-catégorie')] ?? '').trim(),
+            unit: String(row[colIdx('Unité')] ?? 'pcs').trim(),
+            unitPrice: row[colIdx('Prix unitaire')] != null ? parseFloat(String(row[colIdx('Prix unitaire')])) : null,
+            supplier: String(row[colIdx('Fournisseur')] ?? '').trim(),
+            supplierRef: String(row[colIdx('Référence fournisseur')] ?? '').trim(),
+            minThreshold: parseInt(String(row[colIdx('Seuil alerte stock')] ?? '0')) || 0,
+          });
+        }
+
+        if (parsed.length === 0) {
+          setImportError('Aucune ligne valide trouvée dans le fichier.');
+          return;
+        }
+
+        setImportRows(parsed);
+      } catch {
+        setImportError('Impossible de lire le fichier. Utilisez un CSV ou Excel (.xlsx).');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleImportConfirm = async () => {
+    if (importRows.length === 0) return;
+    setImportLoading(true);
+    try {
+      for (const row of importRows) {
+        // Try to find existing product by supplier_ref or name
+        const { data: existing } = await supabase
+          .from('products')
+          .select('id')
+          .or(`supplier_ref.eq.${row.supplierRef},name.ilike.${row.name}`)
+          .limit(1)
+          .maybeSingle();
+
+        const payload = {
+          name: row.name,
+          category: row.category || 'Food',
+          supplier: row.supplier || null,
+          unit: (['btl', 'pcs'].includes(row.unit) ? row.unit : 'pcs') as 'btl' | 'pcs',
+          min_threshold: row.minThreshold,
+          current_stock: 0,
+          notes: row.subcategory ? `Sous-catégorie: ${row.subcategory}` : null,
+          supplier_ref: row.supplierRef || null,
+          subcategory: row.subcategory || null,
+        };
+
+        if (existing?.id) {
+          await supabase.from('products').update(payload).eq('id', existing.id);
+        } else {
+          await supabase.from('products').insert(payload);
+        }
+      }
+      setImportRows([]);
+    } catch (err) {
+      console.error('Import error:', err);
+    }
+    setImportLoading(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -430,28 +646,71 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
         <div>
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
             <Package className="w-4 h-4 text-primary" />
-            Product Catalogue
+            Catalogue Produits
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{products.length} products</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{products.length} produits</p>
         </div>
-        {canEdit && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Download template */}
           <button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+            onClick={downloadCsvTemplate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-foreground text-xs font-medium hover:bg-muted transition-colors border border-border"
           >
-            <Plus className="w-4 h-4" />
-            Add Product
+            <Download className="w-3.5 h-3.5" />
+            Modèle CSV
           </button>
-        )}
+
+          {/* Import */}
+          {canEdit && (
+            <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-foreground text-xs font-semibold cursor-pointer hover:bg-muted transition-colors border border-border">
+              <Upload className="w-3.5 h-3.5" />
+              Importer catalogue
+              <input
+                ref={importRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+            </label>
+          )}
+
+          {/* Add manually */}
+          {canEdit && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Import error */}
+      {importError && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30">
+          <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-destructive">{importError}</p>
+            <button
+              onClick={downloadCsvTemplate}
+              className="text-xs text-destructive underline mt-0.5"
+            >
+              📄 Télécharger le modèle CSV
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Alert banner */}
       {(criticalCount > 0 || warningCount > 0) && (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${criticalCount > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
           <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${criticalCount > 0 ? 'text-red-500' : 'text-amber-500'}`} />
           <p className="text-xs font-medium">
-            {criticalCount > 0 && <span className="text-red-600">{criticalCount} product{criticalCount > 1 ? 's' : ''} critically low. </span>}
-            {warningCount > 0 && <span className="text-amber-600">{warningCount} product{warningCount > 1 ? 's' : ''} running low.</span>}
+            {criticalCount > 0 && <span className="text-red-600">{criticalCount} produit{criticalCount > 1 ? 's' : ''} en rupture critique. </span>}
+            {warningCount > 0 && <span className="text-amber-600">{warningCount} produit{warningCount > 1 ? 's' : ''} stock bas.</span>}
           </p>
         </div>
       )}
@@ -462,7 +721,7 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
             className="w-full pl-9 pr-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Search products..."
+            placeholder="Rechercher produits..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -474,7 +733,7 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
               onClick={() => setFilterGroup(g)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterGroup === g ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              {g === 'ALL' ? 'All' : g.charAt(0) + g.slice(1).toLowerCase()}
+              {g === 'ALL' ? 'Tous' : g.charAt(0) + g.slice(1).toLowerCase()}
             </button>
           ))}
         </div>
@@ -483,7 +742,7 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
       {/* Add form */}
       {showAddForm && (
         <div className="glass-card rounded-xl p-5 animate-slide-up">
-          <h3 className="text-sm font-bold text-foreground mb-4">New Product</h3>
+          <h3 className="text-sm font-bold text-foreground mb-4">Nouveau produit</h3>
           <ProductForm onSave={handleSaveNew} onCancel={() => setShowAddForm(false)} />
         </div>
       )}
@@ -491,7 +750,7 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
       {/* Edit form */}
       {editingProduct && (
         <div className="glass-card rounded-xl p-5 animate-slide-up">
-          <h3 className="text-sm font-bold text-foreground mb-4">Edit: {editingProduct.name}</h3>
+          <h3 className="text-sm font-bold text-foreground mb-4">Modifier : {editingProduct.name}</h3>
           <ProductForm
             initial={editingProduct}
             onSave={handleSaveEdit}
@@ -504,13 +763,22 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
       {products.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p className="font-semibold text-foreground">No products yet</p>
-          <p className="text-sm mt-1">{canEdit ? 'Add your first product to get started' : 'No products have been added yet'}</p>
+          <p className="font-semibold text-foreground">Aucun produit</p>
+          <p className="text-sm mt-1">{canEdit ? 'Ajoutez votre premier produit ou importez un catalogue' : 'Aucun produit ajouté'}</p>
+          {canEdit && (
+            <button
+              onClick={downloadCsvTemplate}
+              className="mt-3 flex items-center gap-1.5 mx-auto px-4 py-2 rounded-xl bg-secondary text-xs font-medium"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Télécharger le modèle CSV
+            </button>
+          )}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">
           <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">No products match your search</p>
+          <p className="text-sm">Aucun produit ne correspond à la recherche</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -529,10 +797,10 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
                   className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
                 >
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex-1">{group}</span>
-                  <span className="text-xs text-muted-foreground">{groupProducts.length} items</span>
+                  <span className="text-xs text-muted-foreground">{groupProducts.length} articles</span>
                   {groupCritical > 0 && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200">
-                      {groupCritical} alert{groupCritical > 1 ? 's' : ''}
+                      {groupCritical} alerte{groupCritical > 1 ? 's' : ''}
                     </span>
                   )}
                   {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -557,10 +825,18 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
         </div>
       )}
 
-      {/* Stock update modal */}
+      {/* Modals */}
       {stockProduct && <StockUpdateModal product={stockProduct} onClose={() => setStockProduct(null)} />}
 
-      {/* Delete confirm */}
+      {importRows.length > 0 && (
+        <ImportCatalogueModal
+          rows={importRows}
+          onConfirm={handleImportConfirm}
+          onCancel={() => { setImportRows([]); setImportError(''); }}
+          loading={importLoading}
+        />
+      )}
+
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/30 backdrop-blur-sm">
           <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -569,19 +845,19 @@ export function ProductCatalogue({ canEdit = false, canDelete = false }: Product
                 <Trash2 className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground">Delete Product</h3>
-                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+                <h3 className="font-bold text-foreground">Supprimer le produit</h3>
+                <p className="text-xs text-muted-foreground">Cette action est irréversible.</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-input text-sm font-medium hover:bg-secondary transition-colors">
-                Cancel
+                Annuler
               </button>
               <button
                 onClick={() => { if (canDelete) deleteProduct(deleteConfirm); setDeleteConfirm(null); }}
                 className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
               >
-                Delete
+                Supprimer
               </button>
             </div>
           </div>

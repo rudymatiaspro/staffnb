@@ -213,6 +213,66 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_reports: {
+        Row: {
+          bon_photo_url: string | null
+          created_at: string | null
+          delivery_photo_url: string | null
+          global_status: string | null
+          id: string
+          items_missing: number | null
+          items_ok: number | null
+          items_partial: number | null
+          note: string | null
+          order_id: string | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          bon_photo_url?: string | null
+          created_at?: string | null
+          delivery_photo_url?: string | null
+          global_status?: string | null
+          id?: string
+          items_missing?: number | null
+          items_ok?: number | null
+          items_partial?: number | null
+          note?: string | null
+          order_id?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          bon_photo_url?: string | null
+          created_at?: string | null
+          delivery_photo_url?: string | null
+          global_status?: string | null
+          id?: string
+          items_missing?: number | null
+          items_ok?: number | null
+          items_partial?: number | null
+          note?: string | null
+          order_id?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_reports_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gamification_settings: {
         Row: {
           bonus_reset_time: string
@@ -686,6 +746,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string
+          delivery_date: string | null
+          delivery_note: string | null
+          delivery_note_url: string | null
+          delivery_photo_url: string | null
           id: string
           is_recurring: boolean
           manager_confirmed_at: string | null
@@ -711,6 +775,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string
+          delivery_date?: string | null
+          delivery_note?: string | null
+          delivery_note_url?: string | null
+          delivery_photo_url?: string | null
           id?: string
           is_recurring?: boolean
           manager_confirmed_at?: string | null
@@ -736,6 +804,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string
+          delivery_date?: string | null
+          delivery_note?: string | null
+          delivery_note_url?: string | null
+          delivery_photo_url?: string | null
           id?: string
           is_recurring?: boolean
           manager_confirmed_at?: string | null
@@ -860,8 +932,10 @@ export type Database = {
           min_threshold: number
           name: string
           notes: string | null
+          subcategory: string | null
           supplier: string | null
           supplier_contact: string | null
+          supplier_ref: string | null
           unit: Database["public"]["Enums"]["unit_type"]
           updated_at: string
         }
@@ -874,8 +948,10 @@ export type Database = {
           min_threshold?: number
           name: string
           notes?: string | null
+          subcategory?: string | null
           supplier?: string | null
           supplier_contact?: string | null
+          supplier_ref?: string | null
           unit?: Database["public"]["Enums"]["unit_type"]
           updated_at?: string
         }
@@ -888,8 +964,10 @@ export type Database = {
           min_threshold?: number
           name?: string
           notes?: string | null
+          subcategory?: string | null
           supplier?: string | null
           supplier_contact?: string | null
+          supplier_ref?: string | null
           unit?: Database["public"]["Enums"]["unit_type"]
           updated_at?: string
         }
