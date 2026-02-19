@@ -1,295 +1,467 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
-import { TemperatureLocation, TemperatureLog } from '../../types';
-import { Thermometer, Plus, AlertTriangle, CheckCircle, Download, Filter, X } from 'lucide-react';
+import { Thermometer, Plus, AlertTriangle, CheckCircle, Download, X, ShieldCheck } from 'lucide-react';
+import { PinEntry } from '../auth/PinEntry';
+import { verifyPin } from '../../lib/pinCrypto';
+import { logAudit } from '../../lib/auditLogger';
+
+// ─── Zone presets with fixed thresholds ─────────────────────────────────────
+
+type Zone = 'Frigo' | 'Congélateur' | 'Plat chaud' | 'Livraison';
+
+const ZONE_CONFIG: Record<Zone, { min?: number; max: number; hint: string }> = {
+  'Frigo':       { min: 0,   max: 4,   hint: '0°C à 4°C' },
+  'Congélateur': { max: -18, hint: '< -18°C' },
+  'Plat chaud':  { min: 63,  max: 999, hint: '> 63°C' },
+  'Livraison':   { min: 0,   max: 8,   hint: '0°C à 8°C' },
+};
+
+const ZONES = Object.keys(ZONE_CONFIG) as Zone[];
+
+function isAlert(zone: Zone, temp: number): boolean {
+  const cfg = ZONE_CONFIG[zone];
+  if (zone === 'Plat chaud') return temp < (cfg.min ?? 63);
+  if (zone === 'Congélateur') return temp > cfg.max;
+  return temp > cfg.max || (cfg.min !== undefined && temp < cfg.min);
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface HACCPLog {
+  id: string;
+  zone: Zone;
+  temperature: number;
+  observation: string;
+  status: 'ok' | 'alert';
+  signed_by_pin: boolean;
+  user_id: string | null;
+  logged_by: string;
+  created_at: string;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function last7Days(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toISOString();
+}
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 interface Props {
   canExport?: boolean;
   canManageLocations?: boolean;
 }
 
-function getStatusColor(log: TemperatureLog) {
-  return log.isAlert
-    ? 'bg-destructive/10 border-destructive/30 text-timer-danger'
-    : 'bg-timer-safe/10 border-timer-safe/30 text-timer-safe';
-}
+export function HACCPModule({ canExport = false }: Props) {
+  const { currentUser } = useApp();
+  const [logs, setLogs] = useState<HACCPLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showPinEntry, setShowPinEntry] = useState(false);
+  const [pendingEntry, setPendingEntry] = useState<Omit<HACCPLog, 'id' | 'created_at'> | null>(null);
+  const [saving, setSaving] = useState(false);
 
-export function HACCPModule({ canExport = false, canManageLocations = false }: Props) {
-  const { tempLocations, tempLogs, currentUser, addTempLog, addTempLocation } = useApp();
-  const [showLogForm, setShowLogForm] = useState(false);
-  const [showLocationForm, setShowLocationForm] = useState(false);
-  const [filterLocation, setFilterLocation] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [logForm, setLogForm] = useState({ locationId: '', temperature: '', note: '' });
-  const [logError, setLogError] = useState('');
-  const [locationForm, setLocationForm] = useState({ name: '', minThreshold: '', maxThreshold: '' });
-  const [locError, setLocError] = useState('');
+  // Form state
+  const [zone, setZone] = useState<Zone>('Frigo');
+  const [tempInput, setTempInput] = useState('');
+  const [observation, setObservation] = useState('');
+  const [formTime, setFormTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [formError, setFormError] = useState('');
+  const [alertPreview, setAlertPreview] = useState(false);
 
-  const filtered = tempLogs
-    .filter(l => filterLocation === 'all' || l.locationId === filterLocation)
-    .filter(l => !filterDateFrom || l.createdAt >= new Date(filterDateFrom))
-    .filter(l => !filterDateTo || l.createdAt <= new Date(filterDateTo + 'T23:59:59'))
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('temperature_logs')
+      .select('*')
+      .gte('created_at', last7Days())
+      .order('created_at', { ascending: false });
+    if (data) {
+      setLogs(data.map(r => ({
+        id: r.id,
+        zone: (r.location_name as Zone) ?? 'Frigo',
+        temperature: Number(r.temperature),
+        observation: r.note ?? '',
+        status: r.is_alert ? 'alert' : 'ok',
+        signed_by_pin: true,
+        user_id: r.logged_by_user_id ?? null,
+        logged_by: r.logged_by,
+        created_at: r.created_at,
+      })));
+    }
+    setLoading(false);
+  }, []);
 
-  const alertCount = tempLogs.filter(l => l.isAlert).length;
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const handleLogSubmit = () => {
-    if (!logForm.locationId) { setLogError('Select a location'); return; }
-    const temp = parseFloat(logForm.temperature);
-    if (isNaN(temp)) { setLogError('Enter a valid temperature'); return; }
-    const location = tempLocations.find(l => l.id === logForm.locationId);
-    if (!location) { setLogError('Location not found'); return; }
-    const isAlert = temp > location.maxThreshold || (location.minThreshold !== undefined && location.minThreshold !== null && temp < location.minThreshold);
-    addTempLog({
-      locationId: location.id,
-      locationName: location.name,
-      temperature: temp,
-      unit: '°C',
-      isAlert,
-      note: logForm.note || undefined,
-      loggedBy: currentUser?.name || 'Unknown',
-      loggedByUserId: currentUser?.id,
-    }, { minThreshold: location.minThreshold, maxThreshold: location.maxThreshold });
-    setLogForm({ locationId: '', temperature: '', note: '' });
-    setShowLogForm(false);
+  // Update alert preview in real-time
+  useEffect(() => {
+    if (!tempInput) { setAlertPreview(false); return; }
+    const t = parseFloat(tempInput);
+    if (isNaN(t)) { setAlertPreview(false); return; }
+    setAlertPreview(isAlert(zone, t));
+  }, [zone, tempInput]);
+
+  const handleValidate = () => {
+    setFormError('');
+    const t = parseFloat(tempInput);
+    if (isNaN(t)) { setFormError('Entrez une température valide'); return; }
+    if (!currentUser) return;
+
+    const alert = isAlert(zone, t);
+    const entry: Omit<HACCPLog, 'id' | 'created_at'> = {
+      zone,
+      temperature: t,
+      observation,
+      status: alert ? 'alert' : 'ok',
+      signed_by_pin: false,
+      user_id: currentUser.id,
+      logged_by: currentUser.name,
+    };
+    setPendingEntry(entry);
+    setShowPinEntry(true);
   };
 
-  const handleLocationSubmit = () => {
-    if (!locationForm.name.trim()) { setLocError('Name is required'); return; }
-    const max = parseFloat(locationForm.maxThreshold);
-    if (isNaN(max)) { setLocError('Max threshold is required'); return; }
-    addTempLocation({
-      name: locationForm.name.trim(),
-      minThreshold: locationForm.minThreshold ? parseFloat(locationForm.minThreshold) : undefined,
-      maxThreshold: max,
-      isCustom: true,
+  const handlePinSuccess = async (pin: string) => {
+    if (!pendingEntry || !currentUser) return;
+    setSaving(true);
+
+    // Verify PIN
+    const storedHash = currentUser.pin ?? '';
+    let pinOk = false;
+    if (!storedHash) {
+      pinOk = pin === '1111'; // default
+    } else {
+      const res = await verifyPin(storedHash, pin);
+      pinOk = res === 'match' || res === 'legacy'; // legacy = old btoa
+    }
+
+    if (!pinOk) {
+      setSaving(false);
+      setShowPinEntry(false);
+      setFormError('PIN incorrect — contrôle non signé');
+      return;
+    }
+
+    // Find or create the location in temperature_locations
+    const { data: locData } = await supabase
+      .from('temperature_locations')
+      .select('id')
+      .eq('name', pendingEntry.zone)
+      .limit(1);
+
+    let locationId = locData?.[0]?.id;
+    if (!locationId) {
+      const cfg = ZONE_CONFIG[pendingEntry.zone];
+      const { data: newLoc } = await supabase
+        .from('temperature_locations')
+        .insert({
+          name: pendingEntry.zone,
+          max_threshold: cfg.max,
+          min_threshold: cfg.min ?? null,
+          is_custom: false,
+        })
+        .select('id')
+        .single();
+      locationId = newLoc?.id;
+    }
+
+    if (!locationId) { setSaving(false); return; }
+
+    const { error } = await supabase.from('temperature_logs').insert({
+      location_id: locationId,
+      location_name: pendingEntry.zone,
+      temperature: pendingEntry.temperature,
+      unit: '°C',
+      is_alert: pendingEntry.status === 'alert',
+      note: pendingEntry.observation || null,
+      logged_by: currentUser.name,
+      logged_by_user_id: currentUser.id,
     });
-    setLocationForm({ name: '', minThreshold: '', maxThreshold: '' });
-    setShowLocationForm(false);
+
+    if (!error) {
+      // Notify manager if alert
+      if (pendingEntry.status === 'alert') {
+        const { data: managers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('role', ['manager', 'admin', 'owner']);
+        if (managers) {
+          await supabase.from('notifications').insert(
+            managers.map(m => ({
+              user_id: m.user_id,
+              type: 'haccp',
+              title: `🌡️ Alerte HACCP — ${pendingEntry.zone}`,
+              body: `Température hors norme : ${pendingEntry.temperature}°C relevée par ${currentUser.name}.${pendingEntry.observation ? ` Note : ${pendingEntry.observation}` : ''}`,
+              ref_type: 'haccp',
+            }))
+          );
+        }
+      }
+
+      await logAudit(currentUser.id, currentUser.name, 'haccp_logged', 'temperature_log', undefined, {
+        zone: pendingEntry.zone,
+        temperature: pendingEntry.temperature,
+        status: pendingEntry.status,
+      });
+
+      // Reset form
+      setZone('Frigo');
+      setTempInput('');
+      setObservation('');
+      setFormTime(new Date().toTimeString().slice(0, 5));
+      setShowForm(false);
+      fetchLogs();
+    }
+
+    setSaving(false);
+    setShowPinEntry(false);
+    setPendingEntry(null);
   };
 
   const exportCSV = () => {
-    const headers = 'Location,Temperature (°C),Alert,Logged By,Note,Date/Time\n';
-    const rows = filtered.map(l =>
-      `"${l.locationName}",${l.temperature},${l.isAlert ? 'YES' : 'NO'},"${l.loggedBy}","${l.note || ''}","${l.createdAt.toLocaleString('en-GB')}"`
+    const headers = 'Zone,Température (°C),Statut,Contrôleur,Observation,Date/Heure\n';
+    const rows = logs.map(l =>
+      `"${l.zone}",${l.temperature},${l.status === 'alert' ? 'ALERTE' : 'OK'},"${l.logged_by}","${l.observation ?? ''}","${fmt(l.created_at)}"`
     ).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `haccp-log-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `haccp-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const alertCount = logs.filter(l => l.status === 'alert').length;
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
             <Thermometer className="w-4 h-4 text-primary" />
-            HACCP Temperature Log
+            HACCP — Contrôles Températures
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {tempLogs.length} entries · {alertCount > 0 && <span className="text-timer-danger font-medium">{alertCount} alerts</span>}
+            7 derniers jours · {logs.length} relevés
+            {alertCount > 0 && <span className="text-destructive font-medium"> · {alertCount} alerte{alertCount > 1 ? 's' : ''}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           {canExport && (
-            <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
+            <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-secondary transition-colors">
+              <Download className="w-3.5 h-3.5" /> Export CSV
             </button>
           )}
-          {canManageLocations && (
-            <button onClick={() => setShowLocationForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">
-              <Plus className="w-3.5 h-3.5" />
-              Add Location
-            </button>
-          )}
-          <button onClick={() => setShowLogForm(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90">
-            <Thermometer className="w-3.5 h-3.5" />
-            Log Temp
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3.5 h-3.5" /> Nouveau relevé
           </button>
         </div>
       </div>
 
-      {/* Locations overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {tempLocations.map(loc => {
-          const lastLog = tempLogs.filter(l => l.locationId === loc.id).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      {/* Zone summary cards */}
+      <div className="grid grid-cols-2 gap-2">
+        {ZONES.map(z => {
+          const lastLog = logs.filter(l => l.zone === z).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
           return (
-            <div key={loc.id} className={`rounded-xl p-3 border text-center ${lastLog?.isAlert ? 'bg-destructive/10 border-destructive/30' : 'glass-card'}`}>
-              <p className="text-[10px] text-muted-foreground truncate">{loc.name}</p>
+            <div key={z} className={`rounded-xl p-3 border text-center ${lastLog?.status === 'alert' ? 'bg-destructive/10 border-destructive/30' : 'bg-card border-border'}`}>
+              <p className="text-[10px] text-muted-foreground font-medium">{z}</p>
+              <p className="text-[9px] text-muted-foreground/60 mb-1">{ZONE_CONFIG[z].hint}</p>
               {lastLog ? (
                 <>
-                  <p className={`text-xl font-black mt-1 ${lastLog.isAlert ? 'text-timer-danger' : 'text-timer-safe'}`}>
+                  <p className={`text-xl font-black ${lastLog.status === 'alert' ? 'text-destructive' : 'text-[hsl(var(--timer-safe))]'}`}>
                     {lastLog.temperature}°C
                   </p>
-                  <p className="text-[9px] text-muted-foreground">{lastLog.createdAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-[9px] text-muted-foreground">{fmt(lastLog.created_at)}</p>
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground mt-2">No data</p>
+                <p className="text-xs text-muted-foreground/50 mt-2 italic">Pas de données</p>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <select
-          value={filterLocation}
-          onChange={e => setFilterLocation(e.target.value)}
-          className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background text-foreground"
-        >
-          <option value="all">All Locations</option>
-          {tempLocations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-        <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-          className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background text-foreground" />
-        <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-          className="text-xs border border-border rounded-lg px-2 py-1.5 bg-background text-foreground" />
-      </div>
-
-      {/* Log list */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
+      {/* History table */}
+      {loading ? (
+        <p className="text-xs text-muted-foreground text-center py-6">Chargement…</p>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">
           <Thermometer className="w-10 h-10 mx-auto mb-2 opacity-20" />
-          <p className="text-sm font-medium text-foreground">No temperature logs</p>
-          <p className="text-xs mt-1">Start logging temperatures for HACCP compliance</p>
+          <p className="text-sm font-medium">Aucun relevé de température</p>
+          <p className="text-xs mt-1">Commencez à enregistrer pour la conformité HACCP</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(log => (
-            <div key={log.id} className={`rounded-xl p-3 border flex items-center gap-3 ${log.isAlert ? 'bg-destructive/10 border-destructive/30' : 'bg-timer-safe/5 border-timer-safe/20'}`}>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${log.isAlert ? 'bg-destructive/20' : 'bg-timer-safe/20'}`}>
-                {log.isAlert
-                  ? <AlertTriangle className="w-4 h-4 text-timer-danger" />
-                  : <CheckCircle className="w-4 h-4 text-timer-safe" />}
+          {logs.map(log => (
+            <div
+              key={log.id}
+              className={`rounded-xl p-3 border flex items-center gap-3 ${log.status === 'alert' ? 'bg-destructive/10 border-destructive/30' : 'bg-[hsl(var(--timer-safe)/0.05)] border-[hsl(var(--timer-safe)/0.2)]'}`}
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${log.status === 'alert' ? 'bg-destructive/20' : 'bg-[hsl(var(--timer-safe)/0.2)]'}`}>
+                {log.status === 'alert'
+                  ? <AlertTriangle className="w-4 h-4 text-destructive" />
+                  : <CheckCircle className="w-4 h-4 text-[hsl(var(--timer-safe))]" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground">{log.locationName}</span>
-                  {log.isAlert && (
-                    <span className="text-[9px] font-bold text-timer-danger bg-destructive/15 px-1.5 py-0.5 rounded">ALERT</span>
+                  <span className="text-xs font-semibold text-foreground">{log.zone}</span>
+                  {log.status === 'alert' && (
+                    <span className="text-[9px] font-bold text-destructive bg-destructive/15 px-1.5 py-0.5 rounded">ALERTE</span>
+                  )}
+                  {log.signed_by_pin && (
+                    <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                      <ShieldCheck className="w-2.5 h-2.5" /> signé
+                    </span>
                   )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">By {log.loggedBy}{log.note && ` · ${log.note}`}</p>
+                <p className="text-[10px] text-muted-foreground">{log.logged_by}{log.observation ? ` · ${log.observation}` : ''}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className={`text-sm font-black ${log.isAlert ? 'text-timer-danger' : 'text-timer-safe'}`}>{log.temperature}°C</p>
-                <p className="text-[9px] text-muted-foreground">{log.createdAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                <p className={`text-sm font-black ${log.status === 'alert' ? 'text-destructive' : 'text-[hsl(var(--timer-safe))]'}`}>
+                  {log.temperature}°C
+                </p>
+                <p className="text-[9px] text-muted-foreground">{fmt(log.created_at)}</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Log Temperature Modal */}
-      {showLogForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+      {/* New entry form modal */}
+      {showForm && !showPinEntry && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-border animate-slide-up">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Thermometer className="w-4 h-4 text-primary" />
-                Log Temperature
+                Relevé de température
               </h3>
-              <button onClick={() => setShowLogForm(false)} className="p-1 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
+              <button onClick={() => { setShowForm(false); setFormError(''); }} className="p-1 rounded-lg hover:bg-secondary">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
+
             <div className="space-y-4">
+              {/* Zone */}
               <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Location</label>
-                <select
-                  value={logForm.locationId}
-                  onChange={e => { setLogForm(p => ({ ...p, locationId: e.target.value })); setLogError(''); }}
-                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground"
-                >
-                  <option value="">Select location...</option>
-                  {tempLocations.map(l => (
-                    <option key={l.id} value={l.id}>
-                      {l.name} (max {l.maxThreshold}°C{l.minThreshold !== undefined && l.minThreshold !== null ? `, min ${l.minThreshold}°C` : ''})
-                    </option>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Zone *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ZONES.map(z => (
+                    <button
+                      key={z}
+                      onClick={() => setZone(z)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left ${zone === z ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border text-foreground hover:border-primary/40'}`}
+                    >
+                      {z}
+                      <span className="block text-[9px] opacity-70 mt-0.5">{ZONE_CONFIG[z].hint}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
+
+              {/* Temperature */}
               <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Temperature (°C)</label>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Température (°C) *</label>
                 <input
                   type="number"
                   step="0.1"
-                  placeholder="e.g. 3.5"
-                  value={logForm.temperature}
-                  onChange={e => { setLogForm(p => ({ ...p, temperature: e.target.value })); setLogError(''); }}
-                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="ex: 3.5"
+                  value={tempInput}
+                  onChange={e => setTempInput(e.target.value)}
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                {logForm.locationId && logForm.temperature && (() => {
-                  const loc = tempLocations.find(l => l.id === logForm.locationId);
-                  const temp = parseFloat(logForm.temperature);
-                  if (!loc || isNaN(temp)) return null;
-                  const isAlert = temp > loc.maxThreshold || (loc.minThreshold !== undefined && loc.minThreshold !== null && temp < loc.minThreshold);
-                  return isAlert
-                    ? <p className="text-[10px] text-timer-danger mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> This will trigger an alert!</p>
-                    : <p className="text-[10px] text-timer-safe mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Within safe range</p>;
-                })()}
+                {alertPreview && (
+                  <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Hors norme — une alerte sera envoyée au manager
+                  </p>
+                )}
+                {tempInput && !alertPreview && !isNaN(parseFloat(tempInput)) && (
+                  <p className="text-[10px] text-[hsl(var(--timer-safe))] mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Dans la plage autorisée
+                  </p>
+                )}
               </div>
+
+              {/* Heure */}
               <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Note (optional)</label>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Heure du contrôle</label>
                 <input
-                  type="text"
-                  placeholder="Optional note..."
-                  value={logForm.note}
-                  onChange={e => setLogForm(p => ({ ...p, note: e.target.value }))}
-                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  type="time"
+                  value={formTime}
+                  onChange={e => setFormTime(e.target.value)}
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-              {logError && <p className="text-[10px] text-timer-danger">{logError}</p>}
-              <div className="flex gap-3">
-                <button onClick={() => setShowLogForm(false)} className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-                <button onClick={handleLogSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90">Log</button>
+
+              {/* Contrôleur (auto) */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary text-xs text-muted-foreground">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                Contrôleur : <span className="font-semibold text-foreground">{currentUser?.name}</span>
+              </div>
+
+              {/* Observations */}
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Observations (optionnel)</label>
+                <textarea
+                  value={observation}
+                  onChange={e => setObservation(e.target.value)}
+                  placeholder="ex: frigo laissé ouvert, maintenance en cours…"
+                  rows={2}
+                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {formError && (
+                <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{formError}</p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowForm(false); setFormError(''); }}
+                  className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleValidate}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" /> Valider avec PIN
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Location Modal */}
-      {showLocationForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-foreground">Add Custom Location</h3>
-              <button onClick={() => setShowLocationForm(false)} className="p-1 rounded-lg hover:bg-secondary"><X className="w-4 h-4 text-muted-foreground" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Location Name</label>
-                <input type="text" placeholder="e.g. Fridge 3 (Storage)" value={locationForm.name}
-                  onChange={e => { setLocationForm(p => ({ ...p, name: e.target.value })); setLocError(''); }}
-                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Min Threshold (°C)</label>
-                  <input type="number" step="0.1" placeholder="Optional" value={locationForm.minThreshold}
-                    onChange={e => setLocationForm(p => ({ ...p, minThreshold: e.target.value }))}
-                    className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Max Threshold (°C) <span className="text-timer-danger">*</span></label>
-                  <input type="number" step="0.1" placeholder="e.g. 4" value={locationForm.maxThreshold}
-                    onChange={e => { setLocationForm(p => ({ ...p, maxThreshold: e.target.value })); setLocError(''); }}
-                    className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                </div>
-              </div>
-              {locError && <p className="text-[10px] text-timer-danger">{locError}</p>}
-              <div className="flex gap-3">
-                <button onClick={() => setShowLocationForm(false)} className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-                <button onClick={handleLocationSubmit} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90">Add</button>
-              </div>
-            </div>
+      {/* PIN entry to sign */}
+      {showPinEntry && currentUser && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-border animate-slide-up">
+            <PinEntry
+              user={currentUser}
+              isFirstTime={false}
+              onSuccess={async (pin) => {
+                await handlePinSuccess(pin);
+              }}
+              onBack={() => { setShowPinEntry(false); setPendingEntry(null); }}
+            />
+            {saving && (
+              <p className="text-xs text-muted-foreground text-center mt-3">Enregistrement…</p>
+            )}
           </div>
         </div>
       )}

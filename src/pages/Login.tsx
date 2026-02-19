@@ -3,16 +3,18 @@ import { useApp } from '../context/AppContext';
 import { User } from '../types';
 import { NameSelector } from '../components/auth/NameSelector';
 import { PinEntry } from '../components/auth/PinEntry';
+import { verifyPin, hashPin, isLegacyHash } from '../lib/pinCrypto';
+import { supabase } from '../integrations/supabase/client';
+import { logAudit } from '../lib/auditLogger';
 import logo from '../assets/logo.svg';
 
 type LoginStep = 'select' | 'pin' | 'set_new_pin';
 
 export default function Login() {
-  const { login, setPin, validatePin } = useApp();
+  const { login, setPin, users } = useApp();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [step, setStep] = useState<LoginStep>('select');
   const [errorMsg, setErrorMsg] = useState('');
-  // Temporarily hold the entered PIN so we can confirm it before saving
   const [pendingPin, setPendingPin] = useState('');
 
   const handleUserSelect = (user: User) => {
@@ -21,20 +23,39 @@ export default function Login() {
     setErrorMsg('');
   };
 
-  // ── Step 1: user enters their current PIN (or the default 1111) ──────────────
-  const handlePinSuccess = (pin: string) => {
+  // ── Step 1: verify PIN (async PBKDF2 / legacy btoa / default 1111) ──────────
+  const handlePinSuccess = async (pin: string) => {
     if (!selectedUser) return;
 
     if (!selectedUser.pinSet) {
-      // First ever login — accepted the default 1111, now force a new PIN
-      setPendingPin(''); // will be set in the confirm step
+      // First login — default 1111 accepted, force new PIN
+      setPendingPin('');
       setStep('set_new_pin');
       return;
     }
 
-    // Normal login: validate stored PIN
-    const valid = validatePin(selectedUser.id, pin);
+    const storedHash = selectedUser.pin ?? '';
+    let valid = false;
+
+    if (!storedHash) {
+      valid = pin === '1111';
+    } else if (storedHash.includes(':')) {
+      // PBKDF2
+      const res = await verifyPin(storedHash, pin);
+      valid = res === 'match';
+    } else if (isLegacyHash(storedHash)) {
+      // Legacy btoa — migrate to PBKDF2 on success
+      valid = storedHash === btoa(pin);
+      if (valid) {
+        const newHash = await hashPin(pin);
+        await supabase.from('profiles').update({ pin_hash: newHash }).eq('id', selectedUser.id);
+      }
+    } else {
+      valid = storedHash === pin;
+    }
+
     if (valid) {
+      await logAudit(selectedUser.id, selectedUser.name, 'login');
       login(selectedUser);
     } else {
       setErrorMsg('PIN incorrect. Réessaie.');
@@ -43,13 +64,18 @@ export default function Login() {
     }
   };
 
-  // ── Step 2: user chooses + confirms their new PIN ────────────────────────────
-  const handleNewPinSuccess = (pin: string) => {
+  // ── Step 2: set new PIN (PBKDF2) ────────────────────────────────────────────
+  const handleNewPinSuccess = async (pin: string) => {
     if (!selectedUser) return;
-    // PinEntry in isFirstTime mode calls onSuccess only after double-confirm
-    setPin(selectedUser.id, pin);
-    login({ ...selectedUser, pin: btoa(pin), pinSet: true });
+    const newHash = await hashPin(pin);
+    // Store hash in DB
+    await supabase.from('profiles').update({ pin_hash: newHash, pin_set: true }).eq('id', selectedUser.id);
+    // Update local state with raw hash so context can use it
+    setPin(selectedUser.id, newHash);
+    await logAudit(selectedUser.id, selectedUser.name, 'login');
+    login({ ...selectedUser, pin: newHash, pinSet: true });
   };
+
 
   const handleBack = () => {
     setSelectedUser(null);
