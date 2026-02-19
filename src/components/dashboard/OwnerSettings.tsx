@@ -3,9 +3,10 @@ import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
 import { Team, User } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
-import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding, KeyRound, Delete, ShieldCheck, Download } from 'lucide-react';
+import { Users, Repeat, Trophy, Plus, Trash2, RotateCcw, Edit2, Check, X, ChevronDown, ChevronUp, Save, Wine, ChefHat, Layers, Settings, PersonStanding, KeyRound, Delete, ShieldCheck, Download, ClipboardList } from 'lucide-react';
+import { AuditTrailView } from './AuditTrailView';
 
-type Tab = 'staff' | 'templates' | 'gamification' | 'pins';
+type Tab = 'staff' | 'templates' | 'gamification' | 'pins' | 'audit';
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
 
 const TEAM_ICON_ELS: Record<string, React.ReactNode> = {
@@ -90,6 +91,7 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
     { id: 'templates' as Tab, label: 'Templates', icon: <Repeat className="w-4 h-4" /> },
     { id: 'gamification' as Tab, label: 'Scoring', icon: <Trophy className="w-4 h-4" /> },
     { id: 'pins' as Tab, label: 'Station PINs', icon: <KeyRound className="w-4 h-4" /> },
+    { id: 'audit' as Tab, label: 'Audit', icon: <ClipboardList className="w-4 h-4" /> },
   ];
 
   const handleAddUser = () => {
@@ -622,6 +624,11 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       )}
 
+      {/* ======= AUDIT TAB ======= */}
+      {activeTab === 'audit' && (
+        <AuditTrailView />
+      )}
+
       {/* ======= STATION PIN MODAL ======= */}
       {pinModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/30 backdrop-blur-sm">
@@ -666,7 +673,7 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
 
             {/* Error */}
             {pinError && (
-              <p className="text-xs text-timer-danger font-medium text-center mb-3 animate-wiggle">{pinError}</p>
+              <p className="text-xs text-destructive font-medium text-center mb-3 animate-wiggle">{pinError}</p>
             )}
 
             {/* Keypad */}

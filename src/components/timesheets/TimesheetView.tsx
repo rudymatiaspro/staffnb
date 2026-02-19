@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Shift } from '../../types';
 import { TEAM_LABELS } from '../../data/initialData';
-import { Clock, Calendar, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, Download, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { ChangePinSection } from '../profile/ChangePinSection';
 
 function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -51,10 +52,11 @@ interface TimesheetViewProps {
   userId?: string;   // if set: show only this user's shifts
   teamFilter?: string; // if set: show only this team's shifts
   canExport?: boolean;
+  showPinChange?: boolean; // show the change PIN section
 }
 
-export function TimesheetView({ userId, teamFilter, canExport = false }: TimesheetViewProps) {
-  const { users, shifts } = useApp();
+export function TimesheetView({ userId, teamFilter, canExport = false, showPinChange = false }: TimesheetViewProps) {
+  const { users, shifts, currentUser } = useApp();
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = getWeekDates(weekOffset);
   const weekStart = weekDates[0];
@@ -182,6 +184,17 @@ export function TimesheetView({ userId, teamFilter, canExport = false }: Timeshe
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* PIN change section — only for the user's own profile tab */}
+      {showPinChange && currentUser && (
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-2 border-t border-border pt-4">
+            <Shield className="w-4 h-4 text-primary" />
+            <h2 className="text-base font-bold text-foreground">Sécurité</h2>
+          </div>
+          <ChangePinSection />
         </div>
       )}
     </div>
