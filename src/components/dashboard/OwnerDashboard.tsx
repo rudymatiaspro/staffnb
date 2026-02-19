@@ -10,11 +10,12 @@ import { IncidentModule } from '../incidents/IncidentModule';
 import { HACCPModule } from '../haccp/HACCPModule';
 import { ObjectivesModule } from '../objectives/ObjectivesModule';
 import { PinManagement } from '../pins/PinManagement';
+import { OrdersModule } from '../orders/OrdersModule';
 import {
   Users, CheckCircle, AlertTriangle, TrendingUp, Trophy,
   Wine, ChefHat, Layers, PersonStanding, Settings,
   Clock, ChevronRight, BarChart2, Star, Bell, Package, FileText,
-  Thermometer, Target, KeyRound,
+  Thermometer, Target, KeyRound, ShoppingCart,
 } from 'lucide-react';
 
 const ACTIVE_TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -28,7 +29,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Users className="w-4 h-4" />,
 };
 
-type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'timesheets' | 'reports' | 'settings' | 'incidents' | 'haccp' | 'objectives' | 'pins';
+type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'orders' | 'timesheets' | 'reports' | 'settings' | 'incidents' | 'haccp' | 'objectives' | 'pins';
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -59,6 +60,7 @@ export function OwnerDashboard() {
   const tabs: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart2 className="w-3.5 h-3.5" /> },
     { id: 'leaderboard', label: 'Board', icon: <Trophy className="w-3.5 h-3.5" /> },
+    { id: 'orders', label: 'Commandes', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
     { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheets', label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'reports', label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
@@ -431,6 +433,9 @@ export function OwnerDashboard() {
 
       {/* ===== LEADERBOARD TAB ===== */}
       {activeTab === 'leaderboard' && <Leaderboard />}
+
+      {/* ===== ORDERS TAB ===== */}
+      {activeTab === 'orders' && <OrdersModule canManage />}
 
       {/* ===== CATALOGUE TAB ===== */}
       {activeTab === 'catalogue' && <ProductCatalogue canEdit canDelete />}

@@ -11,12 +11,13 @@ import { HACCPModule } from '../haccp/HACCPModule';
 import { ObjectivesModule } from '../objectives/ObjectivesModule';
 import { PinManagement } from '../pins/PinManagement';
 import { PlanningModule } from '../planning/PlanningModule';
+import { OrdersModule } from '../orders/OrdersModule';
 import { Team } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import {
   Plus, LayoutGrid, List, Activity, CheckCircle, Clock,
   AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe, Package, FileText,
-  Thermometer, Target, KeyRound, CalendarDays,
+  Thermometer, Target, KeyRound, CalendarDays, ShoppingCart,
 } from 'lucide-react';
 
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -30,7 +31,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Globe className="w-4 h-4" />,
 };
 
-type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'timesheets' | 'reports' | 'incidents' | 'haccp' | 'objectives' | 'pins' | 'planning';
+type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'orders' | 'timesheets' | 'reports' | 'incidents' | 'haccp' | 'objectives' | 'pins' | 'planning';
 
 export function ManagerView() {
   const { getTodayTasks, deleteTask, validationLog, getTeamScore, users, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents } = useApp();
@@ -67,6 +68,7 @@ export function ManagerView() {
   const tabs = [
     { id: 'tasks' as ManagerTab, label: 'Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'planning' as ManagerTab, label: 'Planning', icon: <CalendarDays className="w-3.5 h-3.5" /> },
+    { id: 'orders' as ManagerTab, label: 'Commandes', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
     { id: 'scores' as ManagerTab, label: 'Scores', icon: <Activity className="w-3.5 h-3.5" /> },
     { id: 'activity' as ManagerTab, label: 'Activity', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'catalogue' as ManagerTab, label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
@@ -400,6 +402,9 @@ export function ManagerView() {
 
       {/* === PLANNING TAB === */}
       {activeTab === 'planning' && <PlanningModule />}
+
+      {/* === ORDERS TAB === */}
+      {activeTab === 'orders' && <OrdersModule canManage />}
 
       {/* === CATALOGUE TAB === */}
       {activeTab === 'catalogue' && <ProductCatalogue canEdit canDelete={false} />}
