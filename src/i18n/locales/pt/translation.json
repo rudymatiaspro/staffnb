@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "back": "Voltar",
+    "loading": "A carregar…",
+    "error": "Erro",
+    "success": "Sucesso"
+  },
+  "nav": {
+    "home": "Início",
+    "tasks": "Tarefas",
+    "timeclock": "Ponto",
+    "planning": "Turnos",
+    "profile": "Perfil"
+  },
+  "profile": {
+    "title": "Meu Perfil",
+    "firstname": "Nome",
+    "lastname": "Apelido",
+    "email": "Email",
+    "phone": "Telefone",
+    "birthdate": "Data de nascimento",
+    "team": "Equipa",
+    "role": "Função",
+    "language": "Idioma",
+    "change_pin": "Alterar PIN",
+    "save": "Guardar alterações",
+    "photo": "Foto de perfil"
+  },
+  "orders": {
+    "title": "Encomendas",
+    "import": "Importar encomenda",
+    "status": "Estado",
+    "pending": "Pendente",
+    "delivered": "Entregue"
+  },
+  "stock": {
+    "title": "Gestão de stock",
+    "low_alert": "Stock baixo",
+    "out_of_stock": "Sem stock",
+    "last_update": "Última atualização"
+  },
+  "tasks": {
+    "title": "Tarefas",
+    "complete": "Concluída",
+    "pending": "Pendente",
+    "overdue": "Atrasada"
+  },
+  "incidents": {
+    "title": "Incidentes",
+    "report": "Reportar",
+    "open": "Aberto",
+    "resolved": "Resolvido"
+  },
+  "menu": {
+    "my_profile": "Meu Perfil",
+    "language": "Idioma",
+    "dark_mode": "Modo escuro",
+    "notifications": "Notificações",
+    "change_user": "Trocar utilizador",
+    "logout": "Terminar sessão"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "back": "رجوع",
+    "loading": "جارٍ التحميل…",
+    "error": "خطأ",
+    "success": "نجاح"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "tasks": "المهام",
+    "timeclock": "التوقيت",
+    "planning": "الجدول",
+    "profile": "الملف الشخصي"
+  },
+  "profile": {
+    "title": "ملفي الشخصي",
+    "firstname": "الاسم الأول",
+    "lastname": "اسم العائلة",
+    "email": "البريد الإلكتروني",
+    "phone": "الهاتف",
+    "birthdate": "تاريخ الميلاد",
+    "team": "الفريق",
+    "role": "الدور",
+    "language": "اللغة",
+    "change_pin": "تغيير رمز PIN",
+    "save": "حفظ التغييرات",
+    "photo": "صورة الملف الشخصي"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "import": "استيراد طلب",
+    "status": "الحالة",
+    "pending": "قيد الانتظار",
+    "delivered": "تم التسليم"
+  },
+  "stock": {
+    "title": "إدارة المخزون",
+    "low_alert": "مخزون منخفض",
+    "out_of_stock": "نفد المخزون",
+    "last_update": "آخر تحديث"
+  },
+  "tasks": {
+    "title": "المهام",
+    "complete": "مكتملة",
+    "pending": "قيد الانتظار",
+    "overdue": "متأخرة"
+  },
+  "incidents": {
+    "title": "الحوادث",
+    "report": "إبلاغ",
+    "open": "مفتوح",
+    "resolved": "محلول"
+  },
+  "menu": {
+    "my_profile": "ملفي الشخصي",
+    "language": "اللغة",
+    "dark_mode": "الوضع الداكن",
+    "notifications": "الإشعارات",
+    "change_user": "تغيير المستخدم",
+    "logout": "تسجيل الخروج"
+  }
+}

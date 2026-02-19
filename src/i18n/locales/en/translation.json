@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "loading": "Loading…",
+    "error": "Error",
+    "success": "Success"
+  },
+  "nav": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "timeclock": "Clock",
+    "planning": "Schedule",
+    "profile": "Profile"
+  },
+  "profile": {
+    "title": "My Profile",
+    "firstname": "First name",
+    "lastname": "Last name",
+    "email": "Email",
+    "phone": "Phone",
+    "birthdate": "Date of birth",
+    "team": "Team",
+    "role": "Role",
+    "language": "Language",
+    "change_pin": "Change my PIN",
+    "save": "Save changes",
+    "photo": "Profile photo"
+  },
+  "orders": {
+    "title": "Orders",
+    "import": "Import order",
+    "status": "Status",
+    "pending": "Pending",
+    "delivered": "Delivered"
+  },
+  "stock": {
+    "title": "Stock Management",
+    "low_alert": "Low stock",
+    "out_of_stock": "Out of stock",
+    "last_update": "Last update"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "complete": "Complete",
+    "pending": "Pending",
+    "overdue": "Overdue"
+  },
+  "incidents": {
+    "title": "Incidents",
+    "report": "Report",
+    "open": "Open",
+    "resolved": "Resolved"
+  },
+  "menu": {
+    "my_profile": "My Profile",
+    "language": "Language",
+    "dark_mode": "Dark mode",
+    "notifications": "Notifications",
+    "change_user": "Switch user",
+    "logout": "Log out"
+  }
+}

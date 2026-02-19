@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "Sauvegarder",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "back": "Retour",
+    "loading": "Chargement…",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "nav": {
+    "home": "Accueil",
+    "tasks": "Tâches",
+    "timeclock": "Pointage",
+    "planning": "Planning",
+    "profile": "Profil"
+  },
+  "profile": {
+    "title": "Mon Profil",
+    "firstname": "Prénom",
+    "lastname": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "birthdate": "Date de naissance",
+    "team": "Équipe",
+    "role": "Rôle",
+    "language": "Langue",
+    "change_pin": "Changer mon PIN",
+    "save": "Sauvegarder les modifications",
+    "photo": "Photo de profil"
+  },
+  "orders": {
+    "title": "Commandes",
+    "import": "Importer commande",
+    "status": "Statut",
+    "pending": "En attente",
+    "delivered": "Livrée"
+  },
+  "stock": {
+    "title": "Gestion du Stock",
+    "low_alert": "Stock bas",
+    "out_of_stock": "Rupture",
+    "last_update": "Dernière mise à jour"
+  },
+  "tasks": {
+    "title": "Tâches",
+    "complete": "Terminée",
+    "pending": "En attente",
+    "overdue": "En retard"
+  },
+  "incidents": {
+    "title": "Incidents",
+    "report": "Signaler",
+    "open": "Ouvert",
+    "resolved": "Résolu"
+  },
+  "menu": {
+    "my_profile": "Mon Profil",
+    "language": "Langue",
+    "dark_mode": "Mode sombre",
+    "notifications": "Notifications",
+    "change_user": "Changer d'utilisateur",
+    "logout": "Se déconnecter"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集",
+    "back": "戻る",
+    "loading": "読み込み中…",
+    "error": "エラー",
+    "success": "成功"
+  },
+  "nav": {
+    "home": "ホーム",
+    "tasks": "タスク",
+    "timeclock": "打刻",
+    "planning": "シフト",
+    "profile": "プロフィール"
+  },
+  "profile": {
+    "title": "マイプロフィール",
+    "firstname": "名",
+    "lastname": "姓",
+    "email": "メール",
+    "phone": "電話番号",
+    "birthdate": "生年月日",
+    "team": "チーム",
+    "role": "役割",
+    "language": "言語",
+    "change_pin": "PINを変更",
+    "save": "変更を保存",
+    "photo": "プロフィール写真"
+  },
+  "orders": {
+    "title": "注文",
+    "import": "注文をインポート",
+    "status": "ステータス",
+    "pending": "保留中",
+    "delivered": "配達済み"
+  },
+  "stock": {
+    "title": "在庫管理",
+    "low_alert": "在庫少",
+    "out_of_stock": "在庫切れ",
+    "last_update": "最終更新"
+  },
+  "tasks": {
+    "title": "タスク",
+    "complete": "完了",
+    "pending": "保留中",
+    "overdue": "期限超過"
+  },
+  "incidents": {
+    "title": "インシデント",
+    "report": "報告",
+    "open": "オープン",
+    "resolved": "解決済み"
+  },
+  "menu": {
+    "my_profile": "マイプロフィール",
+    "language": "言語",
+    "dark_mode": "ダークモード",
+    "notifications": "通知",
+    "change_user": "ユーザー切替",
+    "logout": "ログアウト"
+  }
+}
