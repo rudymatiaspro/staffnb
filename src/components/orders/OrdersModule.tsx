@@ -12,7 +12,7 @@ import type { Json } from '../../integrations/supabase/types';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { validatePin } from '../../lib/pinCrypto';
+import { verifyPin } from '../../lib/pinCrypto';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type OrderUnit = 'kg' | 'g' | 'L' | 'cL' | 'pcs' | 'carton' | 'caisse';
@@ -253,7 +253,8 @@ function DeliveryModal({
 
     let pinOk = false;
     if (profile?.pin_hash) {
-      pinOk = await validatePin(pin, profile.pin_hash);
+      const result = await verifyPin(profile.pin_hash, pin);
+      pinOk = result === 'match' || result === 'legacy';
     } else {
       // No PIN set — accept any
       pinOk = true;
@@ -336,14 +337,14 @@ function DeliveryModal({
       }
 
       // Award +15 pts
-      await supabase.from('score_events').insert({
+      await supabase.from('score_events').insert([{
         user_id: currentUser.id,
         user_name: currentUser.name,
-        team: (currentUser as { team: string }).team || 'BAR',
-        type: 'bonus',
+        team: (currentUser.team as 'BAR' | 'KITCHEN' | 'FLOOR' | 'ATELIER' | 'MANAGEMENT' | 'ALL') || 'BAR',
+        type: 'bonus' as const,
         reason: `Livraison validée : ${order.orderNumber}`,
         points: 15,
-      });
+      }]);
 
       // Auto-create incident if incomplete
       if (globalStatus === 'incomplete') {
@@ -364,7 +365,7 @@ function DeliveryModal({
         });
       }
 
-      await logAudit(currentUser.id, currentUser.name, 'delivery_validated', 'order', order.id, {
+      await logAudit(currentUser.id, currentUser.name, 'order_confirmed_manager', 'order', order.id, {
         orderNumber: order.orderNumber,
         globalStatus,
       } as Json);
@@ -955,17 +956,17 @@ function CreateOrderForm({ onClose, onCreated }: { onClose: () => void; onCreate
       const { count } = await supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', `${today}T00:00:00`);
       const orderNumber = generateOrderNumber(supplier, (count ?? 0) + 1);
 
-      const { data: order, error } = await supabase.from('orders').insert({
+      const { data: order, error } = await supabase.from('orders').insert([{
         order_number: orderNumber,
         supplier: supplier.trim(),
-        status: 'waiting',
+        status: 'pending' as const,
         created_by: currentUser.id,
         created_by_name: currentUser.name,
         notes: notes.trim() || null,
         delivery_date: deliveryDate || null,
         is_recurring: isRecurring,
         recurrence_freq: isRecurring ? recurrenceFreq : null,
-      }).select().single();
+      }]).select().single();
 
       if (error || !order) throw error;
 
@@ -1216,7 +1217,7 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
           // Try to match in catalogue
           const matched = products.find(
             (p) => p.name.toLowerCase() === productName.toLowerCase() ||
-              ((p as Record<string, unknown>).supplierRef as string | undefined)?.toLowerCase() === ref.toLowerCase()
+              (p as unknown as { supplierRef?: string }).supplierRef?.toLowerCase() === ref.toLowerCase()
           );
 
           parsed.push({
@@ -1257,13 +1258,13 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
       const { count } = await supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', `${today}T00:00:00`);
       const orderNumber = generateOrderNumber(importOrderSupplier, (count ?? 0) + 1);
 
-      const { data: order, error } = await supabase.from('orders').insert({
+      const { data: order, error } = await supabase.from('orders').insert([{
         order_number: orderNumber,
         supplier: importOrderSupplier.trim(),
-        status: 'waiting',
+        status: 'pending' as const,
         created_by: currentUser.id,
         created_by_name: currentUser.name,
-      }).select().single();
+      }]).select().single();
 
       if (error || !order) throw error;
 
@@ -1314,7 +1315,7 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
     if (!validateTarget || !currentUser) return;
     if (approved) {
       await supabase.from('orders').update({
-        status: 'waiting',
+        status: 'validated' as const,
         approved_by_manager: currentUser.id,
         approved_by_manager_name: currentUser.name,
         manager_confirmed_at: new Date().toISOString(),
