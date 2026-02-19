@@ -76,7 +76,7 @@ interface AddShiftModalProps {
   team: Team;
   onClose: () => void;
   onSave: (shift: Omit<PlanningShift, 'id'>) => Promise<void>;
-  users: { id: string; name: string; team: Team }[];
+  users: { id: string; name: string; team: Team; teams?: Team[] }[];
 }
 
 function AddShiftModal({ date, shiftType, team, onClose, onSave, users }: AddShiftModalProps) {
@@ -85,7 +85,9 @@ function AddShiftModal({ date, shiftType, team, onClose, onSave, users }: AddShi
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const teamUsers = users.filter(u => u.team === team);
+  const teamUsers = users.filter(u =>
+    u.team === team || (u.teams && u.teams.includes(team))
+  );
 
   const handleSave = async () => {
     if (!selectedUserId) return;
@@ -355,7 +357,7 @@ export function PlanningModule() {
     );
   });
 
-  const staffForTeam = users.filter(u => u.role === 'staff' && u.team === activeTeam);
+  const staffForTeam = users.filter(u => u.role === 'staff' && (u.team === activeTeam || (u.teams && u.teams.includes(activeTeam))));
 
   return (
     <div className="space-y-4">
@@ -517,7 +519,7 @@ export function PlanningModule() {
           team={modal.team}
           onClose={() => setModal(null)}
           onSave={addShift}
-          users={users.filter(u => u.role === 'staff')}
+          users={users.filter(u => u.role === 'staff' || u.role === 'manager')}
         />
       )}
     </div>
