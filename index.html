@@ -11,6 +11,18 @@
     <meta property="og:title" content="Staff&B · Casinha" />
     <meta property="og:description" content="Casinha Team Management Platform" />
     <meta property="og:type" content="website" />
+
+    <!-- Apply theme before render to avoid flash -->
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch(e){}
+      })();
+    </script>
   </head>
 
   <body>
