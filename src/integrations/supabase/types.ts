@@ -597,6 +597,7 @@ export type Database = {
           next_occurrence: string | null
           notes: string | null
           order_number: string
+          parent_order_id: string | null
           recurrence_freq: string | null
           rejection_reason: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -615,6 +616,7 @@ export type Database = {
           next_occurrence?: string | null
           notes?: string | null
           order_number: string
+          parent_order_id?: string | null
           recurrence_freq?: string | null
           rejection_reason?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -633,6 +635,7 @@ export type Database = {
           next_occurrence?: string | null
           notes?: string | null
           order_number?: string
+          parent_order_id?: string | null
           recurrence_freq?: string | null
           rejection_reason?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -648,6 +651,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_parent_order_id_fkey"
+            columns: ["parent_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
@@ -1402,6 +1412,8 @@ export type Database = {
       is_manager_or_owner: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
       recalculate_all_scores: { Args: never; Returns: undefined }
+      spawn_recurring_orders: { Args: never; Returns: undefined }
+      update_objective_progress: { Args: never; Returns: undefined }
     }
     Enums: {
       clock_event_type: "in" | "out"

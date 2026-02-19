@@ -11,15 +11,16 @@ import { StaffShiftsView } from '../planning/StaffShiftsView';
 import { ShiftSwapModule } from '../planning/ShiftSwapModule';
 import { OrdersModule } from '../orders/OrdersModule';
 import { MessagingModule } from '../messaging/MessagingModule';
+import { StaffAvailabilityView } from '../planning/AvailabilityModule';
 import { Team } from '../../types';
 import {
   CheckCircle, Clock, Star, ChevronDown, ChevronUp, Trophy, Award,
   Package, AlertTriangle, Thermometer, Target, CalendarDays, ShoppingCart,
-  MessageSquare, ArrowLeftRight,
+  MessageSquare, ArrowLeftRight, CalendarCheck,
 } from 'lucide-react';
 import { TEAM_LABELS } from '../../data/initialData';
 
-type StaffTab = 'tasks' | 'messages' | 'planning' | 'swaps' | 'orders' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives';
+type StaffTab = 'tasks' | 'messages' | 'planning' | 'swaps' | 'orders' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives' | 'availability';
 
 export function StaffView() {
   const { currentUser, getTodayTasks, users, staffRankings } = useApp();
@@ -42,16 +43,17 @@ export function StaffView() {
   const myScore = myRanking?.score ?? 0;
 
   const tabs: { id: StaffTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'tasks',      label: 'Tâches',    icon: <CheckCircle className="w-3.5 h-3.5" /> },
-    { id: 'messages',   label: 'Messages',  icon: <MessageSquare className="w-3.5 h-3.5" /> },
-    { id: 'planning',   label: 'Planning',  icon: <CalendarDays className="w-3.5 h-3.5" /> },
-    { id: 'swaps',      label: 'Échanges',  icon: <ArrowLeftRight className="w-3.5 h-3.5" /> },
-    { id: 'orders',     label: 'Commandes', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
-    { id: 'catalogue',  label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
-    { id: 'timesheet',  label: 'Pointage',  icon: <Clock className="w-3.5 h-3.5" /> },
-    { id: 'incidents',  label: 'Incident',  icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-    { id: 'haccp',      label: 'HACCP',     icon: <Thermometer className="w-3.5 h-3.5" /> },
-    { id: 'objectives', label: 'Objectifs', icon: <Target className="w-3.5 h-3.5" /> },
+    { id: 'tasks',        label: 'Tâches',      icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'messages',     label: 'Messages',    icon: <MessageSquare className="w-3.5 h-3.5" /> },
+    { id: 'planning',     label: 'Planning',    icon: <CalendarDays className="w-3.5 h-3.5" /> },
+    { id: 'availability', label: 'Dispos',      icon: <CalendarCheck className="w-3.5 h-3.5" /> },
+    { id: 'swaps',        label: 'Échanges',    icon: <ArrowLeftRight className="w-3.5 h-3.5" /> },
+    { id: 'orders',       label: 'Commandes',   icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+    { id: 'catalogue',    label: 'Catalogue',   icon: <Package className="w-3.5 h-3.5" /> },
+    { id: 'timesheet',    label: 'Pointage',    icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'incidents',    label: 'Incident',    icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    { id: 'haccp',        label: 'HACCP',       icon: <Thermometer className="w-3.5 h-3.5" /> },
+    { id: 'objectives',   label: 'Objectifs',   icon: <Target className="w-3.5 h-3.5" /> },
   ];
 
   return (
