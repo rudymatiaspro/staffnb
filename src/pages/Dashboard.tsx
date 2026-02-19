@@ -25,6 +25,8 @@ import { ShiftSwapModule } from '../components/planning/ShiftSwapModule';
 import { StaffShiftsView } from '../components/planning/StaffShiftsView';
 import { StaffAvailabilityView } from '../components/planning/AvailabilityModule';
 import { MenuModule } from '../components/menu/MenuModule';
+import PointagePage from './Pointage';
+import ProfilPage from './Profil';
 
 import {
   LogOut, WifiOff, BellOff, Bell,
@@ -58,13 +60,14 @@ function isManagerOrAbove(role?: AppRole) { return role === 'manager' || isOwner
 function isChefOrAbove(role?: AppRole) { return role === 'chef' || isManagerOrAbove(role); }
 function canEdit(role?: AppRole) { return role === 'admin' || role === 'manager'; }
 
-const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', medium: '⚠️', low: 'ℹ️' };
+const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', medium: '⚠️', low: 'ℹ️', critical: '🚨' };
 
 // ─── Tile definition ──────────────────────────────────────────────────────────
 type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'reports' | 'catalogue' | 'pins'
-  | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all';
+  | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
+  | 'pointage' | 'profile';
 
 interface Tile {
   id: ModuleKey;
@@ -194,21 +197,12 @@ export default function Dashboard() {
   const tiles = buildTiles();
 
   // ── Bottom nav tabs ──
-  type BottomTab = { id: ModuleKey; label: string; icon: React.ReactNode };
-  const bottomNav: BottomTab[] = [
-    { id: 'home',      label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'tasks',     label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'timesheet', label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'planning',  label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'timesheet', label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
-  ];
-  // Use unique ids for bottom nav (last item is profile = timesheet)
   const uniqueBottomNav = [
-    { id: 'home'      as ModuleKey, label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'tasks'     as ModuleKey, label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'timesheet' as ModuleKey, label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'planning'  as ModuleKey, label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'timesheet' as ModuleKey, label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'home'     as ModuleKey, label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'tasks'    as ModuleKey, label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'pointage' as ModuleKey, label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'planning' as ModuleKey, label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'profile'  as ModuleKey, label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
   ] as const;
 
   // ── Render active module ──
@@ -232,6 +226,8 @@ export default function Dashboard() {
       case 'contests':  return <MalusContestModule />;
       case 'swaps':     return <ShiftSwapModule canManage={isManager} />;
       case 'availability': return <StaffAvailabilityView />;
+      case 'pointage':  return <PointagePage />;
+      case 'profile':   return <ProfilPage />;
       default:          return <HomeScreen tiles={tiles} onSelect={setActiveModule} role={role} currentUser={currentUser} allTasks={allTasks} team={team} isManager={isManager} currentTime={currentTime} />;
     }
   };
@@ -243,6 +239,7 @@ export default function Dashboard() {
     menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports',
     catalogue: 'Catalogue', pins: 'Gestion des PINs', settings: 'Paramètres',
     contests: 'Contestations', swaps: 'Échanges de shifts', availability: 'Disponibilités',
+    pointage: 'Pointage', profile: 'Mon Profil',
   };
 
   const showNotifPrompt = isManager && isSupported && permission === 'default';
@@ -366,11 +363,7 @@ export default function Dashboard() {
         style={{ height: 64, paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="max-w-2xl mx-auto h-full flex items-center justify-around">
           {uniqueBottomNav.map((item, i) => {
-            const navActive = i === 0 ? activeModule === 'home'
-              : i === 1 ? activeModule === 'tasks'
-              : i === 2 ? activeModule === 'timesheet'
-              : i === 3 ? activeModule === 'planning'
-              : activeModule === 'timesheet';
+            const navActive = activeModule === item.id;
             return (
               <button
                 key={`${item.id}-${i}`}

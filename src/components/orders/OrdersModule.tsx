@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../integrations/supabase/client';
 import {
   ShoppingCart, Plus, ChevronDown, ChevronUp, Check, X,
   Package, Truck, AlertCircle, RefreshCw, Clock, Search,
-  ChevronRight, FileText, Loader2, RotateCcw, ChefHat,
+  ChevronRight, FileText, Loader2, RotateCcw, ChefHat, Upload,
 } from 'lucide-react';
 import { logAudit } from '../../lib/auditLogger';
 import type { Json } from '../../integrations/supabase/types';
+import * as XLSX from 'xlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -571,12 +572,20 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [validateTarget, setValidateTarget] = useState<Order | null>(null);
   const [receiveTarget, setReceiveTarget] = useState<Order | null>(null);
   const [receiveItems, setReceiveItems] = useState<OrderItem[]>([]);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
   const [search, setSearch] = useState('');
+  const importRef = useRef<HTMLInputElement>(null);
+
+  // ─── Import state ─────────────────────────────────────────────────────────────
+  const [importRows, setImportRows] = useState<{ productName: string; quantity: number; unit: OrderUnit; unitPrice?: number }[]>([]);
+  const [importError, setImportError] = useState('');
+  const [importSupplier, setImportSupplier] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -626,6 +635,74 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchOrders]);
+
+  // ─── CSV / Excel import ───────────────────────────────────────────────────────
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        if (!rows || rows.length < 2) { setImportError('Fichier vide ou format invalide.'); return; }
+        const parsed: { productName: string; quantity: number; unit: OrderUnit; unitPrice?: number }[] = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i] as unknown[];
+          const productName = String(row[0] ?? '').trim();
+          const quantity = parseFloat(String(row[1] ?? '0'));
+          const unit = String(row[2] ?? 'pcs').trim() as OrderUnit;
+          const unitPrice = row[3] != null ? parseFloat(String(row[3])) : undefined;
+          if (!productName || isNaN(quantity) || quantity <= 0) continue;
+          const validUnits: OrderUnit[] = ['kg', 'g', 'L', 'cL', 'pcs', 'carton', 'caisse'];
+          parsed.push({ productName, quantity, unit: validUnits.includes(unit) ? unit : 'pcs', unitPrice });
+        }
+        if (parsed.length === 0) { setImportError('Aucune ligne valide. Vérifiez les colonnes : Produit | Quantité | Unité | Prix unitaire'); return; }
+        setImportRows(parsed);
+        setShowImport(true);
+      } catch {
+        setImportError('Impossible de lire le fichier. Utilisez un fichier CSV ou Excel (.xlsx).');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleImportConfirm = async () => {
+    if (!currentUser || !importSupplier.trim() || importRows.length === 0) return;
+    setImportLoading(true);
+    try {
+      const seq = orders.length + 1;
+      const orderNumber = generateOrderNumber(importSupplier, seq);
+      const { data: order, error } = await supabase.from('orders').insert({
+        order_number: orderNumber,
+        supplier: importSupplier.trim(),
+        status: 'pending',
+        created_by: currentUser.id,
+        created_by_name: currentUser.name,
+      }).select().single();
+      if (error || !order) throw error;
+      await supabase.from('order_items').insert(
+        importRows.map((r) => ({
+          order_id: order.id,
+          product_name: r.productName,
+          quantity: r.quantity,
+          unit: r.unit,
+          unit_price: r.unitPrice ?? null,
+        }))
+      );
+      setShowImport(false);
+      setImportRows([]);
+      setImportSupplier('');
+      fetchOrders();
+    } catch (err) {
+      console.error(err);
+    }
+    setImportLoading(false);
+  };
 
   // ─── Chef approves order (pending → chef_approved) ────────────────────────────
   const handleChefApprove = async (approved: boolean, reason?: string) => {
@@ -822,6 +899,12 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
           <button onClick={fetchOrders} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
+          {/* Import CSV/Excel */}
+          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-foreground text-xs font-semibold cursor-pointer hover:bg-muted transition-colors border border-border">
+            <Upload className="w-3.5 h-3.5" /> Importer
+            <input ref={importRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
+          </label>
+          {importError && <p className="text-xs text-destructive">{importError}</p>}
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold"
@@ -913,6 +996,48 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
           onClose={() => setReceiveTarget(null)}
           onSubmit={handleReceive}
         />
+      )}
+
+      {/* Import preview modal */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl w-full max-w-sm shadow-xl border border-border animate-slide-up max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h3 className="text-sm font-bold text-foreground">Aperçu de l'import</h3>
+              <button onClick={() => { setShowImport(false); setImportRows([]); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 overflow-y-auto flex-1">
+              <input
+                value={importSupplier}
+                onChange={(e) => setImportSupplier(e.target.value)}
+                placeholder="Nom du fournisseur (obligatoire)"
+                className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted-foreground"
+              />
+              <p className="text-xs text-muted-foreground">{importRows.length} article(s) importé(s)</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {importRows.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-border/30 last:border-0">
+                    <span className="text-foreground font-medium truncate flex-1">{r.productName}</span>
+                    <span className="text-muted-foreground font-mono ml-2 flex-shrink-0">{r.quantity} {r.unit}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-5 pt-0 flex gap-2">
+              <button onClick={() => { setShowImport(false); setImportRows([]); }} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium">Annuler</button>
+              <button
+                onClick={handleImportConfirm}
+                disabled={!importSupplier.trim() || importLoading}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
