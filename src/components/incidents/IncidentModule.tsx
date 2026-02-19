@@ -34,32 +34,49 @@ const STATUS_CONFIG: Record<string, { labelFr: string; icon: React.ReactNode; co
   resolved:    { labelFr: 'Résolu',   icon: <Check className="w-3 h-3" />,          color: 'text-primary' },
 };
 
-async function postIncidentToChat(incident: Incident & { title?: string }, reporterName: string, team: Team) {
-  const severityEmoji = incident.severity === 'critical' ? '🚨' : incident.severity === 'high' ? '⚠️' : incident.severity === 'medium' ? '⚡' : 'ℹ️';
-  const severityLabel = SEVERITY_CONFIG[incident.severity]?.labelFr ?? incident.severity;
+async function postIncidentToChat(
+  incident: Incident & { title?: string },
+  reporterName: string,
+  team: Team,
+  incidentId: string,
+) {
   const title = (incident as { title?: string }).title || incident.type;
-  const content = `${severityEmoji} [${severityLabel.toUpperCase()}] — ${title}\nSignalé par ${reporterName} · ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → Voir le ticket #${incident.id.slice(0, 8)}`;
+  const time  = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  // Structured JSON payload — parsed by IncidentCard in the chat
+  const payload = JSON.stringify({
+    title,
+    severity: incident.severity,
+    reporter: reporterName,
+    time,
+    id: incidentId,
+  });
 
   // Post in #général
   await supabase.from('messages').insert({
     channel: 'general',
-    content,
-    sender_id: incident.reporterUserId ?? '',
-    sender_name: reporterName,
+    content: payload,
+    sender_id: incident.reporterUserId ?? reporterName,
+    sender_name: 'Système',
     sender_team: team,
-  }).then(() => {});
+    msg_type: 'incident',
+  });
 
-  // For critical: also post in team channel
+  // For critical/high: also post in the team channel
   if (incident.severity === 'critical' || incident.severity === 'high') {
-    const teamChannel = team.toLowerCase();
-    if (teamChannel !== 'general' && teamChannel !== 'all') {
+    const TEAM_TO_CHANNEL: Record<string, string> = {
+      BAR: 'bar', KITCHEN: 'kitchen', ATELIER: 'patisserie', FLOOR: 'restaurant', MANAGEMENT: 'managers',
+    };
+    const teamChannel = TEAM_TO_CHANNEL[team as string];
+    if (teamChannel) {
       await supabase.from('messages').insert({
         channel: teamChannel,
-        content,
-        sender_id: incident.reporterUserId ?? '',
-        sender_name: reporterName,
+        content: payload,
+        sender_id: incident.reporterUserId ?? reporterName,
+        sender_name: 'Système',
         sender_team: team,
-      }).then(() => {});
+        msg_type: 'incident',
+      });
     }
   }
 }
@@ -112,10 +129,10 @@ export function IncidentModule() {
     };
     addIncident(incident);
 
-    // Post to chat
+    // Post to chat — we get the real id from addIncident result if possible, else use 'pending'
     if (currentUser) {
       const fullIncident = { ...incident, id: 'pending', title: data.title, createdAt: new Date(), updatedAt: new Date() } as Incident & { title?: string };
-      await postIncidentToChat(fullIncident, currentUser.name, data.team);
+      await postIncidentToChat(fullIncident, currentUser.name, data.team, 'pending');
     }
     setShowForm(false);
   };
