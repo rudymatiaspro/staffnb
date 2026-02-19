@@ -20,6 +20,7 @@ import { OrdersModule } from '../components/orders/OrdersModule';
 import { MessagingModule } from '../components/messaging/MessagingModule';
 import { MalusContestModule } from '../components/scoring/MalusContestModule';
 import { Leaderboard } from '../components/leaderboard/Leaderboard';
+import { MonScore } from '../components/scoring/MonScore';
 import { OwnerSettings } from '../components/dashboard/OwnerSettings';
 import { ShiftSwapModule } from '../components/planning/ShiftSwapModule';
 import { StaffShiftsView } from '../components/planning/StaffShiftsView';
@@ -32,7 +33,7 @@ import {
   LogOut, WifiOff, BellOff, Bell,
   CheckCircle, MessageSquare, AlertTriangle, ShoppingCart, Clock, Target,
   CalendarDays, Thermometer, ChefHat, Home, User, Package,
-  FileText, KeyRound, Trophy, Activity,
+  FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
@@ -65,7 +66,7 @@ const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', med
 // ─── Tile definition ──────────────────────────────────────────────────────────
 type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
-  | 'planning' | 'menu' | 'haccp' | 'scores' | 'reports' | 'catalogue' | 'pins'
+  | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
   | 'pointage' | 'profile';
 
@@ -151,44 +152,46 @@ export default function Dashboard() {
 
   // ── Build tiles per role ──
   const buildTiles = (): Tile[] => {
+    // Tuile Menu du Jour commune
+    const menuTile: Tile = { id: 'menu', label: 'Menu du Jour', emoji: '🍽️', icon: <UtensilsCrossed className="w-5 h-5" />, color: 'bg-amber-50 dark:bg-amber-950/30', iconColor: 'text-amber-600 dark:text-amber-400' };
+
     const base: Tile[] = [
       { id: 'tasks',     label: 'Mes Tâches',  emoji: '📋', icon: <CheckCircle className="w-5 h-5" />, badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
-      { id: 'timesheet', label: 'Pointage',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,          color: 'bg-cyan-50 dark:bg-cyan-950/30',   iconColor: 'text-cyan-600 dark:text-cyan-400' },
-      { id: 'scores',    label: 'Mon Score',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,         color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
-      { id: 'planning',  label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
-      { id: 'orders',    label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
+      { id: 'pointage',  label: 'Pointage',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,       color: 'bg-cyan-50 dark:bg-cyan-950/30',     iconColor: 'text-cyan-600 dark:text-cyan-400' },
+      { id: 'scores',    label: 'Mon Score',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
+      { id: 'planning',  label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+      { id: 'orders',    label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
       { id: 'chat',      label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
       { id: 'sos',       label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+      menuTile,
     ];
 
     if (isChef && !isManager) {
       return [...base,
-        { id: 'haccp',    label: 'HACCP',      emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,  color: 'bg-teal-50 dark:bg-teal-950/30',   iconColor: 'text-teal-600 dark:text-teal-400' },
-        { id: 'menu',     label: 'Menu',        emoji: '🍽️', icon: <ChefHat className="w-5 h-5" />,      color: 'bg-amber-50 dark:bg-amber-950/30', iconColor: 'text-amber-600 dark:text-amber-400' },
-        { id: 'objectives',label: 'Objectifs', emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { id: 'haccp',      label: 'HACCP',     emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30',    iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'objectives', label: 'Objectifs', emoji: '🎯', icon: <Target className="w-5 h-5" />,      color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
       ];
     }
 
     if (isManager) {
       const tiles: Tile[] = [
-        { id: 'tasks',      label: 'Tâches',      emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,   badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',     iconColor: 'text-blue-600 dark:text-blue-400' },
-        { id: 'planning',   label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
-        { id: 'orders',     label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
-        { id: 'haccp',      label: 'HACCP',       emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,  color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
-        { id: 'chat',       label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />,color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
-        { id: 'sos',        label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />,badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
-        { id: 'objectives', label: 'Objectifs',   emoji: '🎯', icon: <Target className="w-5 h-5" />,       color: 'bg-emerald-50 dark:bg-emerald-950/30',iconColor: 'text-emerald-600 dark:text-emerald-400' },
-        { id: 'reports',    label: 'Rapports',    emoji: '📈', icon: <FileText className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
+        { id: 'tasks',      label: 'Tâches',      emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,    badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'planning',   label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
+        { id: 'orders',     label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
+        { id: 'haccp',      label: 'HACCP',       emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'chat',       label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'sos',        label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+        { id: 'objectives', label: 'Objectifs',   emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { id: 'reports',    label: 'Rapports',    emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
+        menuTile,
       ];
       if (isOwner) tiles.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' });
       return tiles;
     }
 
-    // Staff
-    const staffTeam = team;
-    const isKitchenTeam = staffTeam === 'KITCHEN';
+    // Staff : base déjà contient menuTile comme 8e tuile
     const staffTiles: Tile[] = [...base];
-    if (isKitchenTeam) {
+    if (team === 'KITCHEN') {
       staffTiles.push({ id: 'haccp', label: 'HACCP', emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30', iconColor: 'text-teal-600 dark:text-teal-400' });
     }
     return staffTiles;
@@ -218,7 +221,8 @@ export default function Dashboard() {
       case 'planning':  return canManageContent ? <PlanningModule /> : <StaffShiftsView />;
       case 'menu':      return <MenuModule canEdit={canManageContent} />;
       case 'haccp':     return <HACCPModule />;
-      case 'scores':    return <Leaderboard />;
+      case 'scores':    return <MonScore />;
+      case 'leaderboard': return <Leaderboard />;
       case 'reports':   return <ReportsView />;
       case 'catalogue': return <ProductCatalogue canEdit={canManageContent} canDelete={isAdmin} />;
       case 'pins':      return <PinManagement />;
