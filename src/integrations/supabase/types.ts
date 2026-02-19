@@ -441,6 +441,7 @@ export type Database = {
           created_at: string
           id: string
           mentions: string[] | null
+          msg_type: string
           sender_id: string
           sender_name: string
           sender_team: string
@@ -451,6 +452,7 @@ export type Database = {
           created_at?: string
           id?: string
           mentions?: string[] | null
+          msg_type?: string
           sender_id: string
           sender_name?: string
           sender_team?: string
@@ -461,6 +463,7 @@ export type Database = {
           created_at?: string
           id?: string
           mentions?: string[] | null
+          msg_type?: string
           sender_id?: string
           sender_name?: string
           sender_team?: string

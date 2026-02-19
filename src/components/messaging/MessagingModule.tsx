@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
-import { Send, Hash, Users, Wine, ChefHat, Layers, PersonStanding, Settings, AtSign, Trash2, MessageSquare } from 'lucide-react';
+import {
+  Send, Hash, Users, Wine, ChefHat, Layers, PersonStanding,
+  Settings, AtSign, Trash2, MessageSquare, Pin, AlertTriangle,
+  Megaphone, ExternalLink,
+} from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type MessageType = 'user' | 'system' | 'incident' | 'annonce';
 
 interface Message {
   id: string;
@@ -12,24 +20,30 @@ interface Message {
   senderTeam: string;
   mentions: string[];
   createdAt: Date;
+  msgType: MessageType;
 }
 
+// ─── Channels config ──────────────────────────────────────────────────────────
+
 const CHANNELS = [
-  { id: 'general', label: 'général', icon: <Hash className="w-3.5 h-3.5" /> },
-  { id: 'bar', label: 'bar', icon: <Wine className="w-3.5 h-3.5" /> },
-  { id: 'kitchen', label: 'cuisine', icon: <ChefHat className="w-3.5 h-3.5" /> },
+  { id: 'general',    label: 'général',    icon: <Hash className="w-3.5 h-3.5" /> },
+  { id: 'annonces',   label: 'annonces',   icon: <Megaphone className="w-3.5 h-3.5" /> },
+  { id: 'bar',        label: 'bar',        icon: <Wine className="w-3.5 h-3.5" /> },
+  { id: 'kitchen',    label: 'cuisine',    icon: <ChefHat className="w-3.5 h-3.5" /> },
   { id: 'patisserie', label: 'pâtisserie', icon: <Layers className="w-3.5 h-3.5" /> },
   { id: 'restaurant', label: 'restaurant', icon: <PersonStanding className="w-3.5 h-3.5" /> },
-  { id: 'managers', label: 'managers', icon: <Settings className="w-3.5 h-3.5" /> },
+  { id: 'managers',   label: 'managers',   icon: <Settings className="w-3.5 h-3.5" /> },
 ];
 
-const TEAM_TO_CHANNEL: Record<string, string> = {
-  BAR: 'bar', KITCHEN: 'kitchen', ATELIER: 'patisserie', FLOOR: 'restaurant', MANAGEMENT: 'managers',
-};
+// Roles that can WRITE in #annonces
+const ANNONCE_WRITERS = ['owner', 'admin', 'manager', 'god'];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
+
 function formatDate(date: Date): string {
   const today = new Date();
   const yesterday = new Date(today);
@@ -43,9 +57,144 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function mapRow(r: Record<string, unknown>): Message {
+  return {
+    id: r.id as string,
+    channel: r.channel as string,
+    content: r.content as string,
+    senderId: r.sender_id as string,
+    senderName: r.sender_name as string,
+    senderTeam: r.sender_team as string,
+    mentions: (r.mentions as string[]) ?? [],
+    createdAt: new Date(r.created_at as string),
+    msgType: (r.msg_type as MessageType) ?? 'user',
+  };
+}
+
+// ─── Message renderers ────────────────────────────────────────────────────────
+
+/** Annonce (pinned announcement) card */
+function AnnonceCard({
+  msg, canDelete, onDelete, users,
+}: {
+  msg: Message; canDelete: boolean; onDelete: () => void; users: { id: string; name: string }[];
+}) {
+  return (
+    <div className="group relative rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2 my-2">
+      {/* Pin badge */}
+      <div className="flex items-start gap-2">
+        <Pin className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-foreground break-words leading-snug">
+            {msg.content.split(/(@\w+)/).map((part, i) =>
+              part.startsWith('@')
+                ? <span key={i} className="text-primary font-semibold">{part}</span>
+                : <span key={i}>{part}</span>
+            )}
+          </p>
+        </div>
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all flex-shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2 pl-5">
+        <span className="text-[11px] font-semibold text-primary">{msg.senderName}</span>
+        <span className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Incident auto-message */
+function IncidentCard({ msg, canDelete, onDelete }: { msg: Message; canDelete: boolean; onDelete: () => void }) {
+  // Parse structured incident payload if JSON, else show plain text
+  let incidentData: { title?: string; severity?: string; reporter?: string; id?: string; time?: string } | null = null;
+  try {
+    incidentData = JSON.parse(msg.content);
+  } catch {
+    incidentData = null;
+  }
+
+  const severityColor: Record<string, string> = {
+    critical: 'border-destructive/60 bg-destructive/5',
+    high:     'border-orange-500/40 bg-orange-500/5',
+    medium:   'border-amber-500/40 bg-amber-500/5',
+    low:      'border-border bg-muted/30',
+  };
+
+  const severityLabel: Record<string, string> = {
+    critical: '🚨 Critique', high: '⚠️ Grave', medium: '⚡ Moyen', low: 'ℹ️ Info',
+  };
+
+  const sev = incidentData?.severity ?? 'medium';
+  const colorCls = severityColor[sev] ?? severityColor.medium;
+
+  return (
+    <div className={`group relative rounded-xl border p-3.5 my-2 ${colorCls}`}>
+      <div className="flex items-start gap-2.5">
+        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0 space-y-1">
+          {incidentData ? (
+            <>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
+                INCIDENT — {severityLabel[sev] ?? sev}
+              </p>
+              <p className="text-sm font-bold text-foreground">{incidentData.title ?? 'Incident signalé'}</p>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>Signalé par <span className="font-semibold">{incidentData.reporter ?? 'inconnu'}</span></span>
+                <span>·</span>
+                <span>{incidentData.time ?? formatTime(msg.createdAt)}</span>
+              </div>
+              {incidentData.id && (
+                <a
+                  href={`/incidents/${incidentData.id}`}
+                  className="inline-flex items-center gap-1 text-[11px] text-primary font-medium hover:underline mt-1"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Voir le ticket
+                </a>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-foreground break-words">{msg.content}</p>
+          )}
+        </div>
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all flex-shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** System message (centered, minimal) */
+function SystemMsg({ msg }: { msg: Message }) {
+  return (
+    <div className="flex items-center gap-2 my-2 px-2">
+      <div className="flex-1 h-px bg-border/50" />
+      <p className="text-[10px] text-muted-foreground/70 px-2 text-center max-w-xs">{msg.content}</p>
+      <div className="flex-1 h-px bg-border/50" />
+    </div>
+  );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface MessagingModuleProps {
   canManageAll?: boolean;
 }
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function MessagingModule({ canManageAll = false }: MessagingModuleProps) {
   const { currentUser, users } = useApp();
@@ -59,15 +208,24 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lastSeenRef = useRef<Record<string, Date>>({});
 
-  // Filter channels for non-managers
   const userRole = currentUser?.role as string | undefined;
+
+  // ── Channel visibility ────────────────────────────────────────────────────
   const availableChannels = CHANNELS.filter(ch => {
-    if (ch.id === 'managers') return canManageAll || ['manager', 'owner', 'admin', 'chef'].includes(userRole ?? '');
+    if (ch.id === 'managers') return canManageAll || ['manager', 'owner', 'admin', 'chef', 'god'].includes(userRole ?? '');
     return true;
   });
 
+  // Can the current user WRITE in the active channel?
+  const canWriteInChannel = (() => {
+    if (activeChannel === 'annonces') {
+      return ANNONCE_WRITERS.includes(userRole ?? '');
+    }
+    return true; // all other channels: everyone can write
+  })();
+
+  // ── Fetch messages ────────────────────────────────────────────────────────
   const fetchMessages = useCallback(async (channel: string) => {
     setLoading(true);
     const { data, error } = await supabase
@@ -77,45 +235,20 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
       .order('created_at', { ascending: true })
       .limit(100);
     if (!error && data) {
-      setMessages(data.map(r => ({
-        id: r.id,
-        channel: r.channel,
-        content: r.content,
-        senderId: r.sender_id,
-        senderName: r.sender_name,
-        senderTeam: r.sender_team,
-        mentions: r.mentions ?? [],
-        createdAt: new Date(r.created_at),
-      })));
-      lastSeenRef.current[channel] = new Date();
+      setMessages((data as Record<string, unknown>[]).map(mapRow));
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchMessages(activeChannel);
-  }, [activeChannel, fetchMessages]);
+  useEffect(() => { fetchMessages(activeChannel); }, [activeChannel, fetchMessages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('messages-realtime')
+    const sub = supabase
+      .channel('messages-realtime-v2')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msg = payload.new as Record<string, unknown>;
-        const newMsg: Message = {
-          id: msg.id as string,
-          channel: msg.channel as string,
-          content: msg.content as string,
-          senderId: msg.sender_id as string,
-          senderName: msg.sender_name as string,
-          senderTeam: msg.sender_team as string,
-          mentions: (msg.mentions as string[]) ?? [],
-          createdAt: new Date(msg.created_at as string),
-        };
+        const newMsg = mapRow(payload.new as Record<string, unknown>);
         if (newMsg.channel === activeChannel) {
           setMessages(prev => [...prev, newMsg]);
         } else {
@@ -126,19 +259,20 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
         setMessages(prev => prev.filter(m => m.id !== payload.old.id));
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(sub); };
   }, [activeChannel]);
 
+  // ── Channel switch ────────────────────────────────────────────────────────
   const handleChannelChange = (ch: string) => {
     setActiveChannel(ch);
     setUnreadCounts(prev => ({ ...prev, [ch]: 0 }));
   };
 
+  // ── Mention detection ─────────────────────────────────────────────────────
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
     const cursorPos = e.target.selectionStart ?? val.length;
-    // Detect @ mention
     const textBeforeCursor = val.slice(0, cursorPos);
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
     if (mentionMatch) {
@@ -160,13 +294,16 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
     inputRef.current?.focus();
   };
 
+  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = async () => {
-    if (!input.trim() || !currentUser) return;
-    // Extract mentions
+    if (!input.trim() || !currentUser || !canWriteInChannel) return;
+
     const mentionedNames = [...input.matchAll(/@(\w+)/g)].map(m => m[1].toLowerCase());
     const mentionedIds = users
       .filter(u => mentionedNames.includes(u.name.toLowerCase()))
       .map(u => u.id);
+
+    const msgType: MessageType = activeChannel === 'annonces' ? 'annonce' : 'user';
 
     const { error } = await supabase.from('messages').insert({
       channel: activeChannel,
@@ -175,6 +312,7 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
       sender_name: currentUser.name,
       sender_team: currentUser.team,
       mentions: mentionedIds,
+      msg_type: msgType,
     });
     if (!error) {
       setInput('');
@@ -186,11 +324,12 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
     await supabase.from('messages').delete().eq('id', msgId);
   };
 
+  // ── Mention suggestions ───────────────────────────────────────────────────
   const filteredMentionUsers = mentionQuery
     ? users.filter(u => u.name.toLowerCase().startsWith(mentionQuery) && u.id !== currentUser?.id)
     : users.filter(u => u.id !== currentUser?.id).slice(0, 6);
 
-  // Group messages by date
+  // ── Group by date ─────────────────────────────────────────────────────────
   const groupedMessages: { date: string; msgs: Message[] }[] = [];
   for (const msg of messages) {
     const dateStr = formatDate(msg.createdAt);
@@ -202,8 +341,12 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
     }
   }
 
+  const isAnnouncesChannel = activeChannel === 'annonces';
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px] gap-0">
+
       {/* Channel selector */}
       <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto mb-3 flex-shrink-0">
         {availableChannels.map(ch => (
@@ -225,17 +368,32 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
         ))}
       </div>
 
+      {/* Annonces banner */}
+      {isAnnouncesChannel && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 border border-primary/20 mb-3 flex-shrink-0">
+          <Pin className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <p className="text-xs text-primary font-medium flex-1">
+            Canal d'annonces officiel
+            {!canWriteInChannel && ' — Lecture seule'}
+          </p>
+          {canWriteInChannel && (
+            <span className="text-[10px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">✏️ Éditeur</span>
+          )}
+        </div>
+      )}
+
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto glass-card rounded-2xl p-4 space-y-1 border border-border">
+      <div className="flex-1 overflow-y-auto glass-card rounded-2xl p-4 space-y-0.5 border border-border">
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             Chargement…
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <MessageSquare className="w-10 h-10 opacity-20" />
-            <p className="text-sm">Aucun message dans #{CHANNELS.find(c => c.id === activeChannel)?.label}</p>
-            <p className="text-xs">Soyez le premier à écrire !</p>
+            {isAnnouncesChannel
+              ? <><Pin className="w-10 h-10 opacity-20" /><p className="text-sm">Aucune annonce pour l'instant</p></>
+              : <><MessageSquare className="w-10 h-10 opacity-20" /><p className="text-sm">Aucun message dans #{CHANNELS.find(c => c.id === activeChannel)?.label}</p></>
+            }
           </div>
         ) : (
           groupedMessages.map(group => (
@@ -245,10 +403,42 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
                 <span className="text-[10px] text-muted-foreground px-2">{group.date}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
+
               {group.msgs.map((msg, idx) => {
                 const isOwn = msg.senderId === currentUser?.id;
+                const canDel = isOwn || canManageAll;
+
+                // ── Special message types ──────────────────────────────────
+                if (msg.msgType === 'incident') {
+                  return (
+                    <IncidentCard
+                      key={msg.id}
+                      msg={msg}
+                      canDelete={canDel}
+                      onDelete={() => deleteMessage(msg.id)}
+                    />
+                  );
+                }
+
+                if (msg.msgType === 'annonce') {
+                  return (
+                    <AnnonceCard
+                      key={msg.id}
+                      msg={msg}
+                      canDelete={canDel}
+                      onDelete={() => deleteMessage(msg.id)}
+                      users={users}
+                    />
+                  );
+                }
+
+                if (msg.msgType === 'system') {
+                  return <SystemMsg key={msg.id} msg={msg} />;
+                }
+
+                // ── Regular user message ───────────────────────────────────
                 const prevMsg = group.msgs[idx - 1];
-                const isSameAuthor = prevMsg?.senderId === msg.senderId;
+                const isSameAuthor = prevMsg?.senderId === msg.senderId && prevMsg?.msgType === 'user';
                 const isMentioned = currentUser && msg.mentions.includes(currentUser.id);
 
                 return (
@@ -256,7 +446,6 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
                     key={msg.id}
                     className={`group flex gap-2.5 ${isSameAuthor ? 'mt-0.5' : 'mt-3'} ${isMentioned ? 'bg-primary/5 -mx-2 px-2 rounded-lg py-0.5' : ''}`}
                   >
-                    {/* Avatar */}
                     {!isSameAuthor ? (
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 ${
                         isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'
@@ -286,17 +475,16 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
                           if (part.startsWith('@')) {
                             const name = part.slice(1);
                             const mentioned = users.find(u => u.name.toLowerCase() === name.toLowerCase());
-                            return mentioned ? (
-                              <span key={i} className="text-primary font-medium">{part}</span>
-                            ) : <span key={i}>{part}</span>;
+                            return mentioned
+                              ? <span key={i} className="text-primary font-medium">{part}</span>
+                              : <span key={i}>{part}</span>;
                           }
                           return <span key={i}>{part}</span>;
                         })}
                       </p>
                     </div>
 
-                    {/* Delete button */}
-                    {(isOwn || canManageAll) && (
+                    {canDel && (
                       <button
                         onClick={() => deleteMessage(msg.id)}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all flex-shrink-0"
@@ -316,7 +504,7 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
       {/* Input area */}
       <div className="relative flex-shrink-0 mt-3">
         {/* Mention suggestions */}
-        {showMentions && filteredMentionUsers.length > 0 && (
+        {showMentions && filteredMentionUsers.length > 0 && canWriteInChannel && (
           <div className="absolute bottom-full mb-2 left-0 right-0 glass-card rounded-xl border border-border shadow-xl z-50 overflow-hidden">
             {filteredMentionUsers.map(u => (
               <button
@@ -334,26 +522,40 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
           </div>
         )}
 
-        <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 focus-within:border-primary transition-colors">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-              if (e.key === 'Escape') setShowMentions(false);
-            }}
-            placeholder={`Message #${CHANNELS.find(c => c.id === activeChannel)?.label}… (@ pour mentionner)`}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim()}
-            className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-30 transition-all flex-shrink-0"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {canWriteInChannel ? (
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 focus-within:border-primary transition-colors">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+                if (e.key === 'Escape') setShowMentions(false);
+              }}
+              placeholder={
+                isAnnouncesChannel
+                  ? `Publier une annonce… (visible par tous)`
+                  : `Message #${CHANNELS.find(c => c.id === activeChannel)?.label}… (@ pour mentionner)`
+              }
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim()}
+              className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-30 transition-all flex-shrink-0"
+            >
+              {isAnnouncesChannel ? <Pin className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        ) : (
+          /* Read-only notice for staff in #annonces */
+          <div className="flex items-center gap-2 bg-muted/50 border border-border/50 rounded-xl px-4 py-3">
+            <Pin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Ce canal est réservé aux annonces de l'équipe d'encadrement.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
