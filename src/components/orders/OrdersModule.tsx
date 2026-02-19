@@ -4,13 +4,15 @@ import { supabase } from '../../integrations/supabase/client';
 import {
   ShoppingCart, Plus, ChevronDown, ChevronUp, Check, X,
   Package, Truck, AlertCircle, RefreshCw, Clock, Search,
-  ChevronRight, FileText, Loader2, RotateCcw,
+  ChevronRight, FileText, Loader2, RotateCcw, ChefHat,
 } from 'lucide-react';
+import { logAudit } from '../../lib/auditLogger';
+import type { Json } from '../../integrations/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderUnit = 'kg' | 'g' | 'L' | 'cL' | 'pcs' | 'carton' | 'caisse';
-type OrderStatus = 'draft' | 'pending' | 'validated' | 'received' | 'rejected';
+type OrderStatus = 'draft' | 'pending' | 'chef_approved' | 'validated' | 'received' | 'rejected';
 
 interface OrderItem {
   id?: string;
@@ -28,6 +30,7 @@ interface Order {
   status: OrderStatus;
   createdByName: string;
   createdBy?: string;
+  approvedByChefName?: string;
   validatedByName?: string;
   validatedAt?: string;
   rejectionReason?: string;
@@ -51,12 +54,31 @@ interface ReceiptItem {
 const UNITS: OrderUnit[] = ['kg', 'g', 'L', 'cL', 'pcs', 'carton', 'caisse'];
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string }> = {
-  draft:     { label: 'Brouillon',    color: 'text-muted-foreground', bg: 'bg-muted/30' },
-  pending:   { label: 'En attente',   color: 'text-amber-600',        bg: 'bg-amber-500/10' },
-  validated: { label: 'Validée',      color: 'text-primary',          bg: 'bg-primary/10' },
-  received:  { label: 'Reçue',        color: 'text-timer-safe',       bg: 'bg-timer-safe/10' },
-  rejected:  { label: 'Refusée',      color: 'text-destructive',      bg: 'bg-destructive/10' },
+  draft:          { label: 'Brouillon',       color: 'text-muted-foreground', bg: 'bg-muted/30' },
+  pending:        { label: 'En attente',       color: 'text-amber-600',        bg: 'bg-amber-500/10' },
+  chef_approved:  { label: 'Approuvée Chef',   color: 'text-blue-600',         bg: 'bg-blue-500/10' },
+  validated:      { label: 'Validée',          color: 'text-primary',          bg: 'bg-primary/10' },
+  received:       { label: 'Reçue',            color: 'text-[hsl(var(--timer-safe))]', bg: 'bg-[hsl(var(--timer-safe)/0.1)]' },
+  rejected:       { label: 'Refusée',          color: 'text-destructive',      bg: 'bg-destructive/10' },
 };
+
+// ─── Helper: send notification to users by role ──────────────────────────────
+async function notifyByRole(role: 'owner' | 'manager' | 'chef' | 'admin' | 'staff' | 'god', title: string, body: string, refId: string) {
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', role);
+  if (!roles || roles.length === 0) return;
+  const inserts = roles.map((r) => ({
+    user_id: r.user_id,
+    type: 'order',
+    title,
+    body,
+    ref_type: 'order',
+    ref_id: refId,
+  }));
+  await supabase.from('notifications').insert(inserts);
+}
 
 // ─── Generate order number ─────────────────────────────────────────────────────
 function generateOrderNumber(supplier: string, seq: number): string {
@@ -206,22 +228,13 @@ function ReceiptModal({ order, items, onClose, onSubmit }: {
 
 // ─── Order card ───────────────────────────────────────────────────────────────
 function OrderCard({
-  order,
-  canManage,
-  onValidate,
-  onReceive,
-  onExpand,
-  expanded,
+  order, canManage, isChefRole, onValidate, onReceive, onExpand, expanded,
 }: {
-  order: Order;
-  canManage: boolean;
-  onValidate: (order: Order) => void;
-  onReceive: (order: Order) => void;
-  onExpand: () => void;
-  expanded: boolean;
+  order: Order; canManage: boolean; isChefRole: boolean;
+  onValidate: (order: Order) => void; onReceive: (order: Order) => void;
+  onExpand: () => void; expanded: boolean;
 }) {
   const cfg = STATUS_CONFIG[order.status];
-
   return (
     <div className="glass-card rounded-xl border border-border overflow-hidden">
       <button onClick={onExpand} className="w-full p-4 text-left">
@@ -238,16 +251,19 @@ function OrderCard({
             </div>
             <p className="text-sm font-bold text-foreground">{order.supplier || 'Fournisseur non défini'}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Par {order.createdByName} · {new Date(order.createdAt).toLocaleDateString('fr-FR')}</p>
+            {order.approvedByChefName && (
+              <p className="text-xs text-blue-600 mt-0.5 flex items-center gap-1">
+                <ChefHat className="w-3 h-3" /> Approuvée par {order.approvedByChefName}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
       </button>
-
       {expanded && (
         <div className="px-4 pb-4 border-t border-border/50 space-y-3 animate-slide-up">
-          {/* Items */}
           {order.items && order.items.length > 0 && (
             <div className="space-y-1.5 pt-3">
               {order.items.map((item, i) => (
@@ -258,34 +274,32 @@ function OrderCard({
               ))}
             </div>
           )}
-
-          {order.notes && (
-            <div className="text-xs text-muted-foreground bg-secondary rounded-lg px-3 py-2">
-              📝 {order.notes}
-            </div>
-          )}
-
+          {order.notes && <div className="text-xs text-muted-foreground bg-secondary rounded-lg px-3 py-2">📝 {order.notes}</div>}
           {order.status === 'rejected' && order.rejectionReason && (
             <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 flex gap-2">
-              <X className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-              <span>{order.rejectionReason}</span>
+              <X className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /><span>{order.rejectionReason}</span>
             </div>
           )}
-
-          {/* Actions */}
+          {/* Chef: approve pending */}
+          {isChefRole && order.status === 'pending' && (
+            <button onClick={() => onValidate(order)} className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-2">
+              <ChefHat className="w-3.5 h-3.5" /> Approuver (Chef)
+            </button>
+          )}
+          {/* Manager: confirm after chef */}
+          {canManage && order.status === 'chef_approved' && (
+            <button onClick={() => onValidate(order)} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2">
+              <Check className="w-3.5 h-3.5" /> Confirmer (Manager)
+            </button>
+          )}
+          {/* Manager: direct validation of pending (bypass chef) */}
           {canManage && order.status === 'pending' && (
-            <button
-              onClick={() => onValidate(order)}
-              className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2"
-            >
-              <Check className="w-3.5 h-3.5" /> Réviser & valider
+            <button onClick={() => onValidate(order)} className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold flex items-center justify-center gap-2">
+              <Check className="w-3.5 h-3.5" /> Valider directement
             </button>
           )}
           {canManage && order.status === 'validated' && (
-            <button
-              onClick={() => onReceive(order)}
-              className="w-full py-2.5 rounded-xl bg-timer-safe/20 text-timer-safe text-xs font-bold flex items-center justify-center gap-2 border border-timer-safe/30"
-            >
+            <button onClick={() => onReceive(order)} className="w-full py-2.5 rounded-xl bg-[hsl(var(--timer-safe)/0.2)] text-[hsl(var(--timer-safe))] text-xs font-bold flex items-center justify-center gap-2 border border-[hsl(var(--timer-safe)/0.3)]">
               <Truck className="w-3.5 h-3.5" /> Réceptionner
             </button>
           )}
@@ -294,6 +308,8 @@ function OrderCard({
     </div>
   );
 }
+
+
 
 // ─── Create order form ────────────────────────────────────────────────────────
 function CreateOrderForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -545,10 +561,12 @@ function CreateOrderForm({ onClose, onCreated }: { onClose: () => void; onCreate
 
 // ─── Main module ──────────────────────────────────────────────────────────────
 interface OrdersModuleProps {
-  canManage?: boolean; // manager / owner can validate & receive
+  canManage?: boolean; // manager / admin can confirm
+  isChef?: boolean;    // chef can approve (pending → chef_approved)
 }
 
-export function OrdersModule({ canManage = false }: OrdersModuleProps) {
+export function OrdersModule({ canManage = false, isChef = false }: OrdersModuleProps) {
+  const isChefRole = isChef && !canManage; // pure chef, not manager
   const { currentUser } = useApp();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -609,15 +627,94 @@ export function OrdersModule({ canManage = false }: OrdersModuleProps) {
     return () => { supabase.removeChannel(channel); };
   }, [fetchOrders]);
 
-  // ─── Validate order ──────────────────────────────────────────────────────────
-  const handleValidate = async (approved: boolean, reason?: string) => {
+  // ─── Chef approves order (pending → chef_approved) ────────────────────────────
+  const handleChefApprove = async (approved: boolean, reason?: string) => {
     if (!validateTarget || !currentUser) return;
-    const update: { status: OrderStatus; validated_by?: string; validated_by_name?: string; validated_at?: string; rejection_reason?: string } = approved
-      ? { status: 'validated' as const, validated_by: currentUser.id, validated_by_name: currentUser.name, validated_at: new Date().toISOString() }
-      : { status: 'rejected' as const, rejection_reason: reason };
-    await supabase.from('orders').update(update).eq('id', validateTarget.id);
+    if (approved) {
+      // Chef approves → chef_approved
+      await supabase.from('orders').update({
+        status: 'chef_approved' as unknown as 'pending',
+        approved_by_chef: currentUser.id,
+        approved_by_chef_name: currentUser.name,
+        chef_approved_at: new Date().toISOString(),
+      } as Record<string, unknown>).eq('id', validateTarget.id);
+      // Notify managers
+      await notifyByRole('manager', '📦 Commande à confirmer', `"${validateTarget.supplier}" approuvée par ${currentUser.name} — en attente de votre confirmation`, validateTarget.id);
+      await notifyByRole('admin', '📦 Commande à confirmer', `"${validateTarget.supplier}" approuvée par ${currentUser.name} — en attente de confirmation manager`, validateTarget.id);
+      await logAudit(currentUser.id, currentUser.name, 'order_approved_chef', 'order', validateTarget.id, { order: validateTarget.orderNumber } as Json);
+    } else {
+      // Chef rejects
+      await supabase.from('orders').update({
+        status: 'rejected',
+        rejection_reason: reason,
+      }).eq('id', validateTarget.id);
+      // Notify creator
+      if (validateTarget.createdBy) {
+        await supabase.from('notifications').insert({
+          user_id: validateTarget.createdBy,
+          type: 'order',
+          title: '❌ Commande refusée',
+          body: `Votre commande "${validateTarget.supplier}" a été refusée par ${currentUser.name}`,
+          ref_type: 'order',
+          ref_id: validateTarget.id,
+        });
+      }
+      await logAudit(currentUser.id, currentUser.name, 'order_rejected', 'order', validateTarget.id, { order: validateTarget.orderNumber } as Json);
+    }
     setValidateTarget(null);
     fetchOrders();
+  };
+
+  // ─── Manager confirms order (chef_approved → validated) ───────────────────────
+  const handleManagerConfirm = async (approved: boolean, reason?: string) => {
+    if (!validateTarget || !currentUser) return;
+    if (approved) {
+      await supabase.from('orders').update({
+        status: 'validated',
+        approved_by_manager: currentUser.id,
+        approved_by_manager_name: currentUser.name,
+        manager_confirmed_at: new Date().toISOString(),
+        validated_by: currentUser.id,
+        validated_by_name: currentUser.name,
+        validated_at: new Date().toISOString(),
+      }).eq('id', validateTarget.id);
+      // Notify creator
+      if (validateTarget.createdBy) {
+        await supabase.from('notifications').insert({
+          user_id: validateTarget.createdBy,
+          type: 'order',
+          title: '✅ Commande confirmée',
+          body: `Votre commande "${validateTarget.supplier}" a été validée par ${currentUser.name}`,
+          ref_type: 'order',
+          ref_id: validateTarget.id,
+        });
+      }
+      await logAudit(currentUser.id, currentUser.name, 'order_confirmed_manager', 'order', validateTarget.id, { order: validateTarget.orderNumber } as Json);
+    } else {
+      await supabase.from('orders').update({
+        status: 'rejected',
+        rejection_reason: reason,
+      }).eq('id', validateTarget.id);
+      if (validateTarget.createdBy) {
+        await supabase.from('notifications').insert({
+          user_id: validateTarget.createdBy,
+          type: 'order',
+          title: '❌ Commande refusée',
+          body: `Votre commande "${validateTarget.supplier}" a été refusée par ${currentUser.name}`,
+          ref_type: 'order',
+          ref_id: validateTarget.id,
+        });
+      }
+      await logAudit(currentUser.id, currentUser.name, 'order_rejected', 'order', validateTarget.id, { order: validateTarget.orderNumber } as Json);
+    }
+    setValidateTarget(null);
+    fetchOrders();
+  };
+
+  // Backward-compat wrapper (used in the modal)
+  const handleValidate = (approved: boolean, reason?: string) => {
+    if (isChefRole) return handleChefApprove(approved, reason);
+    return handleManagerConfirm(approved, reason);
   };
 
   // ─── Receive order ────────────────────────────────────────────────────────────
@@ -784,6 +881,7 @@ export function OrdersModule({ canManage = false }: OrdersModuleProps) {
               key={order.id}
               order={order}
               canManage={canManage}
+              isChefRole={isChefRole}
               onValidate={setValidateTarget}
               onReceive={openReceive}
               onExpand={() => setExpandedId(expandedId === order.id ? null : order.id)}

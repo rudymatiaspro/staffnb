@@ -169,8 +169,8 @@ export default function Dashboard() {
       case 'tasks': return <TasksModule role={role} team={team} isManager={isManager} onCreateTask={() => setShowCreateModal(true)} />;
       case 'chat': return <MessagingModule />;
       case 'sos': return <IncidentModule />;
-      case 'orders':    return <OrdersModule canManage={canManageContent} />;
-      case 'timesheet': return currentUser ? <TimesheetView userId={currentUser.id} /> : null;
+      case 'orders':    return <OrdersModule canManage={canManageContent} isChef={isChef && !isManager} />;
+      case 'timesheet': return currentUser ? <TimesheetView userId={currentUser.id} showPinChange /> : null;
       case 'objectives':return <ObjectivesModule canManage={canManageContent} />;
       case 'planning':  return canManageContent ? <PlanningModule /> : <StaffShiftsView />;
       case 'menu':      return <MenuModule canEdit={canManageContent} />;
