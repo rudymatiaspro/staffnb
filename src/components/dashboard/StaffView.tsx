@@ -22,7 +22,7 @@ import { TEAM_LABELS } from '../../data/initialData';
 type StaffTab = 'tasks' | 'messages' | 'planning' | 'swaps' | 'orders' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives';
 
 export function StaffView() {
-  const { currentUser, getTodayTasks, users } = useApp();
+  const { currentUser, getTodayTasks, users, staffRankings } = useApp();
   const team = currentUser?.team as Team;
   const teams = currentUser?.teams && currentUser.teams.length > 0 ? currentUser.teams : [team];
   const [showDone, setShowDone] = useState(false);
@@ -32,12 +32,14 @@ export function StaffView() {
   const overdueTasks = allTasks.filter((t) => t.status === 'overdue').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
   const pendingTasks = allTasks.filter((t) => t.status === 'pending').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
   const doneTasks = allTasks.filter((t) => t.status === 'done');
-  const myValidations = doneTasks.filter((t) => t.validatedBy === currentUser?.name);
   const teamStaff = users.filter((u) => u.team === team && u.role === 'staff');
-  const myScore = myValidations.length * 10 + (doneTasks.length === allTasks.length && allTasks.length > 0 ? 20 : 0);
-  const teamRank = 2;
-  const overallRank = 4;
   const completionPct = allTasks.length > 0 ? Math.round((doneTasks.length / allTasks.length) * 100) : 0;
+
+  // Real rankings from DB
+  const myRanking = currentUser ? staffRankings.find((r) => r.user_id === currentUser.id) : null;
+  const teamRank = myRanking?.team_rank ?? null;
+  const overallRank = myRanking?.overall_rank ?? null;
+  const myScore = myRanking?.score ?? 0;
 
   const tabs: { id: StaffTab; label: string; icon: React.ReactNode }[] = [
     { id: 'tasks',      label: 'Tâches',    icon: <CheckCircle className="w-3.5 h-3.5" /> },
@@ -113,11 +115,17 @@ export function StaffView() {
               <div className="text-right space-y-1">
                 <div className="flex items-center gap-1.5 justify-end">
                   <Trophy className="w-3.5 h-3.5 text-[hsl(var(--timer-warning))]" />
-                  <span className="text-xs text-muted-foreground">#{teamRank} dans {TEAM_LABELS[team]}</span>
+                  {teamRank
+                    ? <span className="text-xs text-muted-foreground">#{teamRank} dans {TEAM_LABELS[team]}</span>
+                    : <span className="text-xs text-muted-foreground">— dans {TEAM_LABELS[team]}</span>
+                  }
                 </div>
                 <div className="flex items-center gap-1.5 justify-end">
                   <Award className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs text-muted-foreground">#{overallRank} global</span>
+                  {overallRank
+                    ? <span className="text-xs text-muted-foreground">#{overallRank} global</span>
+                    : <span className="text-xs text-muted-foreground">— global</span>
+                  }
                 </div>
               </div>
             </div>

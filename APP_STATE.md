@@ -563,8 +563,9 @@
 
 | Function | Path | Trigger | Description |
 |----------|------|---------|-------------|
-| `daily-report` | `supabase/functions/daily-report/index.ts` | Cron (22:00 daily) + manual HTTP POST | Aggregates daily metrics: tasks, scores, malus, incidents, stock alerts, orders. Saves to `day_reports`, updates `day_close_states`, sends notifications to owners/admins |
-| `ensure-god-user` | `supabase/functions/ensure-god-user/index.ts` | Manual HTTP POST | Creates or updates the `god` super-admin user (rudy@staffandb.app) — used during initial setup |
+| `daily-report` | `supabase/functions/daily-report/index.ts` | Cron (22:00 daily) + manual HTTP POST | Aggregates daily metrics, writes to `day_reports`, sends notifications |
+| `ensure-god-user` | `supabase/functions/ensure-god-user/index.ts` | Manual HTTP POST | Creates/updates the `god` super-admin user |
+| `generate-tasks-now` | `supabase/functions/generate-tasks-now/index.ts` | Manual (button) + Cron (00:01 daily) | Calls `generate_tasks_from_templates()` RPC to spawn today's tasks from active templates |
 
 ### Edge Function Details
 
@@ -622,16 +623,20 @@ The `MessagingModule` subscribes to:
 | Multi-team assignment | ✅ Live |
 | Tasks (create, complete, delete, validate) | ✅ Live |
 | Task templates (recurring, daily, weekly, custom) | ✅ Live |
+| **Auto-generate tasks from templates** | ✅ Live — `generate_tasks_from_templates()` SQL function + pg_cron (00:01 daily) + Edge Function + manual button |
 | Product catalogue (CRUD, stock update) | ✅ Live |
 | Stock logs | ✅ Live |
 | Orders (draft → pending → validated → received) | ✅ Live |
-| Order receipt (quantity reconciliation, gap detection) | ✅ Live |
+| Order receipt (quantity reconciliation) | ✅ Live |
 | Clock-in / Clock-out (Station) | ✅ Live |
 | Planning (manager shift grid) | ✅ Live |
-| Shift swap requests (staff request + manager approval) | ✅ Live |
+| Shift swap requests | ✅ Live |
 | Availability requests | ✅ Live (table + RLS) |
 | Team scores & malus events | ✅ Live |
 | Score events (bonus/penalty) | ✅ Live |
+| **profiles.score sync via trigger** | ✅ Live — `sync_profile_score` trigger on `score_events` AFTER INSERT; `recalculate_all_scores()` run once |
+| **Real staff rankings** | ✅ Live — `get_staff_rankings()` RPC with RANK() OVER (PARTITION BY team / globally); replaces hardcoded `teamRank=2` and `overallRank=4` |
+| **Top performer by real score** | ✅ Live — `sort by realScore DESC` using `staffRankings` data from RPC |
 | Malus contestation | ✅ Live |
 | Gamification settings | ✅ Live |
 | Incidents (report, manage, resolve) | ✅ Live |
@@ -639,38 +644,29 @@ The `MessagingModule` subscribes to:
 | Team objectives | ✅ Live |
 | Messaging (channels + @mentions) | ✅ Live |
 | In-app notifications | ✅ Live |
-| Browser push notifications (high incidents) | ✅ Live (Web Notifications API) |
-| Day reports (manual trigger) | ✅ Live |
-| Daily report Edge Function (auto 22h) | ✅ Live (cron scheduled) |
-| Realtime status indicator | ✅ Live |
+| Browser push notifications | ✅ Live |
+| Day reports (manual + auto 22h) | ✅ Live |
 | Leaderboard (individual scores) | ✅ Live |
-| Timesheets (history per user) | ✅ Live |
+| Timesheets | ✅ Live |
 
 ### ⚠️ Partially Connected / Limited
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Staff score rank (ShiftScore card) | ⚠️ Partial | `teamRank` hardcoded to `2`, `overallRank` hardcoded to `4` — not computed from real data |
-| Top performer in team cards | ⚠️ Mock | Uses `sort(() => 0.5 - Math.random())` — random pick, not real score sort |
-| Availability requests UI | ⚠️ Partial | Table + RLS exist, no dedicated UI component yet (data model ready) |
-| Score from task completion | ⚠️ Partial | Score shown on StaffView is computed client-side from local tasks, not synced with DB `profiles.score` |
+| Availability requests UI | ⚠️ Partial | Table + RLS exist, no dedicated UI component yet |
+| Station kiosk planning integration | ⚠️ Partial | Clock-in/out works, but auto-check against `planning_shifts` not wired |
 
 ### ❌ Not Yet Implemented (Placeholder / Missing)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Double-malus for managers | ❌ Missing | Described in design doc: manager gets 2× malus when their team underperforms — not implemented |
+| Double-malus for managers | ❌ Missing | Manager gets 2× malus when team underperforms — not implemented |
 | Chef exemption from double-malus | ❌ Missing | Role exists, exemption logic not implemented |
-| Collective penalty automation | ❌ Missing | Threshold check exists in settings, but auto-trigger of collective penalty not implemented |
-| Auto task generation from templates | ❌ Missing | Templates are saved but the cron/trigger that spawns daily tasks from templates doesn't exist |
-| Availability request UI | ❌ Missing | DB table ready, no frontend component |
-| Station kiosk multi-user flow | ⚠️ Partial | Station page exists, clock-in/out works, but shift planning integration (auto-check against planning_shifts) not wired |
-| Score sync to profiles.score | ❌ Missing | DB column exists, but no trigger/function to keep it in sync with score_events |
-| Recurring orders auto-generation | ❌ Missing | `is_recurring` and `next_occurrence` columns exist on orders, but no cron job to spawn new orders |
-| HACCP alert notifications | ❌ Missing | `is_alert` flag saved but no notification fired for out-of-range temperatures |
-| Objective auto-tracking | ❌ Missing | `auto_track` flag exists, `auto_track_metric` field exists, but no automation wired |
+| Collective penalty automation | ❌ Missing | Threshold check exists in settings, auto-trigger not implemented |
+| Recurring orders auto-generation | ❌ Missing | `is_recurring` + `next_occurrence` columns exist, no cron job |
+| HACCP alert notifications | ❌ Missing | `is_alert` flag saved but no notification fired |
+| Objective auto-tracking | ❌ Missing | `auto_track` flag exists, no automation wired |
 | Report export (PDF/CSV) | ❌ Missing | Reports visible in UI only |
-| Dark/Light mode toggle | ❌ Missing | Theme tokens exist in CSS but no toggle UI |
 
 ---
 

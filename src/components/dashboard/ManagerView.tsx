@@ -16,10 +16,11 @@ import { MessagingModule } from '../messaging/MessagingModule';
 import { MalusContestModule } from '../scoring/MalusContestModule';
 import { Team } from '../../types';
 import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
+import { supabase } from '../../integrations/supabase/client';
 import {
   Plus, LayoutGrid, List, Activity, CheckCircle, Clock,
   AlertTriangle, Users, ChevronDown, ChevronUp, Wine, ChefHat, Layers, Globe, Package, FileText,
-  Thermometer, Target, KeyRound, CalendarDays, ShoppingCart, MessageSquare, Flag,
+  Thermometer, Target, KeyRound, CalendarDays, ShoppingCart, MessageSquare, Flag, RefreshCw,
 } from 'lucide-react';
 
 const TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -42,6 +43,7 @@ export function ManagerView() {
   const [filterTeam, setFilterTeam] = useState<Team | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<ManagerTab>('tasks');
   const [expandedTeams, setExpandedTeams] = useState<Set<Team>>(new Set(TEAMS));
+  const [generatingTasks, setGeneratingTasks] = useState(false);
   const today = new Date().toISOString().split('T')[0];
   const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
 
@@ -67,6 +69,22 @@ export function ManagerView() {
     });
   };
 
+  const handleGenerateTasks = async () => {
+    setGeneratingTasks(true);
+    try {
+      const { error } = await supabase.functions.invoke('generate-tasks-now', {
+        body: { trigger: 'manual' },
+      });
+      if (error) throw error;
+      // Slight delay to let realtime push the new tasks
+      await new Promise((r) => setTimeout(r, 1200));
+    } catch (err) {
+      console.error('generate-tasks-now error:', err);
+    } finally {
+      setGeneratingTasks(false);
+    }
+  };
+
   const tabs = [
     { id: 'tasks' as ManagerTab, label: 'Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'planning' as ManagerTab, label: 'Planning', icon: <CalendarDays className="w-3.5 h-3.5" /> },
@@ -86,9 +104,17 @@ export function ManagerView() {
 
   return (
     <div className="space-y-5">
-      {/* Close Day button */}
-      {!todayClosed && (
-        <div className="flex justify-end">
+      {/* Action bar */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <button
+          onClick={handleGenerateTasks}
+          disabled={generatingTasks}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground text-xs font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${generatingTasks ? 'animate-spin' : ''}`} />
+          {generatingTasks ? 'Génération…' : 'Générer les tâches du jour'}
+        </button>
+        {!todayClosed && (
           <button
             onClick={() => { if (currentUser) triggerCloseDay(currentUser.name); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-opacity"
@@ -96,8 +122,8 @@ export function ManagerView() {
             <Clock className="w-3.5 h-3.5" />
             Close Day
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3">

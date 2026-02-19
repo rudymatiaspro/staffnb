@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamScore, MalusEvent, Product, StockLog, StockUpdateReason, StockStatus, DayReport, DayCloseState, Shift, Incident, TemperatureLocation, TemperatureLog, TeamObjective } from '../types';
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
-import { useSupabaseData } from '../integrations/supabase/hooks';
+import { useSupabaseData, StaffRanking } from '../integrations/supabase/hooks';
 import { useAuth } from './AuthContext';
 
 export interface ValidationEvent {
@@ -68,6 +68,7 @@ interface AppContextType extends AppState {
   addObjective: (obj: Omit<TeamObjective, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateObjective: (id: string, updates: Partial<TeamObjective>) => void;
   deleteObjective: (id: string) => void;
+  staffRankings: StaffRanking[];
 }
 
 export interface Toast {
@@ -855,6 +856,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         incidents, addIncident, updateIncident, deleteIncident,
         tempLocations, tempLogs, addTempLog, addTempLocation,
         objectives, addObjective, updateObjective, deleteObjective,
+        staffRankings: db.staffRankings,
       }}
     >
       {children}
