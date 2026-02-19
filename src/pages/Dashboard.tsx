@@ -7,6 +7,7 @@ import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
 import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
 import { LogOut, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff } from 'lucide-react';
+import { NotificationBell } from '../components/notifications/NotificationBell';
 import logo from '../assets/logo.svg';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 import type { Incident } from '../types';
@@ -95,7 +96,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right — realtime dot + alerts + user menu */}
+          {/* Right — notification bell + realtime dot + alerts + user menu */}
           <div className="flex items-center gap-2">
             {/* Realtime status indicator */}
             {realtimeStatus === 'connected' ? (
@@ -141,6 +142,9 @@ export default function Dashboard() {
                 <span className="text-xs font-bold">{unreadHighIncidents} HIGH</span>
               </div>
             )}
+
+            {/* In-app notification bell */}
+            <NotificationBell />
 
             {/* Overdue tasks bell */}
             {overdueCount > 0 && (
