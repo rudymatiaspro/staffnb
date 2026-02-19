@@ -1,82 +1,82 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { User } from '../../types';
-import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
-import { ChevronRight, Search, Wine, ChefHat, Layers, Settings, Users } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 
 interface NameSelectorProps {
   onSelect: (user: User) => void;
 }
 
-const TEAM_ICONS: Record<string, React.ReactNode> = {
-  BAR: <Wine className="w-4 h-4" />,
-  KITCHEN: <ChefHat className="w-4 h-4" />,
-  FLOOR: <Users className="w-4 h-4" />,
-  ATELIER: <Layers className="w-4 h-4" />,
-  MANAGEMENT: <Settings className="w-4 h-4" />,
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  owner:   'Owner',
-  admin:   'Admin',
+// French role labels
+const ROLE_LABELS_FR: Record<string, string> = {
+  god:     'Administrateur',
+  admin:   'Administrateur',
+  owner:   'Propriétaire',
   manager: 'Manager',
-  chef:    'Chef',
-  staff:   'Staff',
+  chef:    'Chef de Cuisine',
+  staff:   'Staff Salle',
 };
 
-function getRoleLabel(user: User): string {
-  if (user.role === 'owner' || user.role === 'admin' || user.role === 'manager') {
-    return ROLE_LABELS[user.role];
-  }
-  return `${ROLE_LABELS[user.role] ?? user.role} · ${TEAM_LABELS[user.team] ?? user.team}`;
+// Role sort order (lower = higher priority in list)
+const ROLE_ORDER: Record<string, number> = {
+  god:     0,
+  admin:   1,
+  owner:   2,
+  manager: 3,
+  chef:    4,
+  staff:   5,
+};
+
+// Per-profile position overrides (by name) for fine-grained labels
+const NAME_POSITION: Record<string, string> = {
+  Hoa:   'Chef de Cuisine',
+  Quynh: 'Chef Pâtissier',
+  Thinh: 'Sous-Chef',
+  Ken:   'Sous-Chef',
+  Lena:  'Staff Salle',
+  Phat:  'Staff Salle',
+  Tran:  'Staff Salle',
+  Rudy:  'Administrateur',
+  Hanh:  'Propriétaire',
+  Cuong: 'Manager',
+  Quan:  'Manager',
+};
+
+function getPositionLabel(user: User): string {
+  return NAME_POSITION[user.name] ?? ROLE_LABELS_FR[user.role] ?? user.role;
+}
+
+// Avatar background — neutral, no team colour
+const AVATAR_COLORS = [
+  'bg-primary/15 text-primary',
+  'bg-accent/20 text-accent-foreground',
+  'bg-muted text-muted-foreground',
+];
+
+function avatarClass(name: string): string {
+  const idx = name.charCodeAt(0) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[idx];
 }
 
 export function NameSelector({ onSelect }: NameSelectorProps) {
   const { users } = useApp();
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const teams = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
-
-  const filteredUsers = users.filter((u) => {
-    const matchTeam = !selectedTeam || u.team === selectedTeam;
-    const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase());
-    return matchTeam && matchSearch;
+  // Sort by role hierarchy then alphabetically
+  const sortedUsers = [...users].sort((a, b) => {
+    const ro = (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99);
+    if (ro !== 0) return ro;
+    return a.name.localeCompare(b.name);
   });
+
+  const filteredUsers = sortedUsers.filter((u) =>
+    !search || u.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const getInitials = (name: string) => name.slice(0, 2).toUpperCase();
 
   return (
     <div className="space-y-4 animate-slide-up">
-      {/* Team filter */}
-      <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2 font-medium">Équipe</p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedTeam(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              !selectedTeam
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-muted'
-            }`}
-          >
-            Tous
-          </button>
-          {teams.map((team) => (
-            <button
-              key={team}
-              onClick={() => setSelectedTeam(team === selectedTeam ? null : team)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all team-badge ${TEAM_CSS[team]} ${
-                selectedTeam === team ? 'ring-1 ring-current' : 'opacity-60 hover:opacity-100'
-              }`}
-            >
-              {TEAM_ICONS[team]}
-              {TEAM_LABELS[team]}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -90,7 +90,7 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
       </div>
 
       {/* User list */}
-      <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+      <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
         {filteredUsers.map((user) => (
           <button
             key={user.id}
@@ -98,7 +98,7 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
             className="w-full flex items-center justify-between p-3 rounded-xl glass-card hover:border-primary/40 transition-all group"
           >
             <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center team-card ${TEAM_CSS[user.team]} flex-shrink-0`}>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${avatarClass(user.name)}`}>
                 {user.photo ? (
                   <img src={user.photo} alt={user.name} className="w-full h-full object-cover rounded-xl" />
                 ) : (
@@ -108,8 +108,7 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
               <div className="text-left">
                 <p className="font-semibold text-sm text-foreground leading-tight">{user.name}</p>
                 <p className="text-xs text-muted-foreground leading-tight flex items-center gap-1">
-                  {TEAM_ICONS[user.team]}
-                  <span>{getRoleLabel(user)}</span>
+                  <span>{getPositionLabel(user)}</span>
                   {!user.pinSet && (
                     <span className="ml-1 text-[hsl(var(--timer-warning))]">· Premier login</span>
                   )}
