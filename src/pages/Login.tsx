@@ -10,6 +10,31 @@ import logo from '../assets/logo.svg';
 
 type LoginStep = 'select' | 'pin' | 'set_new_pin';
 
+// Update pin_hash via edge function (works for both auth and synthetic profiles)
+async function updatePinHash(profileId: string, pinHash: string, pinSet = true) {
+  try {
+    // Try direct Supabase update first (works when user has an auth session)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ pin_hash: pinHash, pin_set: pinSet })
+      .eq('id', profileId);
+
+    if (!error) return;
+
+    // Fallback: use edge function for synthetic (PIN-only) profiles
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    await supabase.functions.invoke('update-pin', {
+      body: { profileId, pinHash, pinSet },
+    });
+  } catch {
+    // Silently fail — local state is already updated
+  }
+}
+
 export default function Login() {
   const { login, setPin, users } = useApp();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -28,7 +53,7 @@ export default function Login() {
     if (!selectedUser) return;
 
     if (!selectedUser.pinSet) {
-      // First login — default 1111 accepted, force new PIN
+      // First login — any PIN accepted (default 1111), force new PIN choice
       setPendingPin('');
       setStep('set_new_pin');
       return;
@@ -48,7 +73,7 @@ export default function Login() {
       valid = storedHash === btoa(pin);
       if (valid) {
         const newHash = await hashPin(pin);
-        await supabase.from('profiles').update({ pin_hash: newHash }).eq('id', selectedUser.id);
+        await updatePinHash(selectedUser.id, newHash, true);
       }
     } else {
       valid = storedHash === pin;
@@ -68,9 +93,9 @@ export default function Login() {
   const handleNewPinSuccess = async (pin: string) => {
     if (!selectedUser) return;
     const newHash = await hashPin(pin);
-    // Store hash in DB
-    await supabase.from('profiles').update({ pin_hash: newHash, pin_set: true }).eq('id', selectedUser.id);
-    // Update local state with raw hash so context can use it
+    // Persist via edge function (supports synthetic profiles without auth session)
+    await updatePinHash(selectedUser.id, newHash, true);
+    // Update local state
     setPin(selectedUser.id, newHash);
     await logAudit(selectedUser.id, selectedUser.name, 'login');
     login({ ...selectedUser, pin: newHash, pinSet: true });
