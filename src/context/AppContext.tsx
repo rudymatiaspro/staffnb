@@ -62,7 +62,7 @@ interface AppContextType extends AppState {
   deleteIncident: (id: string) => void;
   tempLocations: TemperatureLocation[];
   tempLogs: TemperatureLog[];
-  addTempLog: (log: Omit<TemperatureLog, 'id' | 'createdAt'>) => void;
+  addTempLog: (log: Omit<TemperatureLog, 'id' | 'createdAt'>, location?: { minThreshold?: number; maxThreshold: number }) => void;
   addTempLocation: (loc: Omit<TemperatureLocation, 'id' | 'createdAt'>) => void;
   objectives: TeamObjective[];
   addObjective: (obj: Omit<TeamObjective, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -762,11 +762,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) await db.deleteIncidentDB(id);
   }, [isAuthenticated, db]);
 
-  const addTempLog = useCallback(async (log: Omit<TemperatureLog, 'id' | 'createdAt'>) => {
+  const addTempLog = useCallback(async (log: Omit<TemperatureLog, 'id' | 'createdAt'>, location?: { minThreshold?: number; maxThreshold: number }) => {
     const newLog: TemperatureLog = { ...log, id: generateId(), createdAt: new Date() };
     setTempLogs((prev) => [newLog, ...prev]);
     if (isAuthenticated) await db.saveTempLog(newLog);
-  }, [isAuthenticated, db]);
+
+    // FIX 6: If alert, auto-create an incident
+    if (log.isAlert && isAuthenticated) {
+      const minStr = location?.minThreshold !== undefined ? `min ${location.minThreshold}°C / ` : '';
+      const maxStr = location?.maxThreshold !== undefined ? `max ${location.maxThreshold}°C` : '';
+      const incidentData: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'> = {
+        type: 'Hygiene issue',
+        description: `Température hors norme: ${log.temperature}°C (seuil: ${minStr}${maxStr})`,
+        location: 'Kitchen',
+        severity: 'high',
+        team: 'KITCHEN',
+        reporterName: log.loggedBy,
+        reporterUserId: log.loggedByUserId,
+        anonymous: false,
+        status: 'open',
+      };
+      const newInc: Incident = {
+        ...incidentData,
+        id: generateId(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setIncidents((prev) => [newInc, ...prev]);
+      await db.saveIncident(newInc);
+      showToast({ type: 'malus', message: `⚠️ Alerte HACCP créée automatiquement — ${log.locationName}` });
+    }
+  }, [isAuthenticated, db, showToast]);
 
   const addTempLocation = useCallback(async (loc: Omit<TemperatureLocation, 'id' | 'createdAt'>) => {
     const newLoc: TemperatureLocation = { ...loc, id: generateId(), createdAt: new Date() };

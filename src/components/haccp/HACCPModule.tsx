@@ -50,7 +50,7 @@ export function HACCPModule({ canExport = false, canManageLocations = false }: P
       note: logForm.note || undefined,
       loggedBy: currentUser?.name || 'Unknown',
       loggedByUserId: currentUser?.id,
-    });
+    }, { minThreshold: location.minThreshold, maxThreshold: location.maxThreshold });
     setLogForm({ locationId: '', temperature: '', note: '' });
     setShowLogForm(false);
   };
