@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { ToastNotification } from '../components/ui/ToastNotification';
 import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
 import { NotificationBell } from '../components/notifications/NotificationBell';
+import { supabase } from '../integrations/supabase/client';
+import { switchLanguage, LANG_META, type SupportedLang } from '../i18n/index';
 
 // Module imports
 import { TaskCard } from '../components/tasks/TaskCard';
@@ -36,6 +39,7 @@ import {
   CalendarDays, Thermometer, ChefHat, Home, User, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
+  Globe, RefreshCw,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { TEAM_LABELS } from '../data/initialData';
@@ -77,8 +81,8 @@ interface Tile {
   emoji: string;
   icon: React.ReactNode;
   badge?: number;
-  color: string;      // icon bg pastel
-  iconColor: string;  // icon color
+  color: string;
+  iconColor: string;
 }
 
 // ─── Role label helper ────────────────────────────────────────────────────────
@@ -94,15 +98,11 @@ function getRoleLabel(role?: AppRole): string {
 }
 
 // ─── Initials avatar ─────────────────────────────────────────────────────────
-function InitialsAvatar({ name }: { name: string }) {
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const initials = name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  const sz = size === 'lg' ? 'w-10 h-10 text-sm' : size === 'sm' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-xs';
   return (
-    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-gradient-to-br from-primary to-accent text-primary-foreground">
+    <div className={`${sz} rounded-full flex items-center justify-center font-bold flex-shrink-0 bg-gradient-to-br from-primary to-accent text-primary-foreground`}>
       {initials}
     </div>
   );
@@ -110,22 +110,44 @@ function InitialsAvatar({ name }: { name: string }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { currentUser, logout, restaurantName, getTodayTasks, realtimeStatus, unreadHighIncidents, incidents, clearIncidentBadge } = useApp();
   const { signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleKey>('home');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { permission, isSupported, requestPermission, notify } = useBrowserNotifications();
   const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
+  const [currentLang, setCurrentLang] = useState<SupportedLang>((localStorage.getItem('i18n_lang') as SupportedLang) ?? 'fr');
   const [currentTime, setCurrentTime] = useState(new Date());
   const knownIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
+
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  const handleToggleDark = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    if (currentUser?.id) {
+      supabase.from('profiles').update({ dark_mode: next === 'dark' }).eq('id', currentUser.id).then(() => {});
+    }
+  };
+
+  const handleSwitchLang = async (lang: SupportedLang) => {
+    await switchLanguage(lang);
+    setCurrentLang(lang);
+    setShowLangPicker(false);
+    setShowUserMenu(false);
+    if (currentUser?.id) {
+      supabase.from('profiles').update({ language_preference: lang }).eq('id', currentUser.id).then(() => {});
+    }
+  };
 
   const role = currentUser?.role as AppRole | undefined;
   const team = currentUser?.team as Team | undefined;
@@ -153,17 +175,16 @@ export default function Dashboard() {
 
   // ── Build tiles per role ──
   const buildTiles = (): Tile[] => {
-    // Tuile Menu du Jour commune
     const menuTile: Tile = { id: 'menu', label: 'Menu du Jour', emoji: '🍽️', icon: <UtensilsCrossed className="w-5 h-5" />, color: 'bg-amber-50 dark:bg-amber-950/30', iconColor: 'text-amber-600 dark:text-amber-400' };
 
     const base: Tile[] = [
-      { id: 'tasks',     label: 'Mes Tâches',  emoji: '📋', icon: <CheckCircle className="w-5 h-5" />, badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
-      { id: 'pointage',  label: 'Pointage',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,       color: 'bg-cyan-50 dark:bg-cyan-950/30',     iconColor: 'text-cyan-600 dark:text-cyan-400' },
-      { id: 'scores',    label: 'Mon Score',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
-      { id: 'planning',  label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
-      { id: 'orders',    label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
-      { id: 'chat',      label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
-      { id: 'sos',       label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+      { id: 'tasks',     label: t('nav.tasks'),    emoji: '📋', icon: <CheckCircle className="w-5 h-5" />, badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
+      { id: 'pointage',  label: t('nav.timeclock'),emoji: '⏱️', icon: <Clock className="w-5 h-5" />,       color: 'bg-cyan-50 dark:bg-cyan-950/30',     iconColor: 'text-cyan-600 dark:text-cyan-400' },
+      { id: 'scores',    label: 'Mon Score',        emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
+      { id: 'planning',  label: t('nav.planning'),  emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+      { id: 'orders',    label: 'Commandes',        emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
+      { id: 'chat',      label: 'Équipe',           emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+      { id: 'sos',       label: 'Incidents',        emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
       menuTile,
     ];
 
@@ -176,38 +197,41 @@ export default function Dashboard() {
 
     if (isManager) {
       const tiles: Tile[] = [
-        { id: 'tasks',      label: 'Tâches',      emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,    badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
-        { id: 'planning',   label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
-        { id: 'orders',     label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
-        { id: 'stock',      label: 'Stock',        emoji: '📦', icon: <Package className="w-5 h-5" />,       color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
-        { id: 'haccp',      label: 'HACCP',        emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
-        { id: 'chat',       label: 'Équipe',       emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
-        { id: 'sos',        label: 'Incidents',    emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
-        { id: 'objectives', label: 'Objectifs',    emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
-        { id: 'reports',    label: 'Rapports',     emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
+        { id: 'tasks',      label: t('nav.tasks'),    emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,    badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'planning',   label: t('nav.planning'), emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
+        { id: 'pointage',   label: t('nav.timeclock'),emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',      iconColor: 'text-cyan-600 dark:text-cyan-400' },
+        { id: 'orders',     label: 'Commandes',       emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
+        { id: 'stock',      label: 'Stock',           emoji: '📦', icon: <Package className="w-5 h-5" />,       color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'haccp',      label: 'HACCP',           emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'chat',       label: 'Équipe',          emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'sos',        label: 'Incidents',       emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+        { id: 'objectives', label: 'Objectifs',       emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { id: 'reports',    label: 'Rapports',        emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
         menuTile,
       ];
-      if (isOwner) tiles.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' });
+      if (isOwner || isAdmin) {
+        tiles.push(
+          { id: 'catalogue',    label: 'Catalogue',    emoji: '📚', icon: <LayoutGrid className="w-5 h-5" />,   color: 'bg-pink-50 dark:bg-pink-950/30',    iconColor: 'text-pink-600 dark:text-pink-400' },
+          { id: 'pins',         label: 'PINs',         emoji: '🔑', icon: <KeyRound className="w-5 h-5" />,     color: 'bg-gray-50 dark:bg-gray-950/30',    iconColor: 'text-gray-600 dark:text-gray-400' },
+          { id: 'leaderboard',  label: 'Classement',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
+          { id: 'settings',     label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',  iconColor: 'text-slate-600 dark:text-slate-400' },
+          { id: 'timesheets_all', label: 'Pointages',  emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',    iconColor: 'text-cyan-600 dark:text-cyan-400' },
+        );
+      }
       return tiles;
     }
 
-    // Staff : base déjà contient menuTile comme 8e tuile
-    const staffTiles: Tile[] = [...base];
-    if (team === 'KITCHEN') {
-      staffTiles.push({ id: 'haccp', label: 'HACCP', emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30', iconColor: 'text-teal-600 dark:text-teal-400' });
-    }
-    return staffTiles;
+    return base;
   };
 
   const tiles = buildTiles();
 
-  // ── Bottom nav tabs ──
+  // ── Bottom nav tabs (4 tabs — no Profile) ──
   const uniqueBottomNav = [
-    { id: 'home'     as ModuleKey, label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'tasks'    as ModuleKey, label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'pointage' as ModuleKey, label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'planning' as ModuleKey, label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
-    { id: 'profile'  as ModuleKey, label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'home'     as ModuleKey, label: t('nav.home'),      icon: <Home strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'tasks'    as ModuleKey, label: t('nav.tasks'),     icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'pointage' as ModuleKey, label: t('nav.timeclock'), icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'planning' as ModuleKey, label: t('nav.planning'),  icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
   ] as const;
 
   // ── Render active module ──
@@ -218,128 +242,176 @@ export default function Dashboard() {
       case 'chat':      return <MessagingModule />;
       case 'sos':       return <IncidentModule />;
       case 'orders':    return <OrdersModule canManage={canManageContent} isChef={isChef && !isManager} />;
-      case 'timesheet': return currentUser ? <TimesheetView userId={currentUser.id} showPinChange /> : null;
-      case 'objectives':return <ObjectivesModule canManage={canManageContent} />;
-      case 'planning':  return canManageContent ? <PlanningModule /> : <StaffShiftsView />;
-      case 'menu':      return <MenuModule canEdit={canManageContent} />;
+      case 'timesheet': return <TimesheetView />;
+      case 'objectives':return <ObjectivesModule />;
+      case 'planning':  return isManager ? <PlanningModule /> : <StaffShiftsView />;
+      case 'menu':      return <MenuModule />;
       case 'haccp':     return <HACCPModule />;
       case 'scores':    return <MonScore />;
       case 'leaderboard': return <Leaderboard />;
       case 'reports':   return <ReportsView />;
       case 'stock':     return <StockModule />;
-      case 'catalogue': return <ProductCatalogue canEdit={canManageContent} canDelete={isAdmin} />;
+      case 'catalogue': return <ProductCatalogue />;
       case 'pins':      return <PinManagement />;
-      case 'settings':  return <OwnerSettings readOnly={isPureOwner} />;
+      case 'settings':  return <OwnerSettings />;
       case 'contests':  return <MalusContestModule />;
-      case 'swaps':     return <ShiftSwapModule canManage={isManager} />;
+      case 'swaps':     return <ShiftSwapModule />;
       case 'availability': return <StaffAvailabilityView />;
+      case 'timesheets_all': return <TimesheetView />;
       case 'pointage':  return <PointagePage />;
       case 'profile':   return <ProfilPage />;
-      default:          return <HomeScreen tiles={tiles} onSelect={setActiveModule} role={role} currentUser={currentUser} allTasks={allTasks} team={team} isManager={isManager} currentTime={currentTime} />;
+      default:          return null;
     }
   };
 
   const moduleTitle: Partial<Record<ModuleKey, string>> = {
     home: restaurantName,
-    tasks: 'Tâches', chat: 'Messages', sos: 'Incidents SOS', orders: 'Commandes',
-    timesheet: 'Mon Pointage', objectives: 'Objectifs', planning: 'Planning',
-    menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Gestion du Stock',
-    catalogue: 'Catalogue', pins: 'Gestion des PINs', settings: 'Paramètres',
-    contests: 'Contestations', swaps: 'Échanges de shifts', availability: 'Disponibilités',
-    pointage: 'Pointage', profile: 'Mon Profil',
+    tasks: t('nav.tasks'), chat: 'Messages', sos: 'Incidents SOS', orders: 'Commandes',
+    menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Stock',
+    planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
+    settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations',
+    swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
+    pointage: t('nav.timeclock'), profile: t('profile.title'),
   };
 
-  const showNotifPrompt = isManager && isSupported && permission === 'default';
-  const notifBlocked = isManager && isSupported && permission === 'denied';
+  const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
       {/* ══════════════════ HEADER ══════════════════ */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border" style={{ height: 56 }}>
+      <header className="fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border h-14">
         <div className="max-w-2xl mx-auto h-full flex items-center justify-between px-4">
-          {/* Logo */}
-          <button onClick={() => setActiveModule('home')} className="flex items-center">
-            <img src={logo} alt="Staff&B" className="h-7" />
-          </button>
 
-          {/* Right controls */}
+          {/* Logo + name */}
           <div className="flex items-center gap-2">
-            {/* Realtime dot */}
-            {realtimeStatus === 'connected' ? (
-              <span className="w-2 h-2 rounded-full bg-primary" title="Connecté en temps réel" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-muted-foreground" />
+            <img src={logo} alt="Logo" className="w-6 h-6" />
+            <span className="text-sm font-bold text-foreground hidden sm:inline">{restaurantName}</span>
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+
+            {/* Realtime indicator */}
+            {(realtimeStatus as string) === 'CLOSED' && (
+              <span className="flex items-center gap-1 text-xs text-destructive">
+                <WifiOff className="w-3.5 h-3.5" /> Hors ligne
+              </span>
             )}
 
-            {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Notification request */}
-            {showNotifPrompt && (
-              <button onClick={requestPermission}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                <Bell className="w-4 h-4" />
+            {/* Notif permission */}
+            {isSupported && permission === 'default' && (
+              <button onClick={requestPermission} title="Activer les notifications"
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+                <BellOff className="w-4 h-4" />
               </button>
             )}
-            {notifBlocked && <BellOff className="w-4 h-4 text-muted-foreground" />}
 
-            {/* Incident alert */}
-            {isManager && unreadHighIncidents > 0 && (
-              <button onClick={() => { clearIncidentBadge(); setActiveModule('sos'); }}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive animate-pulse">
-                <AlertOctagon className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold">{unreadHighIncidents}</span>
-              </button>
-            )}
+            {/* Clock */}
+            <span className="text-xs font-mono text-muted-foreground hidden sm:inline">{timeStr}</span>
 
             {/* Notification bell */}
             <NotificationBell />
 
-            {/* Avatar + menu */}
+            {/* Avatar + enriched dropdown menu */}
             <div className="relative">
-              <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-1.5">
-                <InitialsAvatar name={currentUser.name} />
+              <button
+                onClick={() => { setShowUserMenu((v) => !v); setShowLangPicker(false); }}
+                className="flex items-center gap-1.5"
+              >
+                {currentUser.photo ? (
+                  <img src={currentUser.photo} alt={currentUser.name} className="w-8 h-8 rounded-full object-cover border-2 border-border" />
+                ) : (
+                  <InitialsAvatar name={currentUser.name} />
+                )}
               </button>
+
               {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 bg-card rounded-2xl py-1 min-w-[200px] z-50 shadow-xl border border-border animate-slide-up">
-                  <div className="px-4 py-3 border-b border-border">
-                    <p className="text-sm font-bold text-foreground">{currentUser.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{TEAM_LABELS[currentUser.team]} · {getRoleLabel(role)}</p>
+                <div className="absolute right-0 top-full mt-2 bg-card rounded-2xl py-1.5 min-w-[230px] z-50 shadow-2xl border border-border animate-slide-up overflow-hidden">
+
+                  {/* User info header */}
+                  <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+                    {currentUser.photo ? (
+                      <img src={currentUser.photo} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border border-border flex-shrink-0" />
+                    ) : (
+                      <InitialsAvatar name={currentUser.name} size="lg" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{currentUser.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {TEAM_LABELS[currentUser.team as Team] ?? currentUser.team} · {getRoleLabel(role)}
+                      </p>
+                    </div>
                   </div>
-                  {isManager && (
-                    <>
-                      <button onClick={() => { setActiveModule('scores'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                        <Trophy className="w-3.5 h-3.5" /> Classement
-                      </button>
-                      <button onClick={() => { setActiveModule('reports'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                        <FileText className="w-3.5 h-3.5" /> Rapports
-                      </button>
-                      <button onClick={() => { setActiveModule('catalogue'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                        <Package className="w-3.5 h-3.5" /> Catalogue
-                      </button>
-                      <button onClick={() => { setActiveModule('pins'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                        <KeyRound className="w-3.5 h-3.5" /> PINs
-                      </button>
-                      <button onClick={() => { setActiveModule('contests'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                        <Activity className="w-3.5 h-3.5" /> Contestations
-                      </button>
-                    </>
-                  )}
-                  <div className="border-t border-border mt-1">
-                    <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                      <LogOut className="w-3.5 h-3.5" /> Changer d'utilisateur
+
+                  {/* Mon Profil */}
+                  <button
+                    onClick={() => { setActiveModule('profile'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  >
+                    <User className="w-3.5 h-3.5 text-muted-foreground" /> {t('menu.my_profile')}
+                  </button>
+
+                  {/* Langue */}
+                  <div>
+                    <button
+                      onClick={() => setShowLangPicker((v) => !v)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Globe className="w-3.5 h-3.5 text-muted-foreground" /> {t('menu.language')}
+                      </span>
+                      <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                        {LANG_META[currentLang].flag} {LANG_META[currentLang].label}
+                        <ChevronDown className="w-3 h-3" />
+                      </span>
                     </button>
-                    <button onClick={() => { signOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-destructive hover:bg-destructive/10 transition-colors">
-                      <LogOut className="w-3.5 h-3.5" /> Se déconnecter
-                    </button>
+                    {showLangPicker && (
+                      <div className="bg-muted/40 border-y border-border py-1 max-h-48 overflow-y-auto">
+                        {(Object.entries(LANG_META) as [SupportedLang, { flag: string; label: string }][]).map(([code, { flag, label }]) => (
+                          <button key={code} onClick={() => handleSwitchLang(code)}
+                            className={`w-full flex items-center gap-2.5 px-6 py-2 text-xs transition-colors ${currentLang === code ? 'text-primary font-semibold bg-primary/5' : 'text-foreground hover:bg-muted'}`}>
+                            <span>{flag}</span> {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Mode sombre */}
+                  <button onClick={handleToggleDark}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors">
+                    <span className="flex items-center gap-2.5">
+                      {theme === 'dark'
+                        ? <Moon className="w-3.5 h-3.5 text-muted-foreground" />
+                        : <Sun className="w-3.5 h-3.5 text-muted-foreground" />}
+                      {t('menu.dark_mode')}
+                    </span>
+                    <div className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${theme === 'dark' ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+                      <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                  </button>
+
+                  {/* Notifications */}
+                  <button onClick={() => setShowUserMenu(false)}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors">
+                    <Bell className="w-3.5 h-3.5 text-muted-foreground" /> {t('menu.notifications')}
+                  </button>
+
+                  {/* Divider */}
+                  <div className="border-t border-border my-1" />
+
+                  {/* Changer d'utilisateur */}
+                  <button onClick={() => { logout(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                    <RefreshCw className="w-3.5 h-3.5" /> {t('menu.change_user')}
+                  </button>
+
+                  {/* Déconnecter */}
+                  <button onClick={() => { signOut(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-destructive hover:bg-destructive/10 transition-colors font-medium">
+                    <LogOut className="w-3.5 h-3.5" /> {t('menu.logout')}
+                  </button>
                 </div>
               )}
             </div>
@@ -349,341 +421,138 @@ export default function Dashboard() {
 
       {/* ── BREADCRUMB for sub-modules ── */}
       {activeModule !== 'home' && (
-        <div className="max-w-2xl mx-auto w-full px-4 pt-4 pb-0">
-          <button onClick={() => setActiveModule('home')}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3">
-            <Home className="w-3.5 h-3.5" />
-            <span>Accueil</span>
+        <div className="fixed top-14 left-0 right-0 z-30 bg-card/60 backdrop-blur-sm border-b border-border/50 px-4 py-1.5">
+          <div className="max-w-2xl mx-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+            <button onClick={() => setActiveModule('home')} className="hover:text-foreground transition-colors flex items-center gap-1">
+              <Home className="w-3 h-3" />
+              <span>Accueil</span>
+            </button>
             <span className="opacity-40">›</span>
             <span className="text-foreground font-medium">{moduleTitle[activeModule]}</span>
-          </button>
+          </div>
         </div>
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-1 max-w-2xl mx-auto w-full pb-28">
+      <main className={`flex-1 max-w-2xl mx-auto w-full ${activeModule !== 'home' ? 'pt-24' : 'pt-14'} pb-20`}>
         {renderModule()}
       </main>
 
-      {/* ══════════════════ BOTTOM NAV ══════════════════ */}
+      {/* ══════════════════ BOTTOM NAV (4 tabs) ══════════════════ */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 4px)', minHeight: '64px' }}
       >
-        <div className="max-w-2xl mx-auto flex items-center justify-around pt-2 pb-1">
-          {uniqueBottomNav.map((item, i) => {
+        <div className="max-w-2xl mx-auto flex items-stretch justify-around pt-1">
+          {uniqueBottomNav.map((item) => {
             const navActive = activeModule === item.id;
             return (
               <button
-                key={`${item.id}-${i}`}
+                key={item.id}
                 onClick={() => setActiveModule(item.id)}
-                className="flex flex-col items-center justify-center gap-1 flex-1 min-h-[48px] transition-all active:scale-95 select-none"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 min-h-[52px] transition-all ${navActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
-                  navActive ? 'bg-primary/10' : 'bg-transparent'
-                }`}>
-                  <span className={navActive ? 'text-primary' : 'text-muted-foreground'}>
-                    {item.icon}
-                  </span>
+                <div className={`p-1.5 rounded-xl transition-all ${navActive ? 'bg-primary/10' : ''}`}>
+                  {item.icon}
                 </div>
-                <span className={`text-[11px] font-medium leading-none ${
-                  navActive ? 'text-primary' : 'text-muted-foreground'
-                }`}>
-                  {item.label}
-                </span>
+                <span className="text-[10px] font-medium leading-tight">{item.label}</span>
               </button>
             );
           })}
         </div>
       </nav>
 
-      {/* Modals */}
       {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
       <ToastNotification />
-      {showUserMenu && <div className="fixed inset-0 z-30" onClick={() => setShowUserMenu(false)} />}
+      {showUserMenu && <div className="fixed inset-0 z-30" onClick={() => { setShowUserMenu(false); setShowLangPicker(false); }} />}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// HOME SCREEN — Bannière + Grille modules + Tâches du jour
+// HomeScreen
 // ══════════════════════════════════════════════════════════════════════════════
-function HomeScreen({
-  tiles, onSelect, role, currentUser, allTasks, team, isManager, currentTime,
-}: {
+function HomeScreen({ tiles, onSelect, role, currentUser, allTasks, team, isManager, currentTime }: {
   tiles: Tile[];
   onSelect: (id: ModuleKey) => void;
   role?: AppRole;
-  currentUser: { id: string; name: string; team: string };
-  allTasks: import('../types').Task[];
+  currentUser: NonNullable<ReturnType<typeof useApp>['currentUser']>;
+  allTasks: ReturnType<typeof useApp>['getTodayTasks'] extends (...a: any[]) => infer R ? R : never;
   team?: Team;
   isManager: boolean;
   currentTime: Date;
 }) {
-  const { objectives: teamObjectives, staffRankings } = useApp();
-
-  // Score banner data
-  const myRanking = staffRankings.find((r) => r.user_id === currentUser.id);
-  const myScore = myRanking?.score ?? 0;
-
-  // Today objectives for team
-  const todayObjectives = teamObjectives.filter((o) => {
-    if (!team) return false;
-    return o.team === team || o.team === 'ALL';
-  });
-  const mainObjective = todayObjectives[0] ?? null;
-  const objectivePct = mainObjective
-    ? Math.min(100, Math.round((mainObjective.currentValue / mainObjective.targetValue) * 100))
-    : null;
-
-  // Upcoming tasks (pending, sorted by deadline)
-  const upcomingTasks = allTasks
-    .filter((t) => t.status === 'pending' || t.status === 'overdue')
-    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
-    .slice(0, 3);
-
-  // Time greeting
-  const hour = currentTime.getHours();
-  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
-  const firstName = currentUser.name.split(' ')[0];
-
-  const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const { t } = useTranslation();
   const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const done = allTasks.filter((t) => t.status === 'done').length;
+  const total = allTasks.length;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* ── ① WELCOME BANNER ── */}
-      <div className="mx-4 mt-4 rounded-[20px] overflow-hidden p-5"
-        style={{ background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)' }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-primary-foreground/70 text-xs font-medium uppercase tracking-widest mb-1">{dateStr}</p>
-            <h1 className="text-primary-foreground text-2xl font-black leading-tight">
-              {greeting} {firstName} 👋
-            </h1>
-            <p className="text-primary-foreground/70 text-sm mt-1 capitalize">
-              {getRoleLabel(role)} · {timeStr}
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="bg-primary-foreground/20 rounded-xl px-3 py-2 text-center">
-              <p className="text-primary-foreground text-xl font-black leading-none">{myScore}</p>
-              <p className="text-primary-foreground/70 text-[10px] font-medium mt-0.5">pts</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Objective progress bar — shown if objective exists */}
-        {mainObjective && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-primary-foreground/90 text-xs font-medium truncate pr-2">{mainObjective.title}</span>
-              <span className="text-primary-foreground text-xs font-bold flex-shrink-0">{objectivePct}%</span>
-            </div>
-            <div className="h-2 bg-primary-foreground/25 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary-foreground rounded-full transition-all duration-700"
-                style={{ width: `${objectivePct}%` }}
-              />
-            </div>
-            <p className="text-primary-foreground/60 text-[10px] mt-1">
-              {mainObjective.currentValue} / {mainObjective.targetValue} {mainObjective.unit}
-            </p>
-          </div>
+    <div className="px-4 pt-6 pb-4 space-y-5">
+      {/* Greeting */}
+      <div>
+        <p className="text-xs text-muted-foreground capitalize">{dateStr}</p>
+        <h1 className="text-xl font-black text-foreground mt-0.5">
+          Bonjour, {currentUser.name.split(' ')[0]} 👋
+        </h1>
+        {total > 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {done}/{total} tâches complétées
+          </p>
         )}
       </div>
 
-      {/* ── ② MODULE GRID ── */}
-      <div className="px-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {tiles.map((tile) => (
-            <ModuleTile key={tile.id} tile={tile} onSelect={onSelect} />
-          ))}
-        </div>
+      {/* Tiles grid */}
+      <div className="grid grid-cols-3 gap-3">
+        {tiles.map((tile) => <ModuleTile key={tile.id} tile={tile} onSelect={onSelect} />)}
       </div>
-
-      {/* ── ③ MES TÂCHES DU JOUR ── */}
-      {upcomingTasks.length > 0 && (
-        <div className="px-4 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[15px] font-bold text-foreground">Mes tâches du jour</h2>
-            <button
-              onClick={() => onSelect('tasks')}
-              className="text-[13px] font-medium text-primary hover:underline"
-            >
-              Voir tout →
-            </button>
-          </div>
-          <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            {upcomingTasks.map((task, idx) => (
-              <QuickTaskRow
-                key={task.id}
-                task={task}
-                isLast={idx === upcomingTasks.length - 1}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Module tile card ─────────────────────────────────────────────────────────
 function ModuleTile({ tile, onSelect }: { tile: Tile; onSelect: (id: ModuleKey) => void }) {
   return (
     <button
       onClick={() => onSelect(tile.id)}
-      className="relative flex flex-col items-center gap-2.5 py-5 px-3 rounded-xl bg-card border border-border transition-all active:scale-[0.96] hover:shadow-md text-center"
-      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+      className={`relative flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border border-border/50 ${tile.color} hover:scale-105 active:scale-95 transition-all duration-150 aspect-square`}
     >
-      {/* Badge */}
-      {tile.badge != null && tile.badge > 0 && (
-        <span className="absolute top-2 right-2 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-1">
+      {tile.badge && tile.badge > 0 ? (
+        <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
           {tile.badge > 9 ? '9+' : tile.badge}
         </span>
-      )}
-      {/* Icon circle — 28px icon */}
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${tile.color}`}>
-        <span className={`[&>svg]:w-7 [&>svg]:h-7 ${tile.iconColor}`}>{tile.icon}</span>
-      </div>
-      {/* Label */}
-      <span className="text-[13px] font-medium text-foreground leading-tight">
-        {tile.label}
-      </span>
+      ) : null}
+      <span className={tile.iconColor}>{tile.icon}</span>
+      <span className="text-[10px] font-semibold text-foreground/80 text-center leading-tight">{tile.label}</span>
     </button>
   );
 }
 
-// ─── Quick task row ───────────────────────────────────────────────────────────
-function QuickTaskRow({ task, isLast }: { task: import('../types').Task; isLast: boolean }) {
-  const { completeTask } = useApp();
-  const [done, setDone] = useState(task.status === 'done');
-
-  const handleCheck = () => {
-    if (done) return;
-    setDone(true);
-    completeTask(task.id);
-  };
-
-  const timeStr = task.deadline.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const isOverdue = task.status === 'overdue';
-
-  return (
-    <div className={`flex items-center gap-3 px-4 py-3 ${!isLast ? 'border-b border-border' : ''}`}>
-      {/* Checkbox */}
-      <button
-        onClick={handleCheck}
-        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-          done
-            ? 'bg-primary border-primary'
-            : isOverdue
-            ? 'border-destructive'
-            : 'border-border hover:border-primary'
-        }`}
-      >
-        {done && <CheckCircle className="w-3 h-3 text-primary-foreground" strokeWidth={3} />}
-      </button>
-
-      {/* Task name */}
-      <span className={`flex-1 text-sm font-medium leading-tight ${
-        done
-          ? 'line-through text-muted-foreground'
-          : isOverdue
-          ? 'text-destructive'
-          : 'text-foreground'
-      }`}>
-        {task.name}
-      </span>
-
-      {/* Time */}
-      <span className={`text-xs font-medium flex-shrink-0 ${
-        isOverdue ? 'text-destructive' : 'text-muted-foreground'
-      }`}>
-        {timeStr}
-      </span>
-    </div>
-  );
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// TASKS MODULE (inline for staff/manager)
+// TasksModule (inline list)
 // ══════════════════════════════════════════════════════════════════════════════
-function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; team?: Team; isManager: boolean; onCreateTask: () => void }) {
-  const { getTodayTasks, deleteTask } = useApp();
-  const [showDone, setShowDone] = useState(false);
-
-  const allTasks = getTodayTasks(isManager ? undefined : team);
-  const overdue = allTasks.filter((t) => t.status === 'overdue').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
-  const pending = allTasks.filter((t) => t.status === 'pending').sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
-  const done = allTasks.filter((t) => t.status === 'done');
-
+function TasksModule({ role, team, isManager, onCreateTask }: {
+  role?: AppRole;
+  team?: Team;
+  isManager: boolean;
+  onCreateTask: () => void;
+}) {
+  const { getTodayTasks } = useApp();
+  const tasks = getTodayTasks(isManager ? undefined : team);
   return (
-    <div className="flex flex-col gap-4 px-4 pt-2">
-      {/* Stats row */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 content-card text-center">
-          <p className="text-[20px] font-bold text-destructive">{overdue.length}</p>
-          <p className="text-[13px] font-medium text-muted-foreground">En retard</p>
-        </div>
-        <div className="flex-1 content-card text-center">
-          <p className="text-[20px] font-bold text-primary">{pending.length}</p>
-          <p className="text-[13px] font-medium text-muted-foreground">À faire</p>
-        </div>
-        <div className="flex-1 content-card text-center">
-          <p className="text-[20px] font-bold text-accent">{done.length}</p>
-          <p className="text-[13px] font-medium text-muted-foreground">Faites</p>
-        </div>
+    <div className="px-4 pt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-bold text-foreground">Tâches du jour</h2>
         {isManager && (
-          <button
-            onClick={onCreateTask}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0 font-semibold text-[13px]"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Créer</span>
+          <button onClick={onCreateTask}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity">
+            <Plus className="w-3.5 h-3.5" /> Nouvelle
           </button>
         )}
       </div>
-
-      {overdue.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-            <h2 className="text-[13px] font-bold text-destructive uppercase tracking-wide">En retard ({overdue.length})</h2>
-          </div>
-          <div className="flex flex-col gap-3">{overdue.map((t) => <TaskCard key={t.id} task={t} canComplete />)}</div>
-        </section>
-      )}
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">À faire</h2>
-          {pending.length > 0 && <span className="ml-auto text-[12px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{pending.length}</span>}
-        </div>
-        {pending.length === 0 && overdue.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="text-[15px] font-semibold text-foreground">Tout est bon !</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">{pending.map((t) => <TaskCard key={t.id} task={t} canComplete onDelete={isManager ? () => deleteTask(t.id) : undefined} />)}</div>
-        )}
-      </section>
-
-      {done.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <button onClick={() => setShowDone(!showDone)} className="w-full flex items-center justify-between gap-2 group">
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-accent" />
-              <h2 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">Complétées</h2>
-              <span className="text-[12px] bg-accent/10 text-accent px-2 py-0.5 rounded-full">{done.length}</span>
-            </div>
-            {showDone ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-          </button>
-          {showDone && <div className="flex flex-col gap-3 animate-slide-up">{done.map((t) => <TaskCard key={t.id} task={t} canComplete={false} />)}</div>}
-        </section>
+      {tasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Aucune tâche pour aujourd'hui 🎉</p>
+      ) : (
+        tasks.map((task) => <TaskCard key={task.id} task={task} />)
       )}
     </div>
   );

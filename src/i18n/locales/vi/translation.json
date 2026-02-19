@@ -1,0 +1,67 @@
+{
+  "common": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "back": "Quay lại",
+    "loading": "Đang tải…",
+    "error": "Lỗi",
+    "success": "Thành công"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "tasks": "Nhiệm vụ",
+    "timeclock": "Chấm công",
+    "planning": "Lịch làm",
+    "profile": "Hồ sơ"
+  },
+  "profile": {
+    "title": "Hồ sơ của tôi",
+    "firstname": "Tên",
+    "lastname": "Họ",
+    "email": "Email",
+    "phone": "Điện thoại",
+    "birthdate": "Ngày sinh",
+    "team": "Nhóm",
+    "role": "Vai trò",
+    "language": "Ngôn ngữ",
+    "change_pin": "Đổi mã PIN",
+    "save": "Lưu thay đổi",
+    "photo": "Ảnh đại diện"
+  },
+  "orders": {
+    "title": "Đơn hàng",
+    "import": "Nhập đơn hàng",
+    "status": "Trạng thái",
+    "pending": "Chờ xử lý",
+    "delivered": "Đã giao"
+  },
+  "stock": {
+    "title": "Quản lý kho",
+    "low_alert": "Tồn kho thấp",
+    "out_of_stock": "Hết hàng",
+    "last_update": "Cập nhật lần cuối"
+  },
+  "tasks": {
+    "title": "Nhiệm vụ",
+    "complete": "Hoàn thành",
+    "pending": "Chờ xử lý",
+    "overdue": "Quá hạn"
+  },
+  "incidents": {
+    "title": "Sự cố",
+    "report": "Báo cáo",
+    "open": "Mở",
+    "resolved": "Đã giải quyết"
+  },
+  "menu": {
+    "my_profile": "Hồ sơ của tôi",
+    "language": "Ngôn ngữ",
+    "dark_mode": "Chế độ tối",
+    "notifications": "Thông báo",
+    "change_user": "Đổi người dùng",
+    "logout": "Đăng xuất"
+  }
+}

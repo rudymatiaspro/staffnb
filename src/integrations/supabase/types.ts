@@ -1093,8 +1093,11 @@ export type Database = {
         Row: {
           birth_date: string | null
           created_at: string
+          dark_mode: boolean | null
           id: string
+          language_preference: string | null
           name: string
+          notification_prefs: Json | null
           phone: string | null
           photo_url: string | null
           pin_hash: string | null
@@ -1108,8 +1111,11 @@ export type Database = {
         Insert: {
           birth_date?: string | null
           created_at?: string
+          dark_mode?: boolean | null
           id: string
+          language_preference?: string | null
           name?: string
+          notification_prefs?: Json | null
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
@@ -1123,8 +1129,11 @@ export type Database = {
         Update: {
           birth_date?: string | null
           created_at?: string
+          dark_mode?: boolean | null
           id?: string
+          language_preference?: string | null
           name?: string
+          notification_prefs?: Json | null
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
