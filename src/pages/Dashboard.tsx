@@ -358,21 +358,23 @@ export default function Dashboard() {
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-1 max-w-2xl mx-auto w-full pb-24">
+      <main className="flex-1 max-w-2xl mx-auto w-full pb-28">
         {renderModule()}
       </main>
 
       {/* ══════════════════ BOTTOM NAV ══════════════════ */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
-        style={{ height: 64, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="max-w-2xl mx-auto h-full flex items-center justify-around">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+      >
+        <div className="max-w-2xl mx-auto flex items-center justify-around pt-2 pb-1">
           {uniqueBottomNav.map((item, i) => {
             const navActive = activeModule === item.id;
             return (
               <button
                 key={`${item.id}-${i}`}
                 onClick={() => setActiveModule(item.id)}
-                className="flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all active:scale-95"
+                className="flex flex-col items-center justify-center gap-1 flex-1 min-h-[48px] transition-all active:scale-95 select-none"
               >
                 <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
                   navActive ? 'bg-primary/10' : 'bg-transparent'
@@ -446,7 +448,7 @@ function HomeScreen({
   const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="space-y-0">
+    <div className="flex flex-col gap-4">
       {/* ── ① WELCOME BANNER ── */}
       <div className="mx-4 mt-4 rounded-[20px] overflow-hidden p-5"
         style={{ background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)' }}>
@@ -489,7 +491,7 @@ function HomeScreen({
       </div>
 
       {/* ── ② MODULE GRID ── */}
-      <div className="px-4 mt-5">
+      <div className="px-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {tiles.map((tile) => (
             <ModuleTile key={tile.id} tile={tile} onSelect={onSelect} />
@@ -499,17 +501,17 @@ function HomeScreen({
 
       {/* ── ③ MES TÂCHES DU JOUR ── */}
       {upcomingTasks.length > 0 && (
-        <div className="px-4 mt-5 mb-2">
+        <div className="px-4 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-foreground">Mes tâches du jour</h2>
+            <h2 className="text-[15px] font-bold text-foreground">Mes tâches du jour</h2>
             <button
               onClick={() => onSelect('tasks')}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-[13px] font-medium text-primary hover:underline"
             >
               Voir tout →
             </button>
           </div>
-          <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+          <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             {upcomingTasks.map((task, idx) => (
               <QuickTaskRow
                 key={task.id}
@@ -529,20 +531,21 @@ function ModuleTile({ tile, onSelect }: { tile: Tile; onSelect: (id: ModuleKey) 
   return (
     <button
       onClick={() => onSelect(tile.id)}
-      className="relative flex flex-col items-center gap-3 p-4 rounded-2xl bg-card border border-border transition-all active:scale-[0.96] hover:shadow-md text-center shadow-sm"
+      className="relative flex flex-col items-center gap-2.5 py-5 px-3 rounded-xl bg-card border border-border transition-all active:scale-[0.96] hover:shadow-md text-center"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
     >
       {/* Badge */}
       {tile.badge != null && tile.badge > 0 && (
-        <span className="absolute top-2.5 right-2.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-1">
+        <span className="absolute top-2 right-2 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-1">
           {tile.badge > 9 ? '9+' : tile.badge}
         </span>
       )}
-      {/* Icon circle */}
+      {/* Icon circle — 28px icon */}
       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${tile.color}`}>
-        <span className={tile.iconColor}>{tile.icon}</span>
+        <span className={`[&>svg]:w-7 [&>svg]:h-7 ${tile.iconColor}`}>{tile.icon}</span>
       </div>
       {/* Label */}
-      <span className="text-[14px] font-bold text-foreground leading-tight">
+      <span className="text-[13px] font-medium text-foreground leading-tight">
         {tile.label}
       </span>
     </button>
@@ -613,65 +616,65 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
   const done = allTasks.filter((t) => t.status === 'done');
 
   return (
-    <div className="space-y-5 px-4 pt-2">
+    <div className="flex flex-col gap-4 px-4 pt-2">
       {/* Stats row */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 bg-card rounded-xl p-3 text-center border border-border shadow-sm">
-          <p className="text-xl font-bold text-destructive">{overdue.length}</p>
-          <p className="text-xs text-muted-foreground">En retard</p>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 content-card text-center">
+          <p className="text-[20px] font-bold text-destructive">{overdue.length}</p>
+          <p className="text-[13px] font-medium text-muted-foreground">En retard</p>
         </div>
-        <div className="flex-1 bg-card rounded-xl p-3 text-center border border-border shadow-sm">
-          <p className="text-xl font-bold text-primary">{pending.length}</p>
-          <p className="text-xs text-muted-foreground">À faire</p>
+        <div className="flex-1 content-card text-center">
+          <p className="text-[20px] font-bold text-primary">{pending.length}</p>
+          <p className="text-[13px] font-medium text-muted-foreground">À faire</p>
         </div>
-        <div className="flex-1 bg-card rounded-xl p-3 text-center border border-border shadow-sm">
-          <p className="text-xl font-bold text-accent">{done.length}</p>
-          <p className="text-xs text-muted-foreground">Faites</p>
+        <div className="flex-1 content-card text-center">
+          <p className="text-[20px] font-bold text-accent">{done.length}</p>
+          <p className="text-[13px] font-medium text-muted-foreground">Faites</p>
         </div>
         {isManager && (
-          <button onClick={onCreateTask} className="p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0 shadow-sm">
+          <button onClick={onCreateTask} className="p-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <LayoutGrid className="w-4 h-4" />
           </button>
         )}
       </div>
 
       {overdue.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-            <h2 className="text-sm font-bold text-destructive uppercase tracking-wide">En retard ({overdue.length})</h2>
+            <h2 className="text-[13px] font-bold text-destructive uppercase tracking-wide">En retard ({overdue.length})</h2>
           </div>
-          <div className="space-y-3">{overdue.map((t) => <TaskCard key={t.id} task={t} canComplete />)}</div>
+          <div className="flex flex-col gap-3">{overdue.map((t) => <TaskCard key={t.id} task={t} canComplete />)}</div>
         </section>
       )}
 
-      <section>
-        <div className="flex items-center gap-2 mb-3">
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">À faire</h2>
-          {pending.length > 0 && <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{pending.length}</span>}
+          <h2 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">À faire</h2>
+          {pending.length > 0 && <span className="ml-auto text-[12px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{pending.length}</span>}
         </div>
         {pending.length === 0 && overdue.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="font-semibold text-foreground">Tout est bon !</p>
+            <p className="text-[15px] font-semibold text-foreground">Tout est bon !</p>
           </div>
         ) : (
-          <div className="space-y-3">{pending.map((t) => <TaskCard key={t.id} task={t} canComplete onDelete={isManager ? () => deleteTask(t.id) : undefined} />)}</div>
+          <div className="flex flex-col gap-3">{pending.map((t) => <TaskCard key={t.id} task={t} canComplete onDelete={isManager ? () => deleteTask(t.id) : undefined} />)}</div>
         )}
       </section>
 
       {done.length > 0 && (
-        <section>
-          <button onClick={() => setShowDone(!showDone)} className="w-full flex items-center justify-between gap-2 mb-3 group">
+        <section className="flex flex-col gap-3">
+          <button onClick={() => setShowDone(!showDone)} className="w-full flex items-center justify-between gap-2 group">
             <div className="flex items-center gap-2">
               <Star className="w-4 h-4 text-accent" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Complétées</h2>
-              <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">{done.length}</span>
+              <h2 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">Complétées</h2>
+              <span className="text-[12px] bg-accent/10 text-accent px-2 py-0.5 rounded-full">{done.length}</span>
             </div>
             {showDone ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </button>
-          {showDone && <div className="space-y-2 animate-slide-up">{done.map((t) => <TaskCard key={t.id} task={t} canComplete={false} />)}</div>}
+          {showDone && <div className="flex flex-col gap-3 animate-slide-up">{done.map((t) => <TaskCard key={t.id} task={t} canComplete={false} />)}</div>}
         </section>
       )}
     </div>
