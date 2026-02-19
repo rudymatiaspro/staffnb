@@ -6,11 +6,25 @@ import { ManagerView } from '../components/dashboard/ManagerView';
 import { OwnerDashboard } from '../components/dashboard/OwnerDashboard';
 import { ToastNotification } from '../components/ui/ToastNotification';
 import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
-import { LogOut, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff } from 'lucide-react';
+import { LogOut, Bell, Wine, ChefHat, Layers, Users, PersonStanding, Settings, ChevronDown, WifiOff, AlertOctagon, BellOff, Sun, Moon } from 'lucide-react';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import logo from '../assets/logo.svg';
 import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
 import type { Incident } from '../types';
+
+// ─── Dark mode helpers ────────────────────────────────────────────────────────
+function getInitialTheme(): 'dark' | 'light' {
+  try {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || stored === 'light') return stored;
+  } catch {}
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme: 'dark' | 'light') {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  try { localStorage.setItem('theme', theme); } catch {}
+}
 
 const TEAM_ICONS: Record<string, React.ReactNode> = {
   BAR: <Wine className="w-3.5 h-3.5" />,
@@ -33,6 +47,13 @@ export default function Dashboard() {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const { permission, isSupported, requestPermission, notify } = useBrowserNotifications();
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
+
+  // Apply theme on mount and whenever it changes
+  useEffect(() => { applyTheme(theme); }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   const isOwner = currentUser?.role === 'owner';
   const isManager = currentUser?.role === 'manager' || isOwner;
@@ -98,6 +119,14 @@ export default function Dashboard() {
 
           {/* Right — notification bell + realtime dot + alerts + user menu */}
           <div className="flex items-center gap-2">
+            {/* Dark / Light mode toggle */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             {/* Realtime status indicator */}
             {realtimeStatus === 'connected' ? (
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-timer-safe/10">

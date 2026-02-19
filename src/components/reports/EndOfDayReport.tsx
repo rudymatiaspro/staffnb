@@ -2,10 +2,218 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DayReport } from '../../types';
 import { TEAM_LABELS } from '../../data/initialData';
+import { supabase } from '../../integrations/supabase/client';
 import {
   FileText, Clock, CheckCircle, AlertTriangle, Users,
-  Calendar, ChevronDown, ChevronUp, Edit3, Package,
+  Calendar, ChevronDown, ChevronUp, Edit3, Package, Download,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportCSV(dateFrom: string, dateTo: string) {
+  const { data: tasks } = await supabase
+    .from('tasks')
+    .select('*')
+    .gte('created_at', dateFrom + 'T00:00:00')
+    .lte('created_at', dateTo + 'T23:59:59')
+    .order('created_at', { ascending: true });
+
+  if (!tasks) return;
+
+  const header = ['Date', 'Tâche', 'Équipe', 'Assigné à', 'Statut', 'Points', 'Validé à'];
+  const rows = tasks.map((t) => [
+    t.created_at ? t.created_at.split('T')[0] : '',
+    t.name,
+    t.team,
+    t.assigned_user_name || '',
+    t.status,
+    String(t.points ?? 0),
+    t.validated_at ? t.validated_at.split('T')[0] : '',
+  ]);
+
+  const csv = [header, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+  downloadBlob(csv, `rapport-tasks-${dateFrom}.csv`, 'text/csv;charset=utf-8;');
+}
+
+async function exportPDF(dateFrom: string, dateTo: string, restaurantName: string) {
+  const [tasksRes, rankingsRes, incidentsRes] = await Promise.all([
+    supabase.from('tasks').select('*').gte('created_at', dateFrom + 'T00:00:00').lte('created_at', dateTo + 'T23:59:59').order('created_at'),
+    supabase.rpc('get_staff_rankings'),
+    supabase.from('incidents').select('*').gte('created_at', dateFrom + 'T00:00:00').lte('created_at', dateTo + 'T23:59:59').order('created_at'),
+  ]);
+
+  const tasks = tasksRes.data ?? [];
+  const rankings = rankingsRes.data ?? [];
+  const incidents = incidentsRes.data ?? [];
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const primary = [13, 40, 5] as [number, number, number]; // dark green
+  const accent = [102, 222, 128] as [number, number, number]; // spring green
+
+  // Header
+  doc.setFillColor(...primary);
+  doc.rect(0, 0, 210, 22, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Staff&B — Rapport', 14, 10);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${restaurantName}  ·  ${dateFrom}${dateFrom !== dateTo ? ' → ' + dateTo : ''}`, 14, 16);
+
+  let y = 30;
+
+  // Section 1 — Tasks
+  doc.setTextColor(...primary);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Tâches', 14, y);
+  y += 4;
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Date', 'Tâche', 'Équipe', 'Assigné', 'Statut', 'Pts']],
+    body: tasks.map((t) => [
+      t.created_at?.split('T')[0] ?? '',
+      t.name,
+      t.team,
+      t.assigned_user_name ?? '',
+      t.status,
+      String(t.points ?? 0),
+    ]),
+    headStyles: { fillColor: primary, textColor: [255, 255, 255], fontSize: 8 },
+    bodyStyles: { fontSize: 7 },
+    alternateRowStyles: { fillColor: [245, 250, 245] },
+    margin: { left: 14, right: 14 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 10;
+
+  // Section 2 — Leaderboard
+  if (y > 240) { doc.addPage(); y = 20; }
+  doc.setTextColor(...primary);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Classement staff', 14, y);
+  y += 4;
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Rang', 'Nom', 'Équipe', 'Score', 'Rang équipe']],
+    body: (rankings as any[]).map((r) => [
+      String(r.overall_rank),
+      r.name,
+      r.team,
+      String(r.score),
+      String(r.team_rank),
+    ]),
+    headStyles: { fillColor: primary, textColor: [255, 255, 255], fontSize: 8 },
+    bodyStyles: { fontSize: 7 },
+    alternateRowStyles: { fillColor: [245, 250, 245] },
+    margin: { left: 14, right: 14 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 10;
+
+  // Section 3 — Incidents
+  if (y > 240) { doc.addPage(); y = 20; }
+  doc.setTextColor(...primary);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Incidents', 14, y);
+  y += 4;
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Date', 'Type', 'Sévérité', 'Statut', 'Résolu par']],
+    body: incidents.map((i) => [
+      i.created_at?.split('T')[0] ?? '',
+      i.type,
+      i.severity,
+      i.status,
+      i.resolved_by ?? '',
+    ]),
+    headStyles: { fillColor: primary, textColor: [255, 255, 255], fontSize: 8 },
+    bodyStyles: { fontSize: 7 },
+    alternateRowStyles: { fillColor: [245, 250, 245] },
+    margin: { left: 14, right: 14 },
+  });
+
+  // Footer
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text(
+      `Generated by Staff&B — ${new Date().toLocaleString('fr-FR')}   ·   Page ${i}/${pageCount}`,
+      14,
+      doc.internal.pageSize.height - 8
+    );
+  }
+
+  doc.save(`rapport-staffb-${dateFrom}.pdf`);
+}
+
+// ─── Export Panel ─────────────────────────────────────────────────────────────
+function ExportPanel({ restaurantName }: { restaurantName: string }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo, setDateTo] = useState(today);
+  const [loadingCsv, setLoadingCsv] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+
+  const handle = async (type: 'csv' | 'pdf') => {
+    if (type === 'csv') { setLoadingCsv(true); await exportCSV(dateFrom, dateTo); setLoadingCsv(false); }
+    else { setLoadingPdf(true); await exportPDF(dateFrom, dateTo, restaurantName); setLoadingPdf(false); }
+  };
+
+  return (
+    <div className="glass-card rounded-xl p-4 space-y-3 border border-border">
+      <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+        <Download className="w-3.5 h-3.5 text-primary" />
+        Exporter les données
+      </h4>
+      <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Du</label>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Au</label>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={() => handle('csv')} disabled={loadingCsv}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-secondary border border-border text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50">
+          <Download className="w-3.5 h-3.5" />
+          {loadingCsv ? 'Export…' : 'CSV'}
+        </button>
+        <button onClick={() => handle('pdf')} disabled={loadingPdf}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+          <FileText className="w-3.5 h-3.5" />
+          {loadingPdf ? 'Génération…' : 'PDF'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -195,7 +403,7 @@ function ReportDetail({ report, onSaveNotes }: { report: DayReport; onSaveNotes:
 
 // ─── Reports History ──────────────────────────────────────────────────────────
 export function ReportsView({ canCloseDay = false }: { canCloseDay?: boolean }) {
-  const { dayReports, dayCloseState, triggerCloseDay, saveManagerNotes, currentUser } = useApp();
+  const { dayReports, dayCloseState, triggerCloseDay, saveManagerNotes, currentUser, restaurantName } = useApp();
   const [showConfirm, setShowConfirm] = useState(false);
   const today = new Date().toISOString().split('T')[0];
   const todayReport = dayReports.find((r) => r.date === today);
@@ -300,6 +508,9 @@ export function ReportsView({ canCloseDay = false }: { canCloseDay?: boolean }) 
           Reports are automatically generated at <strong>23:30</strong> if no manual close was triggered.
         </p>
       </div>
+
+      {/* Export panel */}
+      <ExportPanel restaurantName={restaurantName ?? 'Staff&B'} />
     </div>
   );
 }

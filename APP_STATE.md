@@ -653,20 +653,26 @@ The `MessagingModule` subscribes to:
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Availability requests UI | ⚠️ Partial | Table + RLS exist, no dedicated UI component yet |
+| **Dark / Light mode toggle** | ✅ Live — Sun/Moon button in header, persists to `localStorage`, applies `dark` class on `<html>` |
+| **Disponibilités staff (UI)** | ✅ Live — `StaffAvailabilityView` in StaffView "Dispos" tab; `ManagerAvailabilityView` in PlanningModule "Disponibilités" tab |
+| **Report export PDF/CSV** | ✅ Live — `ExportPanel` in ReportsView fetches real tasks/rankings/incidents from DB; downloads `.csv` and `.pdf` via jsPDF + autotable |
+
+### ⚠️ Partially Connected / Limited
+
+| Feature | Status | Notes |
+|---------|--------|-------|
 | Station kiosk planning integration | ⚠️ Partial | Clock-in/out works, but auto-check against `planning_shifts` not wired |
 
 ### ❌ Not Yet Implemented (Placeholder / Missing)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Double-malus for managers | ❌ Missing | Manager gets 2× malus when team underperforms — not implemented |
-| Chef exemption from double-malus | ❌ Missing | Role exists, exemption logic not implemented |
-| Collective penalty automation | ❌ Missing | Threshold check exists in settings, auto-trigger not implemented |
-| Recurring orders auto-generation | ❌ Missing | `is_recurring` + `next_occurrence` columns exist, no cron job |
-| HACCP alert notifications | ❌ Missing | `is_alert` flag saved but no notification fired |
-| Objective auto-tracking | ❌ Missing | `auto_track` flag exists, no automation wired |
-| Report export (PDF/CSV) | ❌ Missing | Reports visible in UI only |
+| Double-malus for managers | ❌ Missing | DB trigger created but UI confirmation not wired |
+| Chef exemption from double-malus | ❌ Missing | Role exists, trigger handles it, UI label not shown |
+| Collective penalty automation | ❌ Missing | DB trigger created, threshold UI fields pending |
+| Recurring orders auto-generation | ❌ Missing | DB function + pg_cron created, UI badge pending |
+| HACCP alert → incident auto-creation | ❌ Missing | `addTempLog` fires toast but incident insert needs verification |
+| Objective auto-tracking | ❌ Missing | DB function + pg_cron created, `auto_track_metric` values not standardized |
 
 ---
 

@@ -5,8 +5,9 @@ import { TEAM_LABELS, TEAM_CSS } from '../../data/initialData';
 import { Team } from '../../types';
 import {
   Calendar, ChevronLeft, ChevronRight, Plus, X, Sun, Moon,
-  Users, Copy, AlertTriangle, Clock, Inbox, CheckCircle2, XCircle, Hourglass
+  Users, Copy, AlertTriangle, Clock, Inbox, CheckCircle2, XCircle, Hourglass, CalendarDays
 } from 'lucide-react';
+import { ManagerAvailabilityView } from './AvailabilityModule';
 
 // ─── Availability Request Types ───────────────────────────────────────────────
 
@@ -301,7 +302,7 @@ export function PlanningModule() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ date: string; shiftType: ShiftType; team: Team } | null>(null);
   const [activeTeam, setActiveTeam] = useState<Team>('BAR');
-  const [activeView, setActiveView] = useState<'planning' | 'requests'>('planning');
+  const [activeView, setActiveView] = useState<'planning' | 'requests' | 'availabilities'>('planning');
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
 
@@ -444,7 +445,7 @@ export function PlanningModule() {
         )}
       </div>
 
-      {/* ── View toggle (Planning / Demandes) ── */}
+      {/* ── View toggle (Planning / Disponibilités / Demandes) ── */}
       <div className="flex gap-1 p-1 bg-secondary rounded-xl">
         <button
           onClick={() => setActiveView('planning')}
@@ -453,6 +454,15 @@ export function PlanningModule() {
           }`}
         >
           Planning
+        </button>
+        <button
+          onClick={() => setActiveView('availabilities')}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+            activeView === 'availabilities' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <CalendarDays className="w-3.5 h-3.5" />
+          Disponibilités
         </button>
         <button
           onClick={() => setActiveView('requests')}
@@ -469,6 +479,13 @@ export function PlanningModule() {
           )}
         </button>
       </div>
+
+      {/* ── AVAILABILITIES VIEW ── */}
+      {activeView === 'availabilities' && (
+        <div className="glass-card rounded-xl p-4">
+          <ManagerAvailabilityView />
+        </div>
+      )}
 
       {/* ── REQUESTS VIEW ── */}
       {activeView === 'requests' && (
