@@ -410,6 +410,21 @@ export function ManagerView() {
       {/* === ORDERS TAB === */}
       {activeTab === 'orders' && <OrdersModule canManage />}
 
+      {/* === MESSAGES TAB === */}
+      {activeTab === 'messages' && <MessagingModule />}
+
+      {/* === SCORES TAB (full with BonusScoreCard per team) === */}
+      {activeTab === 'scores' && (
+        <div className="space-y-4">
+          {TEAMS.map((team) => (
+            <BonusScoreCard key={team} team={team} />
+          ))}
+        </div>
+      )}
+
+      {/* === CONTESTS TAB === */}
+      {activeTab === 'contests' && <MalusContestModule canArbitrate />}
+
       {/* === CATALOGUE TAB === */}
       {activeTab === 'catalogue' && <ProductCatalogue canEdit canDelete={false} />}
 
