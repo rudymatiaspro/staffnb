@@ -16,7 +16,7 @@ const TEAM_ICON_ELS: Record<string, React.ReactNode> = {
   MANAGEMENT: <Settings className="w-4 h-4" />,
 };
 
-export function OwnerSettings() {
+export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
   const {
     users, resetPin, removeUser, addUser, updateUser,
     templates, deleteTemplate, createTemplate,
@@ -176,6 +176,12 @@ export function OwnerSettings() {
 
   return (
     <div className="space-y-4">
+      {readOnly && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+          <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+          <span>Mode lecture seule — Owner peut consulter mais pas modifier</span>
+        </div>
+      )}
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-secondary rounded-xl overflow-x-auto">
         {tabs.map((tab) => (

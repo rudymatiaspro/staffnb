@@ -5,13 +5,15 @@ import { NameSelector } from '../components/auth/NameSelector';
 import { PinEntry } from '../components/auth/PinEntry';
 import logo from '../assets/logo.svg';
 
-type LoginStep = 'select' | 'pin';
+type LoginStep = 'select' | 'pin' | 'set_new_pin';
 
 export default function Login() {
   const { login, setPin, validatePin } = useApp();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [step, setStep] = useState<LoginStep>('select');
   const [errorMsg, setErrorMsg] = useState('');
+  // Temporarily hold the entered PIN so we can confirm it before saving
+  const [pendingPin, setPendingPin] = useState('');
 
   const handleUserSelect = (user: User) => {
     setSelectedUser(user);
@@ -19,27 +21,41 @@ export default function Login() {
     setErrorMsg('');
   };
 
+  // ── Step 1: user enters their current PIN (or the default 1111) ──────────────
   const handlePinSuccess = (pin: string) => {
     if (!selectedUser) return;
+
     if (!selectedUser.pinSet) {
-      setPin(selectedUser.id, pin);
-      login({ ...selectedUser, pin, pinSet: true });
-    } else {
-      const valid = validatePin(selectedUser.id, pin);
-      if (valid) {
-        login(selectedUser);
-      } else {
-        setErrorMsg('Incorrect PIN. Please try again.');
-        setSelectedUser(null);
-        setStep('select');
-      }
+      // First ever login — accepted the default 1111, now force a new PIN
+      setPendingPin(''); // will be set in the confirm step
+      setStep('set_new_pin');
+      return;
     }
+
+    // Normal login: validate stored PIN
+    const valid = validatePin(selectedUser.id, pin);
+    if (valid) {
+      login(selectedUser);
+    } else {
+      setErrorMsg('PIN incorrect. Réessaie.');
+      setSelectedUser(null);
+      setStep('select');
+    }
+  };
+
+  // ── Step 2: user chooses + confirms their new PIN ────────────────────────────
+  const handleNewPinSuccess = (pin: string) => {
+    if (!selectedUser) return;
+    // PinEntry in isFirstTime mode calls onSuccess only after double-confirm
+    setPin(selectedUser.id, pin);
+    login({ ...selectedUser, pin: btoa(pin), pinSet: true });
   };
 
   const handleBack = () => {
     setSelectedUser(null);
     setStep('select');
     setErrorMsg('');
+    setPendingPin('');
   };
 
   return (
@@ -59,9 +75,9 @@ export default function Login() {
 
         {/* Card */}
         <div className="glass-card rounded-2xl p-6 shadow-xl">
-          {step === 'select' ? (
+          {step === 'select' && (
             <>
-              <h2 className="text-base font-bold text-foreground mb-4">Who are you?</h2>
+              <h2 className="text-base font-bold text-foreground mb-4">Qui es-tu ?</h2>
               <NameSelector onSelect={handleUserSelect} />
               {errorMsg && (
                 <div className="mt-4 text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2.5 animate-slide-up">
@@ -69,14 +85,35 @@ export default function Login() {
                 </div>
               )}
             </>
-          ) : selectedUser ? (
+          )}
+
+          {step === 'pin' && selectedUser && (
             <PinEntry
               user={selectedUser}
-              isFirstTime={!selectedUser.pinSet}
+              isFirstTime={false}
               onSuccess={handlePinSuccess}
               onBack={handleBack}
             />
-          ) : null}
+          )}
+
+          {step === 'set_new_pin' && selectedUser && (
+            <div className="space-y-4">
+              {/* Explanatory banner */}
+              <div className="text-center space-y-1">
+                <p className="text-sm font-semibold text-foreground">Bienvenue, {selectedUser.name} !</p>
+                <p className="text-xs text-muted-foreground">
+                  Première connexion — choisis ton PIN personnel.<br />
+                  Il remplacera le PIN par défaut <strong>1111</strong>.
+                </p>
+              </div>
+              <PinEntry
+                user={selectedUser}
+                isFirstTime={true}
+                onSuccess={handleNewPinSuccess}
+                onBack={handleBack}
+              />
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
