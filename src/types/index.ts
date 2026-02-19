@@ -195,7 +195,7 @@ export interface DayCloseState {
 // ─── MODULE 3 (NEW): INCIDENT REPORTING ──────────────────────────────────────
 
 export type IncidentType = 'Equipment failure' | 'Customer complaint' | 'Hygiene issue' | 'Accident / Injury' | 'Security concern' | 'Other';
-export type IncidentSeverity = 'low' | 'medium' | 'high';
+export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IncidentStatus = 'open' | 'in_progress' | 'resolved';
 export type IncidentLocation = 'Bar' | 'Kitchen' | 'Atelier' | 'Floor' | 'Other';
 

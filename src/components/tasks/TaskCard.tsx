@@ -3,6 +3,8 @@ import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
 import { useApp } from '../../context/AppContext';
 import { CheckCircle, Clock, User, Trash2, Wine, ChefHat, Layers, Users, Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { TaskValidationModal } from './TaskValidationModal';
+import { supabase } from '../../integrations/supabase/client';
 
 interface TaskCardProps {
   task: Task;
@@ -26,7 +28,7 @@ function getTimeLeftMs(deadline: Date): number {
 }
 
 function formatDuration(ms: number): string {
-  if (ms <= 0) return 'Overdue';
+  if (ms <= 0) return 'En retard';
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -59,16 +61,17 @@ const statusDotColor = {
 
 function getStatusStyle(status: Task['status']): { label: string; cls: string } {
   switch (status) {
-    case 'done': return { label: 'Done', cls: 'bg-green-500/10 text-green-400 border-green-500/20' };
-    case 'overdue': return { label: 'Overdue', cls: 'bg-red-500/10 text-red-400 border-red-500/20' };
-    case 'in_progress': return { label: 'In Progress', cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
-    default: return { label: 'Pending', cls: 'bg-muted text-muted-foreground border-border' };
+    case 'done':        return { label: 'Terminée',  cls: 'bg-green-500/10 text-green-400 border-green-500/20' };
+    case 'overdue':     return { label: 'En retard', cls: 'bg-red-500/10 text-red-400 border-red-500/20' };
+    case 'in_progress': return { label: 'En cours',  cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
+    default:            return { label: 'À faire',   cls: 'bg-muted text-muted-foreground border-border' };
   }
 }
 
 export function TaskCard({ task, canComplete = true, canDelete = false, onDelete, compact = false }: TaskCardProps) {
   const { completeTask } = useApp();
   const [timeLeft, setTimeLeft] = useState(getTimeLeftMs(task.deadline));
+  const [showValidation, setShowValidation] = useState(false);
 
   useEffect(() => {
     if (task.status === 'done') return;
@@ -89,126 +92,147 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
     ? 'bg-red-950/30 border-red-500/25'
     : `team-card ${TEAM_CSS[task.team]}`;
 
+  const handleValidated = async (taskId: string, photoUrl: string) => {
+    await supabase
+      .from('tasks')
+      .update({ photo_proof_url: photoUrl })
+      .eq('id', taskId);
+    completeTask(taskId);
+    setShowValidation(false);
+  };
+
   if (compact) {
     return (
-      <div className={`rounded-lg p-3 border transition-all ${cardBg}`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
-            <p className={`text-xs font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-              {task.name}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {!isDone && (
-              <span className={`text-xs font-mono font-bold ${timerClasses[timerState]}`}>
-                {formatDuration(timeLeft)}
-              </span>
-            )}
-            {canComplete && !isDone && (
-              <button
-                onClick={() => completeTask(task.id)}
-                className="p-1 rounded-md bg-primary/15 hover:bg-primary/30 text-primary transition-all active:scale-95"
-                title="Complete"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {canDelete && onDelete && (
-              <button onClick={onDelete} className="p-1 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all">
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
+      <>
+        <div className={`rounded-lg p-3 border transition-all ${cardBg}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
+              <p className={`text-xs font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                {task.name}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {!isDone && (
+                <span className={`text-xs font-mono font-bold ${timerClasses[timerState]}`}>
+                  {formatDuration(timeLeft)}
+                </span>
+              )}
+              {canComplete && !isDone && (
+                <button
+                  onClick={() => setShowValidation(true)}
+                  className="p-1 rounded-md bg-primary/15 hover:bg-primary/30 text-primary transition-all active:scale-95"
+                  title="Valider"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {canDelete && onDelete && (
+                <button onClick={onDelete} className="p-1 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+        {showValidation && (
+          <TaskValidationModal task={task} onClose={() => setShowValidation(false)} onValidated={handleValidated} />
+        )}
+      </>
     );
   }
 
   return (
-    <div className={`rounded-xl p-4 border transition-all animate-slide-up ${cardBg}`}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-base flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
-            <h3 className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-              {task.name}
-            </h3>
-            {task.isPunctual && (
-              <span className="text-[10px] bg-primary/15 text-primary border border-primary/20 px-1.5 rounded-full flex-shrink-0">
-                One-time
-              </span>
-            )}
-          </div>
-          {task.description && (
-            <p className="text-xs text-muted-foreground leading-relaxed pl-5">{task.description}</p>
-          )}
-          {task.assignedUserName && !isDone && (
-            <p className="text-xs text-muted-foreground pl-5 mt-0.5 flex items-center gap-1">
-              <User className="w-3 h-3" /> {task.assignedUserName}
-            </p>
-          )}
-        </div>
-        <span className={`text-xs px-2 py-0.5 rounded-md border flex-shrink-0 ${statusStyle.cls}`}>
-          {statusStyle.label}
-        </span>
-      </div>
-
-      {/* Timer row */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {!isDone ? (
-            <div className={`flex items-center gap-1.5 text-sm font-mono font-bold ${timerClasses[timerState]}`}>
-              <div className={`w-2 h-2 rounded-full ${statusDotColor[timerState]} ${timerState === 'danger' || timerState === 'overdue' ? 'animate-pulse-danger' : ''}`} />
-              <Clock className="w-3.5 h-3.5" />
-              {formatDuration(timeLeft)}
-              {task.points && !isDone && (
-                <span className="ml-1 text-xs text-muted-foreground font-normal">+{task.points}pts</span>
+    <>
+      <div className={`rounded-xl p-4 border transition-all animate-slide-up ${cardBg}`}>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
+              <h3 className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                {task.name}
+              </h3>
+              {task.isPunctual && (
+                <span className="text-[10px] bg-primary/15 text-primary border border-primary/20 px-1.5 rounded-full flex-shrink-0">
+                  Ponctuel
+                </span>
               )}
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <User className="w-3 h-3" />
-              <span>
-                {task.validatedBy} ·{' '}
-                {task.validatedAt?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          )}
+            {task.description && (
+              <p className="text-xs text-muted-foreground leading-relaxed pl-5">{task.description}</p>
+            )}
+            {task.assignedUserName && !isDone && (
+              <p className="text-xs text-muted-foreground pl-5 mt-0.5 flex items-center gap-1">
+                <User className="w-3 h-3" /> {task.assignedUserName}
+              </p>
+            )}
+          </div>
+          <span className={`text-xs px-2 py-0.5 rounded-md border flex-shrink-0 ${statusStyle.cls}`}>
+            {statusStyle.label}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          {canDelete && onDelete && (
-            <button
-              onClick={onDelete}
-              className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all"
-              title="Delete"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {canComplete && !isDone && (
-            <button
-              onClick={() => completeTask(task.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 transition-all active:scale-95 select-none"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Complete
-            </button>
-          )}
+
+        {/* Timer row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {!isDone ? (
+              <div className={`flex items-center gap-1.5 text-sm font-mono font-bold ${timerClasses[timerState]}`}>
+                <div className={`w-2 h-2 rounded-full ${statusDotColor[timerState]} ${timerState === 'danger' || timerState === 'overdue' ? 'animate-pulse-danger' : ''}`} />
+                <Clock className="w-3.5 h-3.5" />
+                {formatDuration(timeLeft)}
+                {task.points && !isDone && (
+                  <span className="ml-1 text-xs text-muted-foreground font-normal">+{task.points}pts</span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <User className="w-3 h-3" />
+                <span>
+                  {task.validatedBy} ·{' '}
+                  {task.validatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {canDelete && onDelete && (
+              <button
+                onClick={onDelete}
+                className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all"
+                title="Supprimer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {canComplete && !isDone && (
+              <button
+                onClick={() => setShowValidation(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 hover:bg-primary/25 text-primary border border-primary/25 transition-all active:scale-95 select-none"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Terminer
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            À faire avant {task.deadline.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <span className={`text-xs px-1.5 py-0.5 rounded team-badge ${TEAM_CSS[task.team]} flex items-center gap-1`}>
+            {TEAM_ICONS[task.team]}
+            {task.team === 'ALL' ? 'Toutes les équipes' : TEAM_LABELS[task.team]}
+          </span>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          Due: {task.deadline.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-        </span>
-        <span className={`text-xs px-1.5 py-0.5 rounded team-badge ${TEAM_CSS[task.team]} flex items-center gap-1`}>
-          {TEAM_ICONS[task.team]}
-          {task.team === 'ALL' ? 'All Teams' : TEAM_LABELS[task.team]}
-        </span>
-      </div>
-    </div>
+      {/* Validation modal */}
+      {showValidation && (
+        <TaskValidationModal task={task} onClose={() => setShowValidation(false)} onValidated={handleValidated} />
+      )}
+    </>
   );
 }
