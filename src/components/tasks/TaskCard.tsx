@@ -28,7 +28,7 @@ function getTimeLeftMs(deadline: Date): number {
 }
 
 function formatDuration(ms: number): string {
-  if (ms <= 0) return 'En retard';
+  if (ms <= 0) return 'EN RETARD';
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -40,9 +40,17 @@ function formatDuration(ms: number): string {
 
 function getTimerState(ms: number): 'safe' | 'warning' | 'danger' | 'overdue' {
   if (ms <= 0) return 'overdue';
-  if (ms <= 5 * 60 * 1000) return 'danger';
-  if (ms <= 15 * 60 * 1000) return 'warning';
-  return 'safe';
+  if (ms <= 15 * 60 * 1000) return 'danger';   // 0-15 min → rouge
+  if (ms <= 30 * 60 * 1000) return 'warning';  // 15-30 min → orange
+  return 'safe';                                // >30 min → vert
+}
+
+function getTimerBadge(ms: number, isDone: boolean): { label: string; cls: string } | null {
+  if (isDone) return null;
+  if (ms <= 0)                    return { label: 'EN RETARD', cls: 'bg-zinc-950 text-red-400 border-red-700' };
+  if (ms <= 15 * 60 * 1000)      return { label: formatDuration(ms), cls: 'bg-red-500/15 text-red-400 border-red-500/30' };
+  if (ms <= 30 * 60 * 1000)      return { label: formatDuration(ms), cls: 'bg-orange-500/15 text-orange-400 border-orange-500/30' };
+  return                                { label: formatDuration(ms), cls: 'bg-green-500/15 text-green-400 border-green-500/30' };
 }
 
 const timerClasses = {
@@ -58,15 +66,6 @@ const statusDotColor = {
   danger: 'bg-timer-danger',
   overdue: 'bg-timer-danger',
 };
-
-function getStatusStyle(status: Task['status']): { label: string; cls: string } {
-  switch (status) {
-    case 'done':        return { label: 'Terminée',  cls: 'bg-green-500/10 text-green-400 border-green-500/20' };
-    case 'overdue':     return { label: 'En retard', cls: 'bg-red-500/10 text-red-400 border-red-500/20' };
-    case 'in_progress': return { label: 'En cours',  cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
-    default:            return { label: 'À faire',   cls: 'bg-muted text-muted-foreground border-border' };
-  }
-}
 
 export function TaskCard({ task, canComplete = true, canDelete = false, onDelete, compact = false }: TaskCardProps) {
   const { completeTask } = useApp();
@@ -84,12 +83,14 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
   const isDone = task.status === 'done';
   const isOverdue = task.status === 'overdue' || (task.status !== 'done' && timeLeft <= 0);
   const timerState = isDone ? 'safe' : getTimerState(timeLeft);
-  const statusStyle = getStatusStyle(task.status);
+  const isUrgent = (task as { priority?: string }).priority === 'urgente' ||
+                   task.description?.startsWith('[URGENTE]');
+  const timerBadge = getTimerBadge(timeLeft, isDone);
 
   const cardBg = isDone
     ? 'bg-muted/30 border-border/50 opacity-75'
     : isOverdue
-    ? 'bg-red-950/30 border-red-500/25'
+    ? 'bg-zinc-950 border-red-800/60'
     : `team-card ${TEAM_CSS[task.team]}`;
 
   const handleValidated = async (taskId: string, photoUrl: string) => {
@@ -101,6 +102,7 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
     setShowValidation(false);
   };
 
+  // ── COMPACT MODE ──────────────────────────────────────────────────────────
   if (compact) {
     return (
       <>
@@ -108,14 +110,17 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
-              <p className={`text-xs font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+              <p className={`text-xs font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : isOverdue ? 'text-red-400' : 'text-foreground'}`}>
                 {task.name}
               </p>
+              {isUrgent && !isDone && (
+                <span className="text-[9px] bg-destructive/15 text-destructive border border-destructive/30 px-1 rounded-full flex-shrink-0 font-bold">⚡</span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {!isDone && (
-                <span className={`text-xs font-mono font-bold ${timerClasses[timerState]}`}>
-                  {formatDuration(timeLeft)}
+              {!isDone && timerBadge && (
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${timerBadge.cls}`}>
+                  {timerBadge.label}
                 </span>
               )}
               {canComplete && !isDone && (
@@ -142,15 +147,17 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
     );
   }
 
+  // ── FULL MODE ─────────────────────────────────────────────────────────────
   return (
     <>
       <div className={`rounded-xl p-4 border transition-all animate-slide-up ${cardBg}`}>
+
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-base flex-shrink-0 text-muted-foreground">{TEAM_ICONS[task.team]}</span>
-              <h3 className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+              <h3 className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-muted-foreground' : isOverdue ? 'text-red-400' : 'text-foreground'}`}>
                 {task.name}
               </h3>
               {task.isPunctual && (
@@ -158,9 +165,18 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
                   Ponctuel
                 </span>
               )}
+              {isUrgent && !isDone && (
+                <span className="text-[10px] bg-destructive/15 text-destructive border border-destructive/30 px-1.5 py-0.5 rounded-full flex-shrink-0 flex items-center gap-0.5 font-bold">
+                  ⚡ URGENTE
+                </span>
+              )}
             </div>
             {task.description && (
-              <p className="text-xs text-muted-foreground leading-relaxed pl-5">{task.description}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed pl-5">
+                {task.description.startsWith('[URGENTE]')
+                  ? task.description.slice(9).trim()
+                  : task.description}
+              </p>
             )}
             {task.assignedUserName && !isDone && (
               <p className="text-xs text-muted-foreground pl-5 mt-0.5 flex items-center gap-1">
@@ -168,9 +184,18 @@ export function TaskCard({ task, canComplete = true, canDelete = false, onDelete
               </p>
             )}
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-md border flex-shrink-0 ${statusStyle.cls}`}>
-            {statusStyle.label}
-          </span>
+
+          {/* Timer badge — colour-coded */}
+          {timerBadge && (
+            <span className={`text-[11px] px-2 py-1 rounded-lg border font-bold flex-shrink-0 font-mono ${timerBadge.cls}`}>
+              {timerBadge.label}
+            </span>
+          )}
+          {isDone && (
+            <span className="text-[11px] px-2 py-1 rounded-lg border flex-shrink-0 bg-green-500/10 text-green-400 border-green-500/20 font-semibold">
+              Terminée ✓
+            </span>
+          )}
         </div>
 
         {/* Timer row */}

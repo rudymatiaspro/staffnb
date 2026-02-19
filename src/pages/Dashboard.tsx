@@ -34,7 +34,7 @@ import {
   CheckCircle, MessageSquare, AlertTriangle, ShoppingCart, Clock, Target,
   CalendarDays, Thermometer, ChefHat, Home, User, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
-  Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon,
+  Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { TEAM_LABELS } from '../data/initialData';
@@ -632,8 +632,13 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
           <p className="text-[13px] font-medium text-muted-foreground">Faites</p>
         </div>
         {isManager && (
-          <button onClick={onCreateTask} className="p-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <LayoutGrid className="w-4 h-4" />
+          <button
+            onClick={onCreateTask}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0 font-semibold text-[13px]"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Créer</span>
           </button>
         )}
       </div>
