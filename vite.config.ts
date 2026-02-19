@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico", "favicon.svg", "logo.svg"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/, /^\/station/],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
       },
       manifest: {
         name: "Staff&B · Casinha",

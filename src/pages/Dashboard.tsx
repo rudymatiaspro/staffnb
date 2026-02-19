@@ -28,6 +28,7 @@ import { StaffAvailabilityView } from '../components/planning/AvailabilityModule
 import { MenuModule } from '../components/menu/MenuModule';
 import PointagePage from './Pointage';
 import ProfilPage from './Profil';
+import { StockModule } from '../components/stock/StockModule';
 
 import {
   LogOut, WifiOff, BellOff, Bell,
@@ -68,7 +69,7 @@ type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
-  | 'pointage' | 'profile';
+  | 'pointage' | 'profile' | 'stock';
 
 interface Tile {
   id: ModuleKey;
@@ -178,11 +179,12 @@ export default function Dashboard() {
         { id: 'tasks',      label: 'Tâches',      emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,    badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
         { id: 'planning',   label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
         { id: 'orders',     label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
-        { id: 'haccp',      label: 'HACCP',       emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
-        { id: 'chat',       label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
-        { id: 'sos',        label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
-        { id: 'objectives', label: 'Objectifs',   emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
-        { id: 'reports',    label: 'Rapports',    emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
+        { id: 'stock',      label: 'Stock',        emoji: '📦', icon: <Package className="w-5 h-5" />,       color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'haccp',      label: 'HACCP',        emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'chat',       label: 'Équipe',       emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'sos',        label: 'Incidents',    emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+        { id: 'objectives', label: 'Objectifs',    emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { id: 'reports',    label: 'Rapports',     emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
         menuTile,
       ];
       if (isOwner) tiles.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' });
@@ -224,6 +226,7 @@ export default function Dashboard() {
       case 'scores':    return <MonScore />;
       case 'leaderboard': return <Leaderboard />;
       case 'reports':   return <ReportsView />;
+      case 'stock':     return <StockModule />;
       case 'catalogue': return <ProductCatalogue canEdit={canManageContent} canDelete={isAdmin} />;
       case 'pins':      return <PinManagement />;
       case 'settings':  return <OwnerSettings readOnly={isPureOwner} />;
@@ -240,7 +243,7 @@ export default function Dashboard() {
     home: restaurantName,
     tasks: 'Tâches', chat: 'Messages', sos: 'Incidents SOS', orders: 'Commandes',
     timesheet: 'Mon Pointage', objectives: 'Objectifs', planning: 'Planning',
-    menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports',
+    menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Gestion du Stock',
     catalogue: 'Catalogue', pins: 'Gestion des PINs', settings: 'Paramètres',
     contests: 'Contestations', swaps: 'Échanges de shifts', availability: 'Disponibilités',
     pointage: 'Pointage', profile: 'Mon Profil',
