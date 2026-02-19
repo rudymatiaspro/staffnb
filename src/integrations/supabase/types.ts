@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      availability_requests: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          note: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          note?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          note?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       day_close_states: {
         Row: {
           date: string

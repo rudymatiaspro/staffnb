@@ -5,8 +5,37 @@ import { TEAM_LABELS, TEAM_CSS } from '../../data/initialData';
 import { Team } from '../../types';
 import {
   Calendar, ChevronLeft, ChevronRight, Plus, X, Sun, Moon,
-  Users, Copy, AlertTriangle, Clock
+  Users, Copy, AlertTriangle, Clock, Inbox, CheckCircle2, XCircle, Hourglass
 } from 'lucide-react';
+
+// ─── Availability Request Types ───────────────────────────────────────────────
+
+type RequestType = 'day_off' | 'availability_note';
+type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+interface AvailabilityRequest {
+  id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  type: RequestType;
+  note: string;
+  status: RequestStatus;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+}
+
+const TYPE_LABELS: Record<RequestType, string> = {
+  day_off: '🏖️ Congé / Jour off',
+  availability_note: '📝 Note de disponibilité',
+};
+
+const STATUS_STYLE: Record<RequestStatus, { label: string; icon: React.ReactNode; classes: string }> = {
+  pending:  { label: 'En attente', icon: <Hourglass className="w-3 h-3" />,    classes: 'bg-muted text-muted-foreground border-border' },
+  approved: { label: 'Approuvée',  icon: <CheckCircle2 className="w-3 h-3" />, classes: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30' },
+  rejected: { label: 'Refusée',    icon: <XCircle className="w-3 h-3" />,       classes: 'bg-destructive/10 text-destructive border-destructive/30' },
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -272,6 +301,9 @@ export function PlanningModule() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ date: string; shiftType: ShiftType; team: Team } | null>(null);
   const [activeTeam, setActiveTeam] = useState<Team>('BAR');
+  const [activeView, setActiveView] = useState<'planning' | 'requests'>('planning');
+  const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
   const weekDates = getWeekDates(weekOffset);
   const weekStart = weekDates[0];
@@ -303,6 +335,26 @@ export function PlanningModule() {
     return () => { supabase.removeChannel(channel); };
   }, [weekStart, weekEnd]);
 
+  // ── Load availability requests ───────────────────────────────────────────────
+  const loadRequests = async () => {
+    setRequestsLoading(true);
+    const { data } = await supabase
+      .from('availability_requests')
+      .select('*')
+      .order('date', { ascending: true });
+    if (data) setRequests(data as AvailabilityRequest[]);
+    setRequestsLoading(false);
+  };
+
+  useEffect(() => {
+    loadRequests();
+    const channel = supabase
+      .channel('manager-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_requests' }, () => loadRequests())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // ── CRUD ────────────────────────────────────────────────────────────────────
   const addShift = async (shift: Omit<PlanningShift, 'id'>) => {
     const { data } = await supabase.from('planning_shifts').insert(shift).select().single();
@@ -312,6 +364,14 @@ export function PlanningModule() {
   const removeShift = async (id: string) => {
     await supabase.from('planning_shifts').delete().eq('id', id);
     setShifts(prev => prev.filter(s => s.id !== id));
+  };
+
+  const reviewRequest = async (id: string, status: 'approved' | 'rejected') => {
+    await supabase
+      .from('availability_requests')
+      .update({ status, reviewed_by: currentUser?.name ?? 'Manager', reviewed_at: new Date().toISOString() })
+      .eq('id', id);
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status, reviewed_by: currentUser?.name ?? 'Manager', reviewed_at: new Date().toISOString() } : r));
   };
 
   // ── Copy previous week ──────────────────────────────────────────────────────
@@ -347,7 +407,6 @@ export function PlanningModule() {
   const getShiftsForCell = (date: string, team: Team, shiftType: ShiftType) =>
     shifts.filter(s => s.date === date && s.team === team && s.shift_type === shiftType);
 
-  // Days with under-coverage (< MIN_STAFF_PER_SHIFT for any shift on a future day)
   const underCoveredDays = weekDates.filter(date => {
     if (isPast(date)) return false;
     return TEAMS.some(team =>
@@ -358,6 +417,8 @@ export function PlanningModule() {
   });
 
   const staffForTeam = users.filter(u => u.role === 'staff' && (u.team === activeTeam || (u.teams && u.teams.includes(activeTeam))));
+  const pendingRequests = requests.filter(r => r.status === 'pending');
+  const pendingCount = pendingRequests.length;
 
   return (
     <div className="space-y-4">
@@ -382,6 +443,121 @@ export function PlanningModule() {
           </button>
         )}
       </div>
+
+      {/* ── View toggle (Planning / Demandes) ── */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+        <button
+          onClick={() => setActiveView('planning')}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+            activeView === 'planning' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Planning
+        </button>
+        <button
+          onClick={() => setActiveView('requests')}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+            activeView === 'requests' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Inbox className="w-3.5 h-3.5" />
+          Demandes
+          {pendingCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── REQUESTS VIEW ── */}
+      {activeView === 'requests' && (
+        <div className="space-y-3">
+          {requestsLoading ? (
+            <div className="text-center py-10 text-muted-foreground text-sm">Chargement...</div>
+          ) : requests.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Inbox className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="font-semibold text-foreground text-sm">Aucune demande</p>
+              <p className="text-xs mt-1">Les demandes du staff apparaîtront ici.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingRequests.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <Hourglass className="w-3.5 h-3.5" />
+                    En attente ({pendingCount})
+                  </p>
+                  <div className="space-y-2">
+                    {pendingRequests.map(req => (
+                      <div key={req.id} className="glass-card rounded-xl p-3 space-y-2 border border-border">
+                        <div className="flex items-start gap-2 justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{req.user_name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {TYPE_LABELS[req.type]} · {new Date(req.date + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => reviewRequest(req.id, 'approved')}
+                              className="p-1.5 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20 transition-colors"
+                              title="Approuver"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => reviewRequest(req.id, 'rejected')}
+                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                              title="Refuser"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground bg-secondary/60 rounded-lg px-2.5 py-1.5 italic">
+                          "{req.note}"
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {requests.filter(r => r.status !== 'pending').length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 mt-4">Traitées</p>
+                  <div className="space-y-2">
+                    {requests.filter(r => r.status !== 'pending').map(req => {
+                      const statusStyle = STATUS_STYLE[req.status];
+                      return (
+                        <div key={req.id} className="glass-card rounded-xl p-3 space-y-1.5 opacity-80">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-semibold text-foreground">{req.user_name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {TYPE_LABELS[req.type]} · {new Date(req.date + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              </p>
+                            </div>
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusStyle.classes}`}>
+                              {statusStyle.icon}
+                              {statusStyle.label}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground italic">"{req.note}"</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PLANNING VIEW ── */}
+      {activeView === 'planning' && <>
 
       {/* ── Shift legend ── */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -522,6 +698,8 @@ export function PlanningModule() {
           users={users.filter(u => u.role === 'staff' || u.role === 'manager')}
         />
       )}
+      </>}
+
     </div>
   );
 }
