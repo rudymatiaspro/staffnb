@@ -42,7 +42,7 @@ function getInitials(name: string) {
 import { OwnerSettings } from './OwnerSettings';
 
 export function OwnerDashboard() {
-  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents } = useApp();
+  const { users, getTodayTasks, getTeamScore, validationLog, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents, staffRankings } = useApp();
   const [activeTab, setActiveTab] = useState<OwnerTab>('overview');
   const today = new Date().toISOString().split('T')[0];
   const todayClosed = (dayCloseState?.date === today && dayCloseState.triggered) || dayReports.some((r) => r.date === today);
@@ -241,9 +241,15 @@ export function OwnerDashboard() {
                 const teamOverdue = teamTasks.filter((t) => t.status === 'overdue');
                 const teamPct = teamTasks.length > 0 ? Math.round((teamDone.length / teamTasks.length) * 100) : 0;
                 const isLow = teamPct < 70 && teamTasks.length > 0;
-                const topPerformer = users
+                // Top performer: use real score from staffRankings, fallback to score on user object
+                const teamStaffWithScore = users
                   .filter((u) => u.team === team && u.role === 'staff')
-                  .sort(() => 0.5 - Math.random())[0]; // demo: random pick
+                  .map((u) => {
+                    const ranking = staffRankings.find((r) => r.user_id === u.id);
+                    return { ...u, realScore: ranking?.score ?? u.score ?? 0 };
+                  })
+                  .sort((a, b) => b.realScore - a.realScore);
+                const topPerformer = teamStaffWithScore[0];
 
                 return (
                   <div key={team} className={`rounded-xl p-4 team-card ${TEAM_CSS[team]}`}>

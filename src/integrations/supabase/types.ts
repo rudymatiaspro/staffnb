@@ -1378,6 +1378,7 @@ export type Database = {
         Args: { target_team: Database["public"]["Enums"]["team_name"] }
         Returns: boolean
       }
+      generate_tasks_from_templates: { Args: never; Returns: undefined }
       get_my_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
@@ -1386,9 +1387,21 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["team_name"]
       }
+      get_staff_rankings: {
+        Args: never
+        Returns: {
+          name: string
+          overall_rank: number
+          score: number
+          team: string
+          team_rank: number
+          user_id: string
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_manager_or_owner: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
+      recalculate_all_scores: { Args: never; Returns: undefined }
     }
     Enums: {
       clock_event_type: "in" | "out"

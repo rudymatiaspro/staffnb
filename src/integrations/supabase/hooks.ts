@@ -145,6 +145,15 @@ function dbRowToGamification(row: Record<string, unknown>): GamificationSettings
 
 // ─── MAIN SUPABASE DATA HOOK ──────────────────────────────────────────────────
 
+export interface StaffRanking {
+  user_id: string;
+  name: string;
+  team: string;
+  score: number;
+  team_rank: number;
+  overall_rank: number;
+}
+
 export interface SupabaseData {
   users: User[];
   tasks: Task[];
@@ -160,6 +169,7 @@ export interface SupabaseData {
   tempLocations: TemperatureLocation[];
   tempLogs: TemperatureLog[];
   objectives: TeamObjective[];
+  staffRankings: StaffRanking[];
   realtimeStatus: 'connected' | 'connecting' | 'disconnected';
   loading: boolean;
   // Write ops
@@ -203,6 +213,7 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
   const [gamificationSettings, setGamificationSettings] = useState<GamificationSettings>(INITIAL_GAMIFICATION);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [tempLocations, setTempLocations] = useState<TemperatureLocation[]>([]);
+  const [staffRankings, setStaffRankings] = useState<StaffRanking[]>([]);
   const [tempLogs, setTempLogs] = useState<TemperatureLog[]>([]);
   const [objectives, setObjectives] = useState<TeamObjective[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,6 +325,19 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
         createdAt: new Date(r.created_at), updatedAt: new Date(r.updated_at),
       })));
       setRealtimeStatus('connected');
+
+      // Fetch staff rankings via RPC
+      const { data: rankingsData } = await supabase.rpc('get_staff_rankings');
+      if (rankingsData) {
+        setStaffRankings((rankingsData as Record<string, unknown>[]).map((r) => ({
+          user_id: r.user_id as string,
+          name: r.name as string,
+          team: r.team as string,
+          score: r.score as number,
+          team_rank: Number(r.team_rank),
+          overall_rank: Number(r.overall_rank),
+        })));
+      }
     } catch (err) {
       console.error('Supabase fetch error:', err);
       setRealtimeStatus('disconnected');
@@ -644,6 +668,7 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
     users, tasks, templates, products, stockLogs, shifts, teamScores,
     dayReports, dayCloseState, gamificationSettings,
     incidents, tempLocations, tempLogs, objectives,
+    staffRankings,
     realtimeStatus, loading,
     saveTask, saveTemplate, deleteTemplate, saveProduct, deleteProduct,
     saveStockLog, saveShift, updateShift, saveTeamScore, saveDayReport,
