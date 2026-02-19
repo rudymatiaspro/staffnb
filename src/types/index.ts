@@ -1,6 +1,6 @@
 export type Team = 'BAR' | 'KITCHEN' | 'FLOOR' | 'ATELIER' | 'MANAGEMENT' | 'ALL';
 
-export type UserRole = 'owner' | 'manager' | 'staff';
+export type UserRole = 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
 
 export interface User {
   id: string;
