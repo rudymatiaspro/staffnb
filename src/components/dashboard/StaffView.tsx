@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../tasks/TaskCard';
+import { DailyObjectiveBar } from '../objectives/DailyObjectiveBar';
 import { BonusScoreCard } from '../zones/BonusScoreCard';
 import { ProductCatalogue } from '../catalogue/ProductCatalogue';
 import { TimesheetView } from '../timesheets/TimesheetView';
@@ -141,6 +142,9 @@ export function StaffView() {
               </div>
             </div>
           </div>
+
+          {/* Daily objective bar */}
+          <DailyObjectiveBar team={team} compact />
 
           {/* Bonus score card */}
           {team && team !== 'MANAGEMENT' && <BonusScoreCard team={team} />}
