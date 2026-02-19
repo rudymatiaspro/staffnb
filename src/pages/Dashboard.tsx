@@ -7,7 +7,6 @@ import { NotificationBell } from '../components/notifications/NotificationBell';
 
 // Module imports
 import { TaskCard } from '../components/tasks/TaskCard';
-import { BonusScoreCard } from '../components/zones/BonusScoreCard';
 import { CreateTaskModal } from '../components/tasks/CreateTaskModal';
 import { ProductCatalogue } from '../components/catalogue/ProductCatalogue';
 import { ReportsView } from '../components/reports/EndOfDayReport';
@@ -28,14 +27,14 @@ import { StaffAvailabilityView } from '../components/planning/AvailabilityModule
 import { MenuModule } from '../components/menu/MenuModule';
 
 import {
-  LogOut, Bell, WifiOff, BellOff, Sun, Moon, ChevronDown, Settings, AlertOctagon,
+  LogOut, WifiOff, BellOff, Bell,
   CheckCircle, MessageSquare, AlertTriangle, ShoppingCart, Clock, Target,
-  CalendarDays, Thermometer, ChefHat, Home, User, LayoutGrid, Package,
-  FileText, KeyRound, Trophy, Activity, ArrowLeftRight, CalendarCheck, Star,
-  ChevronUp, Award,
+  CalendarDays, Thermometer, ChefHat, Home, User, Package,
+  FileText, KeyRound, Trophy, Activity,
+  Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
-import { TEAM_CSS, TEAM_LABELS } from '../data/initialData';
+import { TEAM_LABELS } from '../data/initialData';
 import type { Incident, Team } from '../types';
 
 // ─── Dark mode ────────────────────────────────────────────────────────────────
@@ -57,7 +56,6 @@ type AppRole = 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
 function isOwnerOrAdmin(role?: AppRole) { return role === 'owner' || role === 'admin'; }
 function isManagerOrAbove(role?: AppRole) { return role === 'manager' || isOwnerOrAdmin(role); }
 function isChefOrAbove(role?: AppRole) { return role === 'chef' || isManagerOrAbove(role); }
-// Owner = lecture seule (Hanh). Admin = accès complet en écriture (Rudy).
 function canEdit(role?: AppRole) { return role === 'admin' || role === 'manager'; }
 
 const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', medium: '⚠️', low: 'ℹ️' };
@@ -74,6 +72,36 @@ interface Tile {
   emoji: string;
   icon: React.ReactNode;
   badge?: number;
+  color: string;      // icon bg pastel
+  iconColor: string;  // icon color
+}
+
+// ─── Role label helper ────────────────────────────────────────────────────────
+function getRoleLabel(role?: AppRole): string {
+  switch (role) {
+    case 'owner':   return 'Propriétaire';
+    case 'admin':   return 'Administrateur';
+    case 'manager': return 'Manager';
+    case 'chef':    return 'Chef';
+    case 'staff':   return 'Équipier';
+    default:        return '';
+  }
+}
+
+// ─── Initials avatar ─────────────────────────────────────────────────────────
+function InitialsAvatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return (
+    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      style={{ background: 'linear-gradient(135deg, #2D6A4F, #52B788)', color: '#fff' }}>
+      {initials}
+    </div>
+  );
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -85,19 +113,24 @@ export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { permission, isSupported, requestPermission, notify } = useBrowserNotifications();
   const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const knownIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  // Live clock
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const role = currentUser?.role as AppRole | undefined;
   const team = currentUser?.team as Team | undefined;
-  const isOwner = isOwnerOrAdmin(role);          // owner OR admin (both see Settings tile)
-  const isAdmin = role === 'admin';              // Rudy only — full write access
-  const isPureOwner = role === 'owner';          // Hanh — read-only
+  const isOwner = isOwnerOrAdmin(role);
+  const isAdmin = role === 'admin';
+  const isPureOwner = role === 'owner';
   const isManager = isManagerOrAbove(role);
   const isChef = isChefOrAbove(role);
-  const canManageContent = canEdit(role);        // admin + manager can write
+  const canManageContent = canEdit(role);
 
   // Browser notifications for high-severity incidents
   useEffect(() => {
@@ -117,58 +150,75 @@ export default function Dashboard() {
   // ── Build tiles per role ──
   const buildTiles = (): Tile[] => {
     const base: Tile[] = [
-      { id: 'tasks',     label: 'Tâches',    emoji: '✅', icon: <CheckCircle className="w-6 h-6" />, badge: overdueCount || undefined },
-      { id: 'chat',      label: 'Chat',       emoji: '💬', icon: <MessageSquare className="w-6 h-6" /> },
-      { id: 'sos',       label: 'SOS',        emoji: '🚨', icon: <AlertTriangle className="w-6 h-6" />, badge: unreadHighIncidents || undefined },
-      { id: 'orders',    label: 'Commandes',  emoji: '🛒', icon: <ShoppingCart className="w-6 h-6" /> },
-      { id: 'timesheet', label: 'Pointage',   emoji: '🕐', icon: <Clock className="w-6 h-6" /> },
-      { id: 'objectives',label: 'Objectifs',  emoji: '🎯', icon: <Target className="w-6 h-6" /> },
+      { id: 'tasks',     label: 'Mes Tâches',  emoji: '📋', icon: <CheckCircle className="w-5 h-5" />, badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
+      { id: 'timesheet', label: 'Pointage',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,          color: 'bg-cyan-50 dark:bg-cyan-950/30',   iconColor: 'text-cyan-600 dark:text-cyan-400' },
+      { id: 'scores',    label: 'Mon Score',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,         color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
+      { id: 'planning',  label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />,  color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+      { id: 'orders',    label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
+      { id: 'chat',      label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+      { id: 'sos',       label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
     ];
 
     if (isChef && !isManager) {
-      // Chef / Sous-Chef → grille cuisine + HACCP
       return [...base,
-        { id: 'haccp',    label: 'HACCP',   emoji: '🌡️', icon: <Thermometer className="w-6 h-6" /> },
-        { id: 'menu',     label: 'Menu',     emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
+        { id: 'haccp',    label: 'HACCP',      emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,  color: 'bg-teal-50 dark:bg-teal-950/30',   iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'menu',     label: 'Menu',        emoji: '🍽️', icon: <ChefHat className="w-5 h-5" />,      color: 'bg-amber-50 dark:bg-amber-950/30', iconColor: 'text-amber-600 dark:text-amber-400' },
+        { id: 'objectives',label: 'Objectifs', emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
       ];
     }
 
     if (isManager) {
-      // Manager / Admin / Owner
-      const menuLabel = canManageContent ? 'Menu ✏️' : 'Menu';
-      const mgr: Tile[] = [...base,
-        { id: 'planning', label: 'Planning',  emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> },
-        { id: 'menu',     label: menuLabel,   emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
+      const tiles: Tile[] = [
+        { id: 'tasks',      label: 'Tâches',      emoji: '📋', icon: <CheckCircle className="w-5 h-5" />,   badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',     iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'planning',   label: 'Planning',    emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
+        { id: 'orders',     label: 'Commandes',   emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
+        { id: 'haccp',      label: 'HACCP',       emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,  color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'chat',       label: 'Équipe',      emoji: '👥', icon: <MessageSquare className="w-5 h-5" />,color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'sos',        label: 'Incidents',   emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />,badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+        { id: 'objectives', label: 'Objectifs',   emoji: '🎯', icon: <Target className="w-5 h-5" />,       color: 'bg-emerald-50 dark:bg-emerald-950/30',iconColor: 'text-emerald-600 dark:text-emerald-400' },
+        { id: 'reports',    label: 'Rapports',    emoji: '📈', icon: <FileText className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
       ];
-      // Settings tile: visible to admin (Rudy) and owner (Hanh)
-      if (isOwner) mgr.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-6 h-6" /> });
-      return mgr;
+      if (isOwner) tiles.push({ id: 'settings', label: 'Paramètres', emoji: '⚙️', icon: <Settings className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' });
+      return tiles;
     }
 
-    // Staff Salle → grille salle
-    return [...base,
-      { id: 'planning', label: 'Planning', emoji: '📅', icon: <CalendarDays className="w-6 h-6" /> },
-      { id: 'menu',     label: 'Menu',     emoji: '🍽️', icon: <ChefHat className="w-6 h-6" /> },
-    ];
+    // Staff
+    const staffTeam = team;
+    const isKitchenTeam = staffTeam === 'KITCHEN';
+    const staffTiles: Tile[] = [...base];
+    if (isKitchenTeam) {
+      staffTiles.push({ id: 'haccp', label: 'HACCP', emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30', iconColor: 'text-teal-600 dark:text-teal-400' });
+    }
+    return staffTiles;
   };
 
   const tiles = buildTiles();
 
   // ── Bottom nav tabs ──
-  const bottomNav: { id: ModuleKey; label: string; icon: React.ReactNode }[] = [
-    { id: 'home',     label: 'Accueil', icon: <Home className="w-5 h-5" /> },
-    { id: 'chat',     label: 'Chat',    icon: <MessageSquare className="w-5 h-5" /> },
-    { id: 'planning', label: 'Planning',icon: <CalendarDays className="w-5 h-5" /> },
-    { id: 'timesheet',label: 'Profil',  icon: <User className="w-5 h-5" /> },
+  type BottomTab = { id: ModuleKey; label: string; icon: React.ReactNode };
+  const bottomNav: BottomTab[] = [
+    { id: 'home',      label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'tasks',     label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'timesheet', label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'planning',  label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'timesheet', label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
   ];
+  // Use unique ids for bottom nav (last item is profile = timesheet)
+  const uniqueBottomNav = [
+    { id: 'home'      as ModuleKey, label: 'Accueil',  icon: <Home strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'tasks'     as ModuleKey, label: 'Tâches',   icon: <CheckCircle strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'timesheet' as ModuleKey, label: 'Pointage', icon: <Clock strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'planning'  as ModuleKey, label: 'Planning', icon: <CalendarDays strokeWidth={2} className="w-6 h-6" /> },
+    { id: 'timesheet' as ModuleKey, label: 'Profil',   icon: <User strokeWidth={2} className="w-6 h-6" /> },
+  ] as const;
 
   // ── Render active module ──
   const renderModule = () => {
     switch (activeModule) {
-      case 'home': return <HomeGrid tiles={tiles} onSelect={setActiveModule} role={role} />;
-      case 'tasks': return <TasksModule role={role} team={team} isManager={isManager} onCreateTask={() => setShowCreateModal(true)} />;
-      case 'chat': return <MessagingModule />;
-      case 'sos': return <IncidentModule />;
+      case 'home':      return <HomeScreen tiles={tiles} onSelect={setActiveModule} role={role} currentUser={currentUser} allTasks={allTasks} team={team} isManager={isManager} currentTime={currentTime} />;
+      case 'tasks':     return <TasksModule role={role} team={team} isManager={isManager} onCreateTask={() => setShowCreateModal(true)} />;
+      case 'chat':      return <MessagingModule />;
+      case 'sos':       return <IncidentModule />;
       case 'orders':    return <OrdersModule canManage={canManageContent} isChef={isChef && !isManager} />;
       case 'timesheet': return currentUser ? <TimesheetView userId={currentUser.id} showPinChange /> : null;
       case 'objectives':return <ObjectivesModule canManage={canManageContent} />;
@@ -180,10 +230,10 @@ export default function Dashboard() {
       case 'catalogue': return <ProductCatalogue canEdit={canManageContent} canDelete={isAdmin} />;
       case 'pins':      return <PinManagement />;
       case 'settings':  return <OwnerSettings readOnly={isPureOwner} />;
-      case 'contests': return <MalusContestModule />;
-      case 'swaps': return <ShiftSwapModule canManage={isManager} />;
+      case 'contests':  return <MalusContestModule />;
+      case 'swaps':     return <ShiftSwapModule canManage={isManager} />;
       case 'availability': return <StaffAvailabilityView />;
-      default: return <HomeGrid tiles={tiles} onSelect={setActiveModule} role={role} />;
+      default:          return <HomeScreen tiles={tiles} onSelect={setActiveModule} role={role} currentUser={currentUser} allTasks={allTasks} team={team} isManager={isManager} currentTime={currentTime} />;
     }
   };
 
@@ -200,88 +250,86 @@ export default function Dashboard() {
   const notifBlocked = isManager && isSupported && permission === 'denied';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* ── HEADER ── */}
-      <header className="sticky top-0 z-40 bg-card/95 backdrop-blur border-b border-border px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-          <button
-            onClick={() => setActiveModule('home')}
-            className="flex items-center gap-2.5"
-          >
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-background flex flex-col">
+
+      {/* ══════════════════ HEADER ══════════════════ */}
+      <header className="sticky top-0 z-40 bg-white dark:bg-card border-b border-[#E5E7EB] dark:border-border"
+        style={{ height: 56 }}>
+        <div className="max-w-2xl mx-auto h-full flex items-center justify-between px-4">
+          {/* Logo */}
+          <button onClick={() => setActiveModule('home')} className="flex items-center">
             <img src={logo} alt="Staff&B" className="h-7" />
           </button>
 
+          {/* Right controls */}
           <div className="flex items-center gap-2">
-            {/* Theme toggle */}
-            <button onClick={toggleTheme} className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
             {/* Realtime dot */}
             {realtimeStatus === 'connected' ? (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[hsl(var(--timer-safe)/0.1)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--timer-safe))] animate-pulse" />
-                <span className="text-[10px] text-[hsl(var(--timer-safe))] font-medium hidden sm:inline">live</span>
-              </div>
+              <span className="w-2 h-2 rounded-full bg-[#2D6A4F]" title="Connecté en temps réel" />
             ) : (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[hsl(var(--timer-warning)/0.1)]">
-                <WifiOff className="w-3 h-3 text-[hsl(var(--timer-warning))]" />
-              </div>
+              <WifiOff className="w-3.5 h-3.5 text-[#6B7280]" />
             )}
 
+            {/* Notification request */}
             {showNotifPrompt && (
-              <button onClick={requestPermission} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors">
-                <Bell className="w-3.5 h-3.5" />
+              <button onClick={requestPermission}
+                className="p-1.5 rounded-lg hover:bg-[#F8F9FA] transition-colors text-[#6B7280]">
+                <Bell className="w-4 h-4" />
               </button>
             )}
-            {notifBlocked && <div className="p-1.5"><BellOff className="w-3.5 h-3.5 text-muted-foreground" /></div>}
+            {notifBlocked && <BellOff className="w-4 h-4 text-[#6B7280]" />}
 
+            {/* Incident alert */}
             {isManager && unreadHighIncidents > 0 && (
-              <button onClick={() => { clearIncidentBadge(); setActiveModule('sos'); }} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive animate-pulse">
+              <button onClick={() => { clearIncidentBadge(); setActiveModule('sos'); }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 animate-pulse">
                 <AlertOctagon className="w-3.5 h-3.5" />
                 <span className="text-xs font-bold">{unreadHighIncidents}</span>
               </button>
             )}
 
+            {/* Notification bell */}
             <NotificationBell />
 
-            {/* User menu */}
+            {/* Avatar + menu */}
             <div className="relative">
-              <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                <span className="text-xs font-medium text-foreground max-w-[80px] truncate">{currentUser.name}</span>
-                <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              <button onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-1.5">
+                <InitialsAvatar name={currentUser.name} />
               </button>
               {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 glass-card rounded-xl py-1 min-w-[180px] z-50 shadow-2xl animate-slide-up border border-border">
-                  <div className="px-4 py-3 border-b border-border">
-                    <p className="text-sm font-bold text-foreground">{currentUser.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{TEAM_LABELS[currentUser.team]} · {role}</p>
+                <div className="absolute right-0 top-full mt-2 bg-white dark:bg-card rounded-2xl py-1 min-w-[200px] z-50 shadow-xl border border-[#E5E7EB] dark:border-border animate-slide-up">
+                  <div className="px-4 py-3 border-b border-[#E5E7EB] dark:border-border">
+                    <p className="text-sm font-bold text-[#1A1A2E] dark:text-foreground">{currentUser.name}</p>
+                    <p className="text-xs text-[#6B7280] dark:text-muted-foreground mt-0.5">{TEAM_LABELS[currentUser.team]} · {getRoleLabel(role)}</p>
                   </div>
                   {isManager && (
                     <>
-                      <button onClick={() => { setActiveModule('scores'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <button onClick={() => { setActiveModule('scores'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
                         <Trophy className="w-3.5 h-3.5" /> Classement
                       </button>
-                      <button onClick={() => { setActiveModule('reports'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <button onClick={() => { setActiveModule('reports'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
                         <FileText className="w-3.5 h-3.5" /> Rapports
                       </button>
-                      <button onClick={() => { setActiveModule('catalogue'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <button onClick={() => { setActiveModule('catalogue'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
                         <Package className="w-3.5 h-3.5" /> Catalogue
                       </button>
-                      <button onClick={() => { setActiveModule('pins'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <button onClick={() => { setActiveModule('pins'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
                         <KeyRound className="w-3.5 h-3.5" /> PINs
                       </button>
-                      <button onClick={() => { setActiveModule('contests'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <button onClick={() => { setActiveModule('contests'); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
                         <Activity className="w-3.5 h-3.5" /> Contestations
                       </button>
                     </>
                   )}
-                  <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border-t border-border mt-1">
-                    <LogOut className="w-3.5 h-3.5" /> Changer d'utilisateur
-                  </button>
-                  <button onClick={() => { signOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-destructive hover:bg-destructive/10 transition-colors">
-                    <LogOut className="w-3.5 h-3.5" /> Se déconnecter
-                  </button>
+                  <div className="border-t border-[#E5E7EB] dark:border-border mt-1">
+                    <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F8F9FA] dark:hover:bg-muted transition-colors">
+                      <LogOut className="w-3.5 h-3.5" /> Changer d'utilisateur
+                    </button>
+                    <button onClick={() => { signOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut className="w-3.5 h-3.5" /> Se déconnecter
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -289,38 +337,58 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── BREADCRUMB / MODULE TITLE ── */}
+      {/* ── BREADCRUMB for sub-modules ── */}
       {activeModule !== 'home' && (
         <div className="max-w-2xl mx-auto w-full px-4 pt-4 pb-0">
-          <button onClick={() => setActiveModule('home')} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3">
+          <button onClick={() => setActiveModule('home')}
+            className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1A1A2E] dark:hover:text-foreground transition-colors mb-3">
             <Home className="w-3.5 h-3.5" />
             <span>Accueil</span>
-            <span className="text-muted-foreground/40">›</span>
-            <span className="text-foreground font-medium">{moduleTitle[activeModule]}</span>
+            <span className="opacity-40">›</span>
+            <span className="text-[#1A1A2E] dark:text-foreground font-medium">{moduleTitle[activeModule]}</span>
           </button>
         </div>
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
+      <main className="flex-1 max-w-2xl mx-auto w-full pb-24">
         {renderModule()}
       </main>
 
-      {/* ── BOTTOM NAV (mobile-first) ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-t border-border safe-bottom">
-        <div className="max-w-2xl mx-auto flex items-center justify-around px-2">
-          {bottomNav.map((item) => {
-            const isActive = activeModule === item.id || (item.id === 'home' && activeModule === 'home');
+      {/* ══════════════════ BOTTOM NAV ══════════════════ */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-card border-t border-[#E5E7EB] dark:border-border"
+        style={{ height: 64, paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="max-w-2xl mx-auto h-full flex items-center justify-around">
+          {uniqueBottomNav.map((item, i) => {
+            const isActive = activeModule === item.id && (
+              // distinguish "Pointage" vs "Profil" — both map to timesheet
+              i !== 4 || activeModule === 'timesheet'
+            );
+            const navActive = i === 0 ? activeModule === 'home'
+              : i === 1 ? activeModule === 'tasks'
+              : i === 2 ? activeModule === 'timesheet'
+              : i === 3 ? activeModule === 'planning'
+              : activeModule === 'timesheet';
             return (
               <button
-                key={item.id}
+                key={`${item.id}-${i}`}
                 onClick={() => setActiveModule(item.id)}
-                className={`flex flex-col items-center gap-0.5 px-4 py-3 rounded-xl transition-all ${
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className="flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all active:scale-95"
               >
-                {item.icon}
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
+                  navActive
+                    ? 'bg-[#2D6A4F]/10 dark:bg-[#2D6A4F]/20'
+                    : 'bg-transparent'
+                }`}>
+                  <span className={navActive ? 'text-[#2D6A4F] dark:text-[#52B788]' : 'text-[#6B7280] dark:text-muted-foreground'}>
+                    {item.icon}
+                  </span>
+                </div>
+                <span className={`text-[11px] font-medium leading-none ${
+                  navActive ? 'text-[#2D6A4F] dark:text-[#52B788]' : 'text-[#6B7280] dark:text-muted-foreground'
+                }`}>
+                  {item.label}
+                </span>
               </button>
             );
           })}
@@ -329,85 +397,216 @@ export default function Dashboard() {
 
       {/* Modals */}
       {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
-
-      {/* Toast */}
       <ToastNotification />
-
-      {/* Overlay for user menu */}
       {showUserMenu && <div className="fixed inset-0 z-30" onClick={() => setShowUserMenu(false)} />}
     </div>
   );
 }
 
-// ─── HOME GRID ────────────────────────────────────────────────────────────────
-function HomeGrid({
-  tiles,
-  onSelect,
-  role,
+// ══════════════════════════════════════════════════════════════════════════════
+// HOME SCREEN — Bannière + Grille modules + Tâches du jour
+// ══════════════════════════════════════════════════════════════════════════════
+function HomeScreen({
+  tiles, onSelect, role, currentUser, allTasks, team, isManager, currentTime,
 }: {
   tiles: Tile[];
   onSelect: (id: ModuleKey) => void;
   role?: AppRole;
+  currentUser: { id: string; name: string; team: string };
+  allTasks: import('../types').Task[];
+  team?: Team;
+  isManager: boolean;
+  currentTime: Date;
 }) {
-  const TILE_COLORS: Record<ModuleKey, string> = {
-    tasks:      'from-blue-500/20 to-blue-600/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
-    chat:       'from-violet-500/20 to-violet-600/10 border-violet-500/20 text-violet-600 dark:text-violet-400',
-    sos:        'from-red-500/20 to-red-600/10 border-red-500/20 text-red-600 dark:text-red-400',
-    orders:     'from-orange-500/20 to-orange-600/10 border-orange-500/20 text-orange-600 dark:text-orange-400',
-    timesheet:  'from-cyan-500/20 to-cyan-600/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400',
-    objectives: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-    planning:   'from-indigo-500/20 to-indigo-600/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400',
-    menu:       'from-amber-500/20 to-amber-600/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
-    haccp:      'from-teal-500/20 to-teal-600/10 border-teal-500/20 text-teal-600 dark:text-teal-400',
-    scores:     'from-yellow-500/20 to-yellow-600/10 border-yellow-500/20 text-yellow-600 dark:text-yellow-400',
-    reports:    'from-slate-500/20 to-slate-600/10 border-slate-500/20 text-slate-600 dark:text-slate-400',
-    catalogue:  'from-pink-500/20 to-pink-600/10 border-pink-500/20 text-pink-600 dark:text-pink-400',
-    pins:       'from-gray-500/20 to-gray-600/10 border-gray-500/20 text-gray-600 dark:text-gray-400',
-    settings:   'from-purple-500/20 to-purple-600/10 border-purple-500/20 text-purple-600 dark:text-purple-400',
-    contests:   'from-rose-500/20 to-rose-600/10 border-rose-500/20 text-rose-600 dark:text-rose-400',
-    swaps:      'from-sky-500/20 to-sky-600/10 border-sky-500/20 text-sky-600 dark:text-sky-400',
-    availability:'from-lime-500/20 to-lime-600/10 border-lime-500/20 text-lime-600 dark:text-lime-400',
-    timesheets_all: 'from-slate-500/20 to-slate-600/10 border-slate-500/20 text-slate-600 dark:text-slate-400',
-    home: 'from-primary/20 to-primary/10 border-primary/20 text-primary',
-  };
+  const { objectives: teamObjectives, staffRankings } = useApp();
 
-  const now = new Date();
-  const greeting = now.getHours() < 12 ? 'Bonjour' : now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
+  // Score banner data
+  const myRanking = staffRankings.find((r) => r.user_id === currentUser.id);
+  const myScore = myRanking?.score ?? 0;
+
+  // Today objectives for team
+  const todayObjectives = teamObjectives.filter((o) => {
+    if (!team) return false;
+    return o.team === team || o.team === 'ALL';
+  });
+  const mainObjective = todayObjectives[0] ?? null;
+  const objectivePct = mainObjective
+    ? Math.min(100, Math.round((mainObjective.currentValue / mainObjective.targetValue) * 100))
+    : null;
+
+  // Upcoming tasks (pending, sorted by deadline)
+  const upcomingTasks = allTasks
+    .filter((t) => t.status === 'pending' || t.status === 'overdue')
+    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
+    .slice(0, 3);
+
+  // Time greeting
+  const hour = currentTime.getHours();
+  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const firstName = currentUser.name.split(' ')[0];
+
+  const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="space-y-6">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-2xl font-black text-foreground">{greeting} 👋</h1>
-        <p className="text-sm text-muted-foreground mt-1 capitalize">
-          {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
+    <div className="space-y-0">
+      {/* ── ① WELCOME BANNER ── */}
+      <div className="mx-4 mt-4 rounded-[20px] overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #2D6A4F 0%, #52B788 100%)', padding: 20 }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-1">{dateStr}</p>
+            <h1 className="text-white text-2xl font-black leading-tight">
+              {greeting} {firstName} 👋
+            </h1>
+            <p className="text-white/80 text-sm mt-1 capitalize">
+              {getRoleLabel(role)} · {timeStr}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="bg-white/20 rounded-xl px-3 py-2 text-center">
+              <p className="text-white text-xl font-black leading-none">{myScore}</p>
+              <p className="text-white/80 text-[10px] font-medium mt-0.5">pts</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Objective progress bar — shown if objective exists */}
+        {mainObjective && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-white/90 text-xs font-medium truncate pr-2">{mainObjective.title}</span>
+              <span className="text-white text-xs font-bold flex-shrink-0">{objectivePct}%</span>
+            </div>
+            <div className="h-2 bg-white/25 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-700"
+                style={{ width: `${objectivePct}%` }}
+              />
+            </div>
+            <p className="text-white/70 text-[10px] mt-1">
+              {mainObjective.currentValue} / {mainObjective.targetValue} {mainObjective.unit}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Tile grid — 2 columns, thumb-friendly */}
-      <div className="grid grid-cols-2 gap-3">
-        {tiles.map((tile) => (
-          <button
-            key={tile.id}
-            onClick={() => onSelect(tile.id)}
-            className={`relative flex flex-col items-start gap-3 p-4 rounded-2xl border bg-gradient-to-br ${TILE_COLORS[tile.id]} transition-all active:scale-95 hover:shadow-md min-h-[100px]`}
-          >
-            {/* Badge */}
-            {tile.badge && tile.badge > 0 && (
-              <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-destructive flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">{tile.badge}</span>
-              </div>
-            )}
-            <div className="opacity-80">{tile.icon}</div>
-            <span className="text-sm font-semibold text-foreground">{tile.label}</span>
-          </button>
-        ))}
+      {/* ── ② MODULE GRID ── */}
+      <div className="px-4 mt-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {tiles.map((tile) => (
+            <ModuleTile key={tile.id} tile={tile} onSelect={onSelect} />
+          ))}
+        </div>
       </div>
+
+      {/* ── ③ MES TÂCHES DU JOUR ── */}
+      {upcomingTasks.length > 0 && (
+        <div className="px-4 mt-5 mb-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-[#1A1A2E] dark:text-foreground">Mes tâches du jour</h2>
+            <button
+              onClick={() => onSelect('tasks')}
+              className="text-xs font-medium text-[#2D6A4F] dark:text-[#52B788] hover:underline"
+            >
+              Voir tout →
+            </button>
+          </div>
+          <div className="bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border overflow-hidden shadow-sm">
+            {upcomingTasks.map((task, idx) => (
+              <QuickTaskRow
+                key={task.id}
+                task={task}
+                isLast={idx === upcomingTasks.length - 1}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── TASKS MODULE (inline for staff/manager) ──────────────────────────────────
+// ─── Module tile card ─────────────────────────────────────────────────────────
+function ModuleTile({ tile, onSelect }: { tile: Tile; onSelect: (id: ModuleKey) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(tile.id)}
+      className="relative flex flex-col items-center gap-3 p-4 rounded-2xl bg-white dark:bg-card border border-[#E5E7EB] dark:border-border transition-all active:scale-[0.96] hover:shadow-md text-center"
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+    >
+      {/* Badge */}
+      {tile.badge != null && tile.badge > 0 && (
+        <span className="absolute top-2.5 right-2.5 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+          {tile.badge > 9 ? '9+' : tile.badge}
+        </span>
+      )}
+      {/* Icon circle */}
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${tile.color}`}>
+        <span className={tile.iconColor}>{tile.icon}</span>
+      </div>
+      {/* Label */}
+      <span className="text-[14px] font-bold text-[#1A1A2E] dark:text-foreground leading-tight">
+        {tile.label}
+      </span>
+    </button>
+  );
+}
+
+// ─── Quick task row ───────────────────────────────────────────────────────────
+function QuickTaskRow({ task, isLast }: { task: import('../types').Task; isLast: boolean }) {
+  const { completeTask } = useApp();
+  const [done, setDone] = useState(task.status === 'done');
+
+  const handleCheck = () => {
+    if (done) return;
+    setDone(true);
+    completeTask(task.id);
+  };
+
+  const timeStr = task.deadline.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const isOverdue = task.status === 'overdue';
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 ${!isLast ? 'border-b border-[#E5E7EB] dark:border-border' : ''}`}>
+      {/* Checkbox */}
+      <button
+        onClick={handleCheck}
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+          done
+            ? 'bg-[#2D6A4F] border-[#2D6A4F]'
+            : isOverdue
+            ? 'border-red-400'
+            : 'border-[#E5E7EB] dark:border-border hover:border-[#2D6A4F]'
+        }`}
+      >
+        {done && <CheckCircle className="w-3 h-3 text-white" strokeWidth={3} />}
+      </button>
+
+      {/* Task name */}
+      <span className={`flex-1 text-sm font-medium leading-tight ${
+        done
+          ? 'line-through text-[#6B7280]'
+          : isOverdue
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-[#1A1A2E] dark:text-foreground'
+      }`}>
+        {task.name}
+      </span>
+
+      {/* Time */}
+      <span className={`text-xs font-medium flex-shrink-0 ${
+        isOverdue ? 'text-red-500' : 'text-[#6B7280] dark:text-muted-foreground'
+      }`}>
+        {timeStr}
+      </span>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TASKS MODULE (inline for staff/manager)
+// ══════════════════════════════════════════════════════════════════════════════
 function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; team?: Team; isManager: boolean; onCreateTask: () => void }) {
   const { getTodayTasks, deleteTask } = useApp();
   const [showDone, setShowDone] = useState(false);
@@ -418,25 +617,23 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
   const done = allTasks.filter((t) => t.status === 'done');
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="grid grid-cols-3 gap-2 flex-1">
-          <div className="glass-card rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-destructive">{overdue.length}</p>
-            <p className="text-xs text-muted-foreground">En retard</p>
-          </div>
-          <div className="glass-card rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-primary">{pending.length}</p>
-            <p className="text-xs text-muted-foreground">À faire</p>
-          </div>
-          <div className="glass-card rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-[hsl(var(--timer-safe))]">{done.length}</p>
-            <p className="text-xs text-muted-foreground">Faites</p>
-          </div>
+    <div className="space-y-5 px-4 pt-2">
+      {/* Stats row */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 bg-white dark:bg-card rounded-xl p-3 text-center border border-[#E5E7EB] dark:border-border shadow-sm">
+          <p className="text-xl font-bold text-red-500">{overdue.length}</p>
+          <p className="text-xs text-[#6B7280]">En retard</p>
+        </div>
+        <div className="flex-1 bg-white dark:bg-card rounded-xl p-3 text-center border border-[#E5E7EB] dark:border-border shadow-sm">
+          <p className="text-xl font-bold text-[#2D6A4F]">{pending.length}</p>
+          <p className="text-xs text-[#6B7280]">À faire</p>
+        </div>
+        <div className="flex-1 bg-white dark:bg-card rounded-xl p-3 text-center border border-[#E5E7EB] dark:border-border shadow-sm">
+          <p className="text-xl font-bold text-[#52B788]">{done.length}</p>
+          <p className="text-xs text-[#6B7280]">Faites</p>
         </div>
         {isManager && (
-          <button onClick={onCreateTask} className="ml-3 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0">
+          <button onClick={onCreateTask} className="p-3 rounded-xl bg-[#2D6A4F] text-white hover:bg-[#245a42] transition-colors flex-shrink-0 shadow-sm">
             <LayoutGrid className="w-4 h-4" />
           </button>
         )}
@@ -445,8 +642,8 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
       {overdue.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-            <h2 className="text-sm font-bold text-destructive uppercase tracking-wide">En retard ({overdue.length})</h2>
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <h2 className="text-sm font-bold text-red-500 uppercase tracking-wide">En retard ({overdue.length})</h2>
           </div>
           <div className="space-y-3">{overdue.map((t) => <TaskCard key={t.id} task={t} canComplete />)}</div>
         </section>
@@ -454,14 +651,14 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
 
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">À faire</h2>
-          {pending.length > 0 && <span className="ml-auto text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full">{pending.length}</span>}
+          <Clock className="w-4 h-4 text-[#6B7280]" />
+          <h2 className="text-sm font-semibold text-[#1A1A2E] dark:text-foreground uppercase tracking-wide">À faire</h2>
+          {pending.length > 0 && <span className="ml-auto text-xs bg-[#2D6A4F]/10 text-[#2D6A4F] px-2 py-0.5 rounded-full">{pending.length}</span>}
         </div>
         {pending.length === 0 && overdue.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
+          <div className="text-center py-12 text-[#6B7280]">
             <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="font-semibold text-foreground">Tout est bon !</p>
+            <p className="font-semibold text-[#1A1A2E] dark:text-foreground">Tout est bon !</p>
           </div>
         ) : (
           <div className="space-y-3">{pending.map((t) => <TaskCard key={t.id} task={t} canComplete onDelete={isManager ? () => deleteTask(t.id) : undefined} />)}</div>
@@ -472,11 +669,11 @@ function TasksModule({ role, team, isManager, onCreateTask }: { role?: AppRole; 
         <section>
           <button onClick={() => setShowDone(!showDone)} className="w-full flex items-center justify-between gap-2 mb-3 group">
             <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-[hsl(var(--timer-safe))]" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Complétées</h2>
-              <span className="text-xs bg-[hsl(var(--timer-safe)/0.1)] text-[hsl(var(--timer-safe))] px-2 py-0.5 rounded-full">{done.length}</span>
+              <Star className="w-4 h-4 text-[#52B788]" />
+              <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide">Complétées</h2>
+              <span className="text-xs bg-[#52B788]/10 text-[#52B788] px-2 py-0.5 rounded-full">{done.length}</span>
             </div>
-            {showDone ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            {showDone ? <ChevronUp className="w-4 h-4 text-[#6B7280]" /> : <ChevronDown className="w-4 h-4 text-[#6B7280]" />}
           </button>
           {showDone && <div className="space-y-2 animate-slide-up">{done.map((t) => <TaskCard key={t.id} task={t} canComplete={false} />)}</div>}
         </section>
