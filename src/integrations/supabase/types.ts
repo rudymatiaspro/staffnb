@@ -274,6 +274,7 @@ export type Database = {
           description: string
           id: string
           location: string
+          photo_url: string | null
           reporter_name: string | null
           reporter_user_id: string | null
           resolution_note: string | null
@@ -282,6 +283,7 @@ export type Database = {
           severity: string
           status: string
           team: string
+          title: string | null
           type: string
           updated_at: string
         }
@@ -291,6 +293,7 @@ export type Database = {
           description: string
           id?: string
           location: string
+          photo_url?: string | null
           reporter_name?: string | null
           reporter_user_id?: string | null
           resolution_note?: string | null
@@ -299,6 +302,7 @@ export type Database = {
           severity: string
           status?: string
           team: string
+          title?: string | null
           type: string
           updated_at?: string
         }
@@ -308,6 +312,7 @@ export type Database = {
           description?: string
           id?: string
           location?: string
+          photo_url?: string | null
           reporter_name?: string | null
           reporter_user_id?: string | null
           resolution_note?: string | null
@@ -316,6 +321,7 @@ export type Database = {
           severity?: string
           status?: string
           team?: string
+          title?: string | null
           type?: string
           updated_at?: string
         }
@@ -917,9 +923,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birth_date: string | null
           created_at: string
           id: string
           name: string
+          phone: string | null
           photo_url: string | null
           pin_hash: string | null
           pin_set: boolean
@@ -930,9 +938,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          birth_date?: string | null
           created_at?: string
           id: string
           name?: string
+          phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
           pin_set?: boolean
@@ -943,9 +953,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          birth_date?: string | null
           created_at?: string
           id?: string
           name?: string
+          phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
           pin_set?: boolean
@@ -1233,7 +1245,9 @@ export type Database = {
           is_punctual: boolean
           is_recurring: boolean
           name: string
+          photo_proof_url: string | null
           points: number
+          priority: string | null
           status: Database["public"]["Enums"]["task_status"]
           team: Database["public"]["Enums"]["team_name"]
           template_id: string | null
@@ -1251,7 +1265,9 @@ export type Database = {
           is_punctual?: boolean
           is_recurring?: boolean
           name: string
+          photo_proof_url?: string | null
           points?: number
+          priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           team?: Database["public"]["Enums"]["team_name"]
           template_id?: string | null
@@ -1269,7 +1285,9 @@ export type Database = {
           is_punctual?: boolean
           is_recurring?: boolean
           name?: string
+          photo_proof_url?: string | null
           points?: number
+          priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           team?: Database["public"]["Enums"]["team_name"]
           template_id?: string | null
