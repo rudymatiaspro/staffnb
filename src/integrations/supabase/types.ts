@@ -249,6 +249,70 @@ export type Database = {
           },
         ]
       }
+      malus_contests: {
+        Row: {
+          arbiter_id: string | null
+          arbiter_name: string | null
+          arbiter_note: string | null
+          contestant_id: string
+          contestant_name: string
+          created_at: string
+          id: string
+          reason: string
+          resolved_at: string | null
+          score_event_id: string | null
+          status: string
+        }
+        Insert: {
+          arbiter_id?: string | null
+          arbiter_name?: string | null
+          arbiter_note?: string | null
+          contestant_id: string
+          contestant_name?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          score_event_id?: string | null
+          status?: string
+        }
+        Update: {
+          arbiter_id?: string | null
+          arbiter_name?: string | null
+          arbiter_note?: string | null
+          contestant_id?: string
+          contestant_name?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          score_event_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "malus_contests_arbiter_id_fkey"
+            columns: ["arbiter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "malus_contests_contestant_id_fkey"
+            columns: ["contestant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "malus_contests_score_event_id_fkey"
+            columns: ["score_event_id"]
+            isOneToOne: false
+            referencedRelation: "score_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       malus_events: {
         Row: {
           id: string
@@ -280,6 +344,91 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          id: string
+          mentions: string[] | null
+          sender_id: string
+          sender_name: string
+          sender_team: string
+        }
+        Insert: {
+          channel: string
+          content: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          sender_id: string
+          sender_name?: string
+          sender_team?: string
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          sender_id?: string
+          sender_name?: string
+          sender_team?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          read: boolean
+          ref_id: string | null
+          ref_type: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          ref_id?: string | null
+          ref_type?: string | null
+          title?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          ref_id?: string | null
+          ref_type?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -727,6 +876,93 @@ export type Database = {
           },
         ]
       }
+      shift_swap_requests: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          rejection_reason: string | null
+          requester_id: string
+          requester_name: string
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          shift_id: string | null
+          status: string
+          target_shift_id: string | null
+          target_user_id: string | null
+          target_user_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          rejection_reason?: string | null
+          requester_id: string
+          requester_name?: string
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          shift_id?: string | null
+          status?: string
+          target_shift_id?: string | null
+          target_user_id?: string | null
+          target_user_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          rejection_reason?: string | null
+          requester_id?: string
+          requester_name?: string
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          shift_id?: string | null
+          status?: string
+          target_shift_id?: string | null
+          target_user_id?: string | null
+          target_user_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_swap_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_swap_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_swap_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "planning_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_swap_requests_target_shift_id_fkey"
+            columns: ["target_shift_id"]
+            isOneToOne: false
+            referencedRelation: "planning_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_swap_requests_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shifts: {
         Row: {
           clock_in: string
@@ -1150,6 +1386,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["team_name"]
       }
+      is_admin: { Args: never; Returns: boolean }
       is_manager_or_owner: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
     }
@@ -1168,7 +1405,7 @@ export type Database = {
       task_status: "pending" | "in_progress" | "done" | "overdue"
       team_name: "BAR" | "KITCHEN" | "FLOOR" | "ATELIER" | "MANAGEMENT" | "ALL"
       unit_type: "btl" | "pcs"
-      user_role: "owner" | "manager" | "staff" | "god"
+      user_role: "owner" | "manager" | "staff" | "god" | "admin" | "chef"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1311,7 +1548,7 @@ export const Constants = {
       task_status: ["pending", "in_progress", "done", "overdue"],
       team_name: ["BAR", "KITCHEN", "FLOOR", "ATELIER", "MANAGEMENT", "ALL"],
       unit_type: ["btl", "pcs"],
-      user_role: ["owner", "manager", "staff", "god"],
+      user_role: ["owner", "manager", "staff", "god", "admin", "chef"],
     },
   },
 } as const

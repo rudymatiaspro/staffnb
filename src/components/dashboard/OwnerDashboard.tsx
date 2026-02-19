@@ -11,11 +11,14 @@ import { HACCPModule } from '../haccp/HACCPModule';
 import { ObjectivesModule } from '../objectives/ObjectivesModule';
 import { PinManagement } from '../pins/PinManagement';
 import { OrdersModule } from '../orders/OrdersModule';
+import { MessagingModule } from '../messaging/MessagingModule';
+import { MalusContestModule } from '../scoring/MalusContestModule';
+import { ScoreEventsView } from '../scoring/ScoreEventsView';
 import {
   Users, CheckCircle, AlertTriangle, TrendingUp, Trophy,
   Wine, ChefHat, Layers, PersonStanding, Settings,
-  Clock, ChevronRight, BarChart2, Star, Bell, Package, FileText,
-  Thermometer, Target, KeyRound, ShoppingCart,
+  Clock, ChevronRight, BarChart2, Star, Bell, Package, FileText, Activity,
+  Thermometer, Target, KeyRound, ShoppingCart, MessageSquare, Flag,
 } from 'lucide-react';
 
 const ACTIVE_TEAMS: Team[] = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER'];
@@ -29,7 +32,7 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   ALL: <Users className="w-4 h-4" />,
 };
 
-type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'orders' | 'timesheets' | 'reports' | 'settings' | 'incidents' | 'haccp' | 'objectives' | 'pins';
+type OwnerTab = 'overview' | 'leaderboard' | 'catalogue' | 'orders' | 'timesheets' | 'reports' | 'settings' | 'incidents' | 'haccp' | 'objectives' | 'pins' | 'messages' | 'scores' | 'contests';
 
 function getInitials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -60,7 +63,10 @@ export function OwnerDashboard() {
   const tabs: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart2 className="w-3.5 h-3.5" /> },
     { id: 'leaderboard', label: 'Board', icon: <Trophy className="w-3.5 h-3.5" /> },
+    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-3.5 h-3.5" /> },
     { id: 'orders', label: 'Commandes', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+    { id: 'scores', label: 'Scores', icon: <Activity className="w-3.5 h-3.5" /> },
+    { id: 'contests', label: 'Contestations', icon: <Flag className="w-3.5 h-3.5" /> },
     { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheets', label: 'Timesheets', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'reports', label: 'Reports', icon: <FileText className="w-3.5 h-3.5" /> },
@@ -448,18 +454,13 @@ export function OwnerDashboard() {
 
       {/* ===== INCIDENTS TAB ===== */}
       {activeTab === 'incidents' && <IncidentModule />}
-
-      {/* ===== HACCP TAB ===== */}
       {activeTab === 'haccp' && <HACCPModule />}
-
-      {/* ===== OBJECTIVES TAB ===== */}
       {activeTab === 'objectives' && <ObjectivesModule canManage />}
-
-      {/* ===== PINS TAB ===== */}
       {activeTab === 'pins' && <PinManagement />}
-
-      {/* ===== SETTINGS TAB ===== */}
       {activeTab === 'settings' && <OwnerSettings />}
+      {activeTab === 'messages' && <MessagingModule canManageAll />}
+      {activeTab === 'scores' && <ScoreEventsView showAll />}
+      {activeTab === 'contests' && <MalusContestModule canArbitrate />}
     </div>
   );
 }

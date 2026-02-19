@@ -13,7 +13,7 @@ function dbRowToUser(row: Record<string, unknown>, roleRow?: Record<string, unkn
     name: row.name as string,
     team: primaryTeam,
     teams: allTeams,
-    role: (roleRow?.role as 'owner' | 'manager' | 'staff') ?? 'staff',
+    role: (roleRow?.role as 'owner' | 'admin' | 'manager' | 'chef' | 'staff') ?? 'staff',
     pinSet: Boolean(row.pin_set),
     pin: '', // never expose from DB
     stationPinSet: Boolean(row.station_pin_set),
