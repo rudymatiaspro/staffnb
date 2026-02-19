@@ -16,12 +16,27 @@ const TEAM_ICONS: Record<string, React.ReactNode> = {
   MANAGEMENT: <Settings className="w-4 h-4" />,
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  owner:   'Owner',
+  admin:   'Admin',
+  manager: 'Manager',
+  chef:    'Chef',
+  staff:   'Staff',
+};
+
+function getRoleLabel(user: User): string {
+  if (user.role === 'owner' || user.role === 'admin' || user.role === 'manager') {
+    return ROLE_LABELS[user.role];
+  }
+  return `${ROLE_LABELS[user.role] ?? user.role} · ${TEAM_LABELS[user.team] ?? user.team}`;
+}
+
 export function NameSelector({ onSelect }: NameSelectorProps) {
   const { users } = useApp();
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const teams = ['BAR', 'KITCHEN', 'ATELIER', 'MANAGEMENT'];
+  const teams = ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
 
   const filteredUsers = users.filter((u) => {
     const matchTeam = !selectedTeam || u.team === selectedTeam;
@@ -35,15 +50,17 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
     <div className="space-y-4 animate-slide-up">
       {/* Team filter */}
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2 font-medium">Team</p>
+        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2 font-medium">Équipe</p>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedTeam(null)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              !selectedTeam ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-muted'
+              !selectedTeam
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground hover:bg-muted'
             }`}
           >
-            All
+            Tous
           </button>
           {teams.map((team) => (
             <button
@@ -65,7 +82,7 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Rechercher..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
@@ -92,10 +109,10 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
                 <p className="font-semibold text-sm text-foreground leading-tight">{user.name}</p>
                 <p className="text-xs text-muted-foreground leading-tight flex items-center gap-1">
                   {TEAM_ICONS[user.team]}
-                  <span>
-                    {user.role === 'owner' ? 'Owner' : user.role === 'manager' ? 'Manager' : TEAM_LABELS[user.team]}
-                  </span>
-                  {!user.pinSet && <span className="ml-1 text-amber-400">· New</span>}
+                  <span>{getRoleLabel(user)}</span>
+                  {!user.pinSet && (
+                    <span className="ml-1 text-[hsl(var(--timer-warning))]">· Premier login</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -103,7 +120,7 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
           </button>
         ))}
         {filteredUsers.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-6">No results found</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Aucun résultat</p>
         )}
       </div>
     </div>

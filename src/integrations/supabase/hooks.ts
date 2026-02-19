@@ -15,7 +15,8 @@ function dbRowToUser(row: Record<string, unknown>, roleRow?: Record<string, unkn
     teams: allTeams,
     role: (roleRow?.role as 'owner' | 'admin' | 'manager' | 'chef' | 'staff') ?? 'staff',
     pinSet: Boolean(row.pin_set),
-    pin: '', // never expose from DB
+    // Expose the btoa hash so validatePin can compare locally (btoa is obfuscation, not crypto)
+    pin: (row.pin_hash as string) ?? '',
     stationPinSet: Boolean(row.station_pin_set),
     photo: (row.photo_url as string) ?? undefined,
     score: (row.score as number) ?? 0,
