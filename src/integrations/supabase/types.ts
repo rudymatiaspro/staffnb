@@ -1249,8 +1249,13 @@ export type Database = {
           is_recurring: boolean
           name: string
           photo_proof_url: string | null
+          photo_proofs_required: number | null
+          photo_proofs_titles: string[] | null
           points: number
           priority: string | null
+          recurrence_days: string[] | null
+          recurrence_end_date: string | null
+          recurrence_times: string[] | null
           status: Database["public"]["Enums"]["task_status"]
           team: Database["public"]["Enums"]["team_name"]
           template_id: string | null
@@ -1269,8 +1274,13 @@ export type Database = {
           is_recurring?: boolean
           name: string
           photo_proof_url?: string | null
+          photo_proofs_required?: number | null
+          photo_proofs_titles?: string[] | null
           points?: number
           priority?: string | null
+          recurrence_days?: string[] | null
+          recurrence_end_date?: string | null
+          recurrence_times?: string[] | null
           status?: Database["public"]["Enums"]["task_status"]
           team?: Database["public"]["Enums"]["team_name"]
           template_id?: string | null
@@ -1289,8 +1299,13 @@ export type Database = {
           is_recurring?: boolean
           name?: string
           photo_proof_url?: string | null
+          photo_proofs_required?: number | null
+          photo_proofs_titles?: string[] | null
           points?: number
           priority?: string | null
+          recurrence_days?: string[] | null
+          recurrence_end_date?: string | null
+          recurrence_times?: string[] | null
           status?: Database["public"]["Enums"]["task_status"]
           team?: Database["public"]["Enums"]["team_name"]
           template_id?: string | null
