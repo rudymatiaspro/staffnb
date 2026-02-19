@@ -395,6 +395,93 @@ export type Database = {
           },
         ]
       }
+      inventory_items: {
+        Row: {
+          counted_quantity: number | null
+          created_at: string | null
+          id: string
+          product_id: string | null
+          session_id: string | null
+          theoretical_quantity: number | null
+        }
+        Insert: {
+          counted_quantity?: number | null
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          session_id?: string | null
+          theoretical_quantity?: number | null
+        }
+        Update: {
+          counted_quantity?: number | null
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          session_id?: string | null
+          theoretical_quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_sessions: {
+        Row: {
+          id: string
+          report_url: string | null
+          started_at: string | null
+          started_by: string | null
+          status: string | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          id?: string
+          report_url?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          id?: string
+          report_url?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_sessions_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sessions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       malus_contests: {
         Row: {
           arbiter_id: string | null
@@ -1218,6 +1305,105 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock: {
+        Row: {
+          alert_threshold: number | null
+          current_quantity: number
+          id: string
+          last_updated: string | null
+          max_threshold: number | null
+          product_id: string
+          unit: string | null
+        }
+        Insert: {
+          alert_threshold?: number | null
+          current_quantity?: number
+          id?: string
+          last_updated?: string | null
+          max_threshold?: number | null
+          product_id: string
+          unit?: string | null
+        }
+        Update: {
+          alert_threshold?: number | null
+          current_quantity?: number
+          id?: string
+          last_updated?: string | null
+          max_threshold?: number | null
+          product_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_entries: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          inventory_session_id: string | null
+          note: string | null
+          order_id: string | null
+          product_id: string | null
+          quantity: number
+          reason: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          inventory_session_id?: string | null
+          note?: string | null
+          order_id?: string | null
+          product_id?: string | null
+          quantity: number
+          reason?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          inventory_session_id?: string | null
+          note?: string | null
+          order_id?: string | null
+          product_id?: string | null
+          quantity?: number
+          reason?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
