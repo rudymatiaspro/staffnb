@@ -284,6 +284,232 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          unit: Database["public"]["Enums"]["order_unit"]
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          unit?: Database["public"]["Enums"]["order_unit"]
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          unit?: Database["public"]["Enums"]["order_unit"]
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_receipt_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_item_id: string
+          ordered_qty: number
+          product_id: string | null
+          product_name: string
+          receipt_id: string
+          received_qty: number
+          unit: Database["public"]["Enums"]["order_unit"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_item_id: string
+          ordered_qty?: number
+          product_id?: string | null
+          product_name?: string
+          receipt_id: string
+          received_qty?: number
+          unit?: Database["public"]["Enums"]["order_unit"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_item_id?: string
+          ordered_qty?: number
+          product_id?: string | null
+          product_name?: string
+          receipt_id?: string
+          received_qty?: number
+          unit?: Database["public"]["Enums"]["order_unit"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_receipt_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_receipt_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "order_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_receipts: {
+        Row: {
+          created_at: string
+          gap_note: string | null
+          has_gap: boolean
+          id: string
+          order_id: string
+          received_at: string
+          received_by: string | null
+          received_by_name: string
+        }
+        Insert: {
+          created_at?: string
+          gap_note?: string | null
+          has_gap?: boolean
+          id?: string
+          order_id: string
+          received_at?: string
+          received_by?: string | null
+          received_by_name?: string
+        }
+        Update: {
+          created_at?: string
+          gap_note?: string | null
+          has_gap?: boolean
+          id?: string
+          order_id?: string
+          received_at?: string
+          received_by?: string | null
+          received_by_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_receipts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_receipts_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          id: string
+          is_recurring: boolean
+          next_occurrence: string | null
+          notes: string | null
+          order_number: string
+          recurrence_freq: string | null
+          rejection_reason: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          supplier: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validated_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          id?: string
+          is_recurring?: boolean
+          next_occurrence?: string | null
+          notes?: string | null
+          order_number: string
+          recurrence_freq?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          supplier?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validated_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          id?: string
+          is_recurring?: boolean
+          next_occurrence?: string | null
+          notes?: string | null
+          order_number?: string
+          recurrence_freq?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          supplier?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validated_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_shifts: {
         Row: {
           created_at: string
@@ -929,6 +1155,8 @@ export type Database = {
     }
     Enums: {
       clock_event_type: "in" | "out"
+      order_status: "draft" | "pending" | "validated" | "received" | "rejected"
+      order_unit: "kg" | "g" | "L" | "cL" | "pcs" | "carton" | "caisse"
       report_trigger: "manual" | "auto"
       score_event_type: "bonus" | "penalty" | "collective_penalty"
       stock_update_reason:
@@ -1069,6 +1297,8 @@ export const Constants = {
   public: {
     Enums: {
       clock_event_type: ["in", "out"],
+      order_status: ["draft", "pending", "validated", "received", "rejected"],
+      order_unit: ["kg", "g", "L", "cL", "pcs", "carton", "caisse"],
       report_trigger: ["manual", "auto"],
       score_event_type: ["bonus", "penalty", "collective_penalty"],
       stock_update_reason: [

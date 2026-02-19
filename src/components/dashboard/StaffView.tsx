@@ -8,11 +8,12 @@ import { IncidentModule } from '../incidents/IncidentModule';
 import { HACCPModule } from '../haccp/HACCPModule';
 import { ObjectivesModule } from '../objectives/ObjectivesModule';
 import { StaffShiftsView } from '../planning/StaffShiftsView';
+import { OrdersModule } from '../orders/OrdersModule';
 import { Team } from '../../types';
-import { CheckCircle, Clock, Star, ChevronDown, ChevronUp, Trophy, Award, Package, AlertTriangle, Thermometer, Target, CalendarDays } from 'lucide-react';
+import { CheckCircle, Clock, Star, ChevronDown, ChevronUp, Trophy, Award, Package, AlertTriangle, Thermometer, Target, CalendarDays, ShoppingCart } from 'lucide-react';
 import { TEAM_LABELS } from '../../data/initialData';
 
-type StaffTab = 'tasks' | 'planning' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives';
+type StaffTab = 'tasks' | 'planning' | 'orders' | 'catalogue' | 'timesheet' | 'incidents' | 'haccp' | 'objectives';
 
 export function StaffView() {
   const { currentUser, getTodayTasks, users } = useApp();
@@ -35,6 +36,7 @@ export function StaffView() {
   const tabs: { id: StaffTab; label: string; icon: React.ReactNode }[] = [
     { id: 'tasks', label: 'My Tasks', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'planning', label: 'Planning', icon: <CalendarDays className="w-3.5 h-3.5" /> },
+    { id: 'orders', label: 'Commandes', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
     { id: 'catalogue', label: 'Catalogue', icon: <Package className="w-3.5 h-3.5" /> },
     { id: 'timesheet', label: 'Timesheet', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'incidents', label: 'Report', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
@@ -62,6 +64,9 @@ export function StaffView() {
 
       {/* Planning tab */}
       {activeTab === 'planning' && <StaffShiftsView />}
+
+      {/* Orders tab */}
+      {activeTab === 'orders' && <OrdersModule canManage={false} />}
 
       {/* Catalogue tab */}
       {activeTab === 'catalogue' && (
