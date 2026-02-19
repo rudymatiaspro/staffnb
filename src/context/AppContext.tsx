@@ -449,19 +449,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (userId: string, pin: string) => {
       const user = users.find((u) => u.id === userId);
       if (!user) return false;
-      // When authenticated: pin field contains the btoa hash from DB
-      // Compare both the raw pin and the btoa hash
-      if (isAuthenticated && user.pin) {
-        try {
-          return user.pin === btoa(pin);
-        } catch {
-          return false;
-        }
+      const stored = user.pin ?? '';
+      // PBKDF2 hash format: "salt:hash" — async verification done in Login.tsx
+      // Here we handle: legacy btoa, empty (default 1111), or direct
+      if (stored.includes(':')) {
+        // PBKDF2 — can't verify synchronously; Login.tsx uses async verifyPin
+        // Return true here to let Login.tsx do async validation
+        return true;
       }
-      // Unauthenticated (localStorage mode): direct comparison or empty (first login)
-      return user.pin === pin || (typeof user.pin === 'string' && user.pin === '');
+      if (!stored) {
+        // No PIN set — default 1111
+        return pin === '1111';
+      }
+      // Legacy btoa
+      try { return stored === btoa(pin); } catch { return false; }
     },
-    [users, isAuthenticated]
+    [users]
   );
 
   const resetPin = useCallback((userId: string) => {

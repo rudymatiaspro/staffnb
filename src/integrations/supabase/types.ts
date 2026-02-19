@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+          user_id?: string | null
+          user_name?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability_requests: {
         Row: {
           created_at: string
@@ -628,11 +669,17 @@ export type Database = {
       }
       orders: {
         Row: {
+          approved_by_chef: string | null
+          approved_by_chef_name: string | null
+          approved_by_manager: string | null
+          approved_by_manager_name: string | null
+          chef_approved_at: string | null
           created_at: string
           created_by: string | null
           created_by_name: string
           id: string
           is_recurring: boolean
+          manager_confirmed_at: string | null
           next_occurrence: string | null
           notes: string | null
           order_number: string
@@ -647,11 +694,17 @@ export type Database = {
           validated_by_name: string | null
         }
         Insert: {
+          approved_by_chef?: string | null
+          approved_by_chef_name?: string | null
+          approved_by_manager?: string | null
+          approved_by_manager_name?: string | null
+          chef_approved_at?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string
           id?: string
           is_recurring?: boolean
+          manager_confirmed_at?: string | null
           next_occurrence?: string | null
           notes?: string | null
           order_number: string
@@ -666,11 +719,17 @@ export type Database = {
           validated_by_name?: string | null
         }
         Update: {
+          approved_by_chef?: string | null
+          approved_by_chef_name?: string | null
+          approved_by_manager?: string | null
+          approved_by_manager_name?: string | null
+          chef_approved_at?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string
           id?: string
           is_recurring?: boolean
+          manager_confirmed_at?: string | null
           next_occurrence?: string | null
           notes?: string | null
           order_number?: string
@@ -685,6 +744,20 @@ export type Database = {
           validated_by_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_approved_by_chef_fkey"
+            columns: ["approved_by_chef"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_approved_by_manager_fkey"
+            columns: ["approved_by_manager"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_created_by_fkey"
             columns: ["created_by"]
