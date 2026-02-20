@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import React from 'react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { AppProvider, useApp } from '../context/AppContext';
@@ -7,8 +7,167 @@ import AuthLogin from './AuthLogin';
 import Login from './Login';
 import Dashboard from './Dashboard';
 import Station from './Station';
-import { Loader2 } from 'lucide-react';
+import { PinEntry } from '../components/auth/PinEntry';
+import { verifyPin, isLegacyHash } from '../lib/pinCrypto';
+import { Loader2, Lock } from 'lucide-react';
 import logo from '../assets/logo.svg';
+import logoDark from '../assets/logo-dark.svg';
+
+// ─── PIN re-lock overlay ───────────────────────────────────────────────────────
+// Shown when user returns to the app after leaving (without logout)
+function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
+  const { currentUser } = useApp();
+  const { signOut: authSignOut } = useAuth();
+  const user = currentUser;
+  const [error, setError] = useState('');
+
+  if (!user) return null;
+
+
+  const handlePinSuccess = async (pin: string) => {
+    const storedHash = user.pin ?? '';
+    let valid = false;
+
+    if (!storedHash) {
+      valid = pin === '1111';
+    } else if (storedHash.includes(':')) {
+      const res = await verifyPin(storedHash, pin);
+      valid = res === 'match';
+    } else if (isLegacyHash(storedHash)) {
+      valid = storedHash === btoa(pin);
+    } else {
+      valid = storedHash === pin;
+    }
+
+    if (valid) {
+      onUnlock();
+    } else {
+      setError('PIN incorrect. Réessaie.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-6">
+          <img src={logo} alt="Staff&B" className="h-10 mx-auto mb-2 dark:hidden" />
+          <img src={logoDark} alt="Staff&B" className="h-10 mx-auto mb-2 hidden dark:block" />
+          <div className="flex items-center justify-center gap-2 mt-3 text-muted-foreground text-sm">
+            <Lock className="w-4 h-4" />
+            Session verrouillée
+          </div>
+        </div>
+        <div className="glass-card rounded-2xl p-6 shadow-xl">
+          {error && (
+            <div className="mb-4 text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2 animate-slide-up">
+              {error}
+            </div>
+          )}
+          <PinEntry
+            user={user}
+            isFirstTime={false}
+            onSuccess={handlePinSuccess}
+            onBack={() => authSignOut()}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pin lock wrapper ─────────────────────────────────────────────────────────
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+function PinLockWrapper({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useApp();
+  const [locked, setLocked] = useState(false);
+  const lastActiveRef = React.useRef(Date.now());
+
+  // Track user activity
+  const resetTimer = useCallback(() => {
+    lastActiveRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Events that count as activity
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+
+    // On visibility change (tab switch / minimize)
+    const handleVisibility = () => {
+      if (document.hidden) {
+        // Record when we left
+        lastActiveRef.current = Date.now();
+      } else {
+        // Returning — check elapsed time
+        const elapsed = Date.now() - lastActiveRef.current;
+        if (elapsed > LOCK_TIMEOUT_MS) {
+          setLocked(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [currentUser, resetTimer]);
+
+  if (!currentUser) return <>{children}</>;
+
+  return (
+    <>
+      {locked && <PinLockOverlay onUnlock={() => setLocked(false)} />}
+      {children}
+    </>
+  );
+}
+
+// ─── Auto-login for Owner / Station accounts ──────────────────────────────────
+// These roles skip the "Qui es-tu ?" selector and connect directly.
+function AutoLoginGate({ children }: { children: React.ReactNode }) {
+  const { supabaseUser } = useAuth();
+  const { users, currentUser, login } = useApp();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!supabaseUser) { setChecking(false); return; }
+
+    // Look for the matching profile in the loaded users list
+    const matchedUser = users.find((u) => u.id === supabaseUser.id);
+    if (!matchedUser) {
+      // Users not loaded yet — wait
+      if (users.length > 0) setChecking(false);
+      return;
+    }
+
+    // Owner and Station → auto-login directly
+    if ((matchedUser.role === 'owner' || matchedUser.role === 'station') && !currentUser) {
+      login(matchedUser);
+    }
+    setChecking(false);
+  }, [supabaseUser, users, currentUser, login]);
+
+  if (checking && users.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <img src={logo} alt="Staff&B" className="h-10 mx-auto animate-pulse" />
+          <div className="flex items-center gap-2 text-muted-foreground text-sm justify-center">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Connexion…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 // ─── Inner router: handles in-app staff PIN selection ─────────────────────────
 function AppRouter() {
@@ -135,7 +294,11 @@ function AuthGate() {
   return (
     <ProfileSeeder>
       <AppProvider>
-        <AppRouter />
+        <AutoLoginGate>
+          <PinLockWrapper>
+            <AppRouter />
+          </PinLockWrapper>
+        </AutoLoginGate>
       </AppProvider>
     </ProfileSeeder>
   );
@@ -149,3 +312,4 @@ export default function Index() {
     </AuthProvider>
   );
 }
+
