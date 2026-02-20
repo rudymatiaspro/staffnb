@@ -407,6 +407,9 @@ export function useSupabaseData(enabled: boolean): SupabaseData {
       supabase.channel('temp-logs-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'temperature_logs' }, () => { fetchAll(); }).subscribe(),
 
       supabase.channel('objectives-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'team_objectives' }, () => { fetchAll(); }).subscribe(),
+
+      // Realtime for planning_shifts — allows staff to see manager changes instantly
+      supabase.channel('planning-shifts-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'planning_shifts' }, () => { fetchAll(); }).subscribe(),
     ];
 
     return () => { channels.forEach((c) => supabase.removeChannel(c)); setRealtimeStatus('disconnected'); };

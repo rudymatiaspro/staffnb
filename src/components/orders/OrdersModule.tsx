@@ -43,6 +43,8 @@ interface Order {
   deliveryDate?: string;
   isRecurring: boolean;
   recurrenceFreq?: string;
+  nextOccurrence?: string;
+  parentOrderId?: string;
   createdAt: string;
   updatedAt: string;
   items?: OrderItem[];
@@ -840,7 +842,12 @@ function OrderCard({
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
               {order.isRecurring && (
                 <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                  <RotateCcw className="w-2.5 h-2.5" /> Récurrent
+                  <RotateCcw className="w-2.5 h-2.5" /> {order.recurrenceFreq === 'daily' ? 'Quotidien' : order.recurrenceFreq === 'weekly' ? 'Hebdo' : order.recurrenceFreq === 'monthly' ? 'Mensuel' : 'Récurrent'}
+                </span>
+              )}
+              {order.parentOrderId && (
+                <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                  Généré auto
                 </span>
               )}
             </div>
@@ -856,6 +863,11 @@ function OrderCard({
               {order.deliveryDate && (
                 <p className="text-xs text-muted-foreground flex items-center gap-0.5">
                   <Clock className="w-3 h-3" /> Livr. le {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}
+                </p>
+              )}
+              {order.isRecurring && order.nextOccurrence && (
+                <p className="text-xs text-primary/70 flex items-center gap-0.5">
+                  <RotateCcw className="w-3 h-3" /> Prochaine : {new Date(order.nextOccurrence).toLocaleDateString('fr-FR')}
                 </p>
               )}
             </div>
@@ -1157,6 +1169,8 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
         deliveryDate: (o as Record<string, unknown>).delivery_date as string | undefined,
         isRecurring: o.is_recurring,
         recurrenceFreq: o.recurrence_freq ?? undefined,
+        nextOccurrence: (o as Record<string, unknown>).next_occurrence as string | undefined,
+        parentOrderId: (o as Record<string, unknown>).parent_order_id as string | undefined,
         createdAt: o.created_at,
         updatedAt: o.updated_at,
         items: ((o as Record<string, unknown>).order_items as Array<{
