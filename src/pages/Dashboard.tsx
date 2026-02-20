@@ -63,7 +63,7 @@ function applyTheme(theme: 'dark' | 'light') {
 }
 
 // ─── Role helpers ─────────────────────────────────────────────────────────────
-type AppRole = 'god' | 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
+type AppRole = 'god' | 'owner' | 'admin' | 'manager' | 'chef' | 'staff' | 'station';
 
 function isGodOrOwner(role?: AppRole) { return role === 'god' || role === 'owner' || role === 'admin'; }
 function isOwnerOrAdmin(role?: AppRole) { return isGodOrOwner(role); }
@@ -99,6 +99,7 @@ function getRoleLabel(role?: AppRole): string {
     case 'manager': return 'Manager';
     case 'chef':    return 'Chef';
     case 'staff':   return 'Équipier';
+    case 'station': return 'Station (Main device)';
     default:        return '';
   }
 }
