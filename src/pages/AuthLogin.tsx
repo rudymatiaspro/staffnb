@@ -193,7 +193,20 @@ export default function AuthLogin() {
       setUserRole(role);
 
       if (role === 'god') {
-        await loadRestaurants();
+        const { data: rests, error: err } = await supabase
+          .from('restaurants')
+          .select('id, name, city, code')
+          .order('name');
+        if (err) {
+          console.error('loadRestaurants error:', err);
+          setRestaurantsError('Impossible de charger les restaurants.');
+        } else {
+          setRestaurants(rests ?? []);
+          // Auto-open form if no restaurants exist
+          if ((rests ?? []).length === 0) {
+            setShowAddRestaurant(true);
+          }
+        }
         setStep('restaurant_select');
       } else if (role === 'admin') {
         await loadAdminRestaurants(session!.user.id);
@@ -226,9 +239,13 @@ export default function AuthLogin() {
       .order('name');
     if (err) {
       console.error('loadRestaurants error:', err);
-      setRestaurantsError('Impossible de charger les restaurants.');
+      setRestaurantsError(`Erreur: ${err.message}`);
+    } else {
+      setRestaurants(data ?? []);
+      if ((data ?? []).length === 0) {
+        setShowAddRestaurant(true);
+      }
     }
-    setRestaurants(data ?? []);
     setRestaurantsLoading(false);
   }
 
@@ -488,11 +505,13 @@ export default function AuthLogin() {
           <div className="glass-card rounded-2xl p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-bold text-foreground">
-                  {userRole === 'god' ? '👁 Mode GOD' : '🏢 Choisir un restaurant'}
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  {restaurants.length === 0 ? 'Aucun restaurant' : 'Choisir un restaurant'}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {restaurants.length} établissement{restaurants.length !== 1 ? 's' : ''}
+                  {restaurants.length === 0 && ' · Créez le premier ci-dessous'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
