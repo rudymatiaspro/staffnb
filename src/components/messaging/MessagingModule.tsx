@@ -137,7 +137,7 @@ function IncidentCard({ msg, canDelete, onDelete }: { msg: Message; canDelete: b
   return (
     <div className={`group relative rounded-xl border p-3.5 my-2 ${colorCls}`}>
       <div className="flex items-start gap-2.5">
-        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+        <AlertTriangle className="w-4 h-4 text-[hsl(var(--timer-warning))] flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0 space-y-1">
           {incidentData ? (
             <>
@@ -295,8 +295,18 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
   };
 
   // ── Send message ──────────────────────────────────────────────────────────
+  const [sendError, setSendError] = useState<string | null>(null);
+
   const sendMessage = async () => {
     if (!input.trim() || !currentUser || !canWriteInChannel) return;
+    setSendError(null);
+
+    // Verify auth session before sending
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setSendError("Session expirée — veuillez vous reconnecter.");
+      return;
+    }
 
     const mentionedNames = [...input.matchAll(/@(\w+)/g)].map(m => m[1].toLowerCase());
     const mentionedIds = users
@@ -308,7 +318,7 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
     const { error } = await supabase.from('messages').insert({
       channel: activeChannel,
       content: input.trim(),
-      sender_id: currentUser.id,
+      sender_id: session.user.id,   // use auth session uid directly
       sender_name: currentUser.name,
       sender_team: currentUser.team,
       mentions: mentionedIds,
@@ -317,6 +327,9 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
     if (!error) {
       setInput('');
       setShowMentions(false);
+    } else {
+      console.error('Message send error:', error);
+      setSendError(`Erreur : ${error.message}`);
     }
   };
 
@@ -502,7 +515,16 @@ export function MessagingModule({ canManageAll = false }: MessagingModuleProps) 
       </div>
 
       {/* Input area */}
-      <div className="relative flex-shrink-0 mt-3">
+      <div className="relative flex-shrink-0 mt-3 space-y-1.5">
+        {/* Send error */}
+        {sendError && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            {sendError}
+            <button onClick={() => setSendError(null)} className="ml-auto underline hover:no-underline">Fermer</button>
+          </div>
+        )}
+
         {/* Mention suggestions */}
         {showMentions && filteredMentionUsers.length > 0 && canWriteInChannel && (
           <div className="absolute bottom-full mb-2 left-0 right-0 glass-card rounded-xl border border-border shadow-xl z-50 overflow-hidden">
