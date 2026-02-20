@@ -14,7 +14,7 @@ function generateCode(name: string): string {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AuthStep = 'login' | 'restaurant_select' | 'account_list' | 'station_pin';
+type AuthStep = 'login' | 'restaurant_select' | 'account_list' | 'station_pin' | 'god_pin';
 
 interface Restaurant {
   id: string;
@@ -289,6 +289,45 @@ function StationPinPad({ onSuccess, onBack, accountName, error: externalError }:
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// ─── GOD PIN pad (4 digits) ───────────────────────────────────────────────────
+function GodPinPad({ onSuccess, onBack, error: externalError, loading }: {
+  onSuccess: (pin: string) => void;
+  onBack: () => void;
+  error?: string;
+  loading?: boolean;
+}) {
+  const [pin, setPin] = useState('');
+  const [shake, setShake] = useState(false);
+  useEffect(() => {
+    if (externalError) { setShake(true); setTimeout(() => setShake(false), 400); setPin(''); }
+  }, [externalError]);
+  const handleDigit = (d: string) => {
+    if (pin.length >= 4) return;
+    const next = pin + d;
+    setPin(next);
+    if (next.length === 4) setTimeout(() => onSuccess(next), 150);
+  };
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','del'];
+  return (
+    <div className="space-y-5">
+      <div className={`flex justify-center gap-4 ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+        {[0,1,2,3].map((i) => (
+          <div key={i} className={`w-4 h-4 rounded-full transition-all duration-200 ${i < pin.length ? 'bg-primary scale-125' : 'bg-border'}`} />
+        ))}
+      </div>
+      {externalError && <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-2.5">{externalError}</div>}
+      <div className="grid grid-cols-3 gap-3">
+        {digits.map((d, i) => {
+          if (d === '') return <div key={i} />;
+          if (d === 'del') return <button key={i} className="pin-btn" onClick={() => setPin(p => p.slice(0,-1))} disabled={loading}><span className="text-base">⌫</span></button>;
+          return <button key={i} className="pin-btn" onClick={() => handleDigit(d)} disabled={loading}><span className="text-xl font-bold">{d}</span></button>;
+        })}
+      </div>
+      <button onClick={onBack} disabled={loading} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2 hover:underline">← Retour à la liste</button>
+    </div>
+  );
+}
+
 export default function AuthLogin() {
   const { signIn, signOut, session } = useAuth();
   const [email, setEmail] = useState('');
@@ -322,6 +361,11 @@ export default function AuthLogin() {
   const [stationPinHash, setStationPinHash] = useState<string | null>(null);
   const [stationPinSet, setStationPinSet] = useState(false);
   const [stationPinError, setStationPinError] = useState('');
+
+  // GOD pin flow (after selecting an account to impersonate)
+  const [godPinAccount, setGodPinAccount] = useState<AccountEntry | null>(null);
+  const [godPinError, setGodPinError] = useState('');
+  const [godPinLoading, setGodPinLoading] = useState(false);
 
   // ─── Detect role after Supabase auth login ───────────────────────────────
   useEffect(() => {
@@ -463,11 +507,51 @@ export default function AuthLogin() {
   }
 
   async function handleImpersonate(account: AccountEntry) {
+    // GOD mode: show PIN pad first, then do the actual impersonation on success
+    setGodPinAccount(account);
+    setGodPinError('');
+    setStep('god_pin');
+  }
+
+  async function confirmGodImpersonate(pin: string) {
+    if (!godPinAccount) return;
+    setGodPinLoading(true);
+    setGodPinError('');
+
+    // Fetch the account's pin_hash to verify
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('pin_hash, pin_set')
+      .eq('id', godPinAccount.id)
+      .maybeSingle() as any;
+
+    const storedHash = profile?.pin_hash ?? '';
+    const pinSet = profile?.pin_set ?? false;
+    let valid = false;
+
+    if (!pinSet || !storedHash) {
+      // Default PIN
+      const defaultPin = (godPinAccount.role === 'god' || godPinAccount.role === 'admin') ? '7839' : '1111';
+      valid = pin === defaultPin;
+    } else if (storedHash.includes(':')) {
+      const res = await verifyPin(storedHash, pin);
+      valid = res === 'match';
+    } else {
+      valid = storedHash === pin;
+    }
+
+    if (!valid) {
+      setGodPinError('PIN incorrect. Réessayez.');
+      setGodPinLoading(false);
+      return;
+    }
+
+    // PIN valid → impersonate
     setImpersonating(true);
     sessionStorage.setItem('god_impersonating', JSON.stringify({
-      targetId: account.id,
-      targetName: account.name,
-      targetRole: account.role,
+      targetId: godPinAccount.id,
+      targetName: godPinAccount.name,
+      targetRole: godPinAccount.role,
       restaurantName: selectedRestaurant?.name,
     }));
     if (session) {
@@ -563,8 +647,7 @@ export default function AuthLogin() {
         {/* ── STEP: Email + password ── */}
         {step === 'login' && (
           <div className="glass-card rounded-2xl p-6 shadow-xl">
-            <h2 className="text-base font-bold text-foreground mb-1">Connexion</h2>
-            <p className="text-xs text-muted-foreground mb-5">GOD · Admin · Owner · Manager · Station</p>
+            <h2 className="text-base font-bold text-foreground mb-1">Bienvenue !</h2>
 
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
@@ -626,6 +709,8 @@ export default function AuthLogin() {
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-center text-xs text-muted-foreground/60">
                 Chef · Staff · Sous-Chef → sélection par nom + PIN 4 chiffres
+                <br />
+                <span className="text-muted-foreground/40 text-[10px]">PIN oublié ? Contactez votre administrateur</span>
               </p>
             </div>
           </div>
@@ -640,6 +725,29 @@ export default function AuthLogin() {
               onBack={handleSignOut}
               error={stationPinError}
             />
+          </div>
+        )}
+
+        {/* ── STEP: GOD PIN (avant impersonation) ── */}
+        {step === 'god_pin' && godPinAccount && (
+          <div className="glass-card rounded-2xl p-6 shadow-xl">
+            <div className="space-y-5 animate-slide-up">
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-xl font-bold text-primary">{godPinAccount.name.slice(0,2).toUpperCase()}</span>
+                </div>
+                <h2 className="text-base font-bold text-foreground">{godPinAccount.name}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {ROLE_LABELS[godPinAccount.role] ?? godPinAccount.role} · Entrez le PIN à 4 chiffres
+                </p>
+              </div>
+              <GodPinPad
+                onSuccess={confirmGodImpersonate}
+                onBack={() => { setStep('account_list'); setGodPinAccount(null); setGodPinError(''); }}
+                error={godPinError}
+                loading={godPinLoading}
+              />
+            </div>
           </div>
         )}
 
@@ -898,7 +1006,7 @@ export default function AuthLogin() {
         )}
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          Staff&amp;B © 2026 · v0.1 · Cloud
+          Staff&b © 2026 · v0.1 · Cloud
         </p>
       </div>
     </div>

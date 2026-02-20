@@ -120,8 +120,9 @@ function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md
 
 // ─── GOD impersonation banner ────────────────────────────────────────────────
 function GodBanner() {
+  const [hidden, setHidden] = useState(false);
   const raw = sessionStorage.getItem('god_impersonating');
-  if (!raw) return null;
+  if (!raw || hidden) return null;
   try {
     const data = JSON.parse(raw);
     const handleQuit = () => {
@@ -129,10 +130,13 @@ function GodBanner() {
       window.location.reload();
     };
     return (
-      <div className="fixed top-0 left-0 right-0 z-[200] bg-warning text-warning-foreground px-4 py-1.5 flex items-center justify-between gap-2 text-xs font-bold shadow-lg"
+      <div className="fixed top-0 left-0 right-0 z-[200] px-4 py-1.5 flex items-center justify-between gap-2 text-xs font-bold shadow-lg"
         style={{ background: 'hsl(45 100% 50%)', color: 'hsl(45 100% 10%)' }}>
         <span>👁 Session GOD — Connecté en tant que <strong>{data.targetName}</strong> ({data.restaurantName})</span>
-        <button onClick={handleQuit} className="underline hover:no-underline flex-shrink-0">Quitter</button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <button onClick={() => setHidden(true)} className="underline hover:no-underline opacity-70 hover:opacity-100">Masquer</button>
+          <button onClick={handleQuit} className="underline hover:no-underline">Quitter</button>
+        </div>
       </div>
     );
   } catch { return null; }
