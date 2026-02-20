@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users, Delete } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users, Delete, Plus, X, RefreshCw } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
 import { supabase } from '../integrations/supabase/client';
 import { verifyPin } from '../lib/pinCrypto';
+
+function generateCode(name: string): string {
+  const prefix = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3).padEnd(3, 'X');
+  const num = Math.floor(10 + Math.random() * 90);
+  return `${prefix}${num}`;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AuthStep = 'login' | 'restaurant_select' | 'account_list' | 'station_pin';
@@ -157,6 +163,16 @@ export default function AuthLogin() {
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [impersonating, setImpersonating] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(false);
+  const [restaurantsError, setRestaurantsError] = useState('');
+
+  // Add restaurant form
+  const [showAddRestaurant, setShowAddRestaurant] = useState(false);
+  const [newRestaurantForm, setNewRestaurantForm] = useState({
+    name: '', code: '', city: '', country: 'Vietnam', address: '', phone: '', email: '', timezone: 'Asia/Ho_Chi_Minh',
+  });
+  const [savingRestaurant, setSavingRestaurant] = useState(false);
+  const [saveRestaurantError, setSaveRestaurantError] = useState('');
 
   // Station flow
   const [stationName, setStationName] = useState('');
@@ -202,17 +218,56 @@ export default function AuthLogin() {
   }, [session]);
 
   async function loadRestaurants() {
-    const { data } = await supabase.from('restaurants').select('id, name, city, code').order('name');
+    setRestaurantsLoading(true);
+    setRestaurantsError('');
+    const { data, error: err } = await supabase
+      .from('restaurants')
+      .select('id, name, city, code')
+      .order('name');
+    if (err) {
+      console.error('loadRestaurants error:', err);
+      setRestaurantsError('Impossible de charger les restaurants.');
+    }
     setRestaurants(data ?? []);
+    setRestaurantsLoading(false);
   }
 
   async function loadAdminRestaurants(userId: string) {
-    const { data } = await supabase
+    setRestaurantsLoading(true);
+    const { data, error: err } = await supabase
       .from('restaurant_members')
       .select('restaurant_id, restaurants(id, name, city, code)')
       .eq('user_id', userId);
+    if (err) console.error('loadAdminRestaurants error:', err);
     const list = (data ?? []).map((r: any) => r.restaurants).filter(Boolean);
     setRestaurants(list);
+    setRestaurantsLoading(false);
+  }
+
+  async function handleCreateRestaurant() {
+    if (!newRestaurantForm.name.trim()) { setSaveRestaurantError('Le nom est requis.'); return; }
+    if (!newRestaurantForm.code.trim()) { setSaveRestaurantError('Le code est requis.'); return; }
+    setSavingRestaurant(true);
+    setSaveRestaurantError('');
+    const { error: err } = await supabase.from('restaurants').insert({
+      name: newRestaurantForm.name.trim(),
+      code: newRestaurantForm.code.trim().toUpperCase(),
+      city: newRestaurantForm.city || null,
+      country: newRestaurantForm.country,
+      address: newRestaurantForm.address || null,
+      phone: newRestaurantForm.phone || null,
+      email: newRestaurantForm.email || null,
+      timezone: newRestaurantForm.timezone,
+    });
+    if (err) {
+      setSaveRestaurantError(err.message.includes('duplicate') ? `Le code "${newRestaurantForm.code.toUpperCase()}" existe déjà.` : err.message);
+      setSavingRestaurant(false);
+      return;
+    }
+    setSavingRestaurant(false);
+    setShowAddRestaurant(false);
+    setNewRestaurantForm({ name: '', code: '', city: '', country: 'Vietnam', address: '', phone: '', email: '', timezone: 'Asia/Ho_Chi_Minh' });
+    await loadRestaurants();
   }
 
   async function handleRestaurantSelect(restaurant: Restaurant) {
@@ -437,31 +492,47 @@ export default function AuthLogin() {
                   {userRole === 'god' ? '👁 Mode GOD' : '🏢 Choisir un restaurant'}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {userRole === 'god' ? 'Sélectionne un restaurant à gérer' : 'Sélectionne ton établissement'}
+                  {restaurants.length} établissement{restaurants.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Déco
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={loadRestaurants} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Actualiser">
+                  <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${restaurantsLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Déco
+                </button>
+              </div>
             </div>
 
+            {/* Barre de recherche */}
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 value={restaurantSearch}
                 onChange={(e) => setRestaurantSearch(e.target.value)}
-                placeholder="Rechercher…"
+                placeholder="Rechercher un restaurant…"
                 className="w-full pl-9 pr-3 py-2 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
               />
             </div>
 
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {filteredRestaurants.length === 0 ? (
+            {/* Erreur */}
+            {restaurantsError && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 mb-3">{restaurantsError}</p>
+            )}
+
+            {/* Liste des restaurants */}
+            <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
+              {restaurantsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredRestaurants.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-6">Aucun restaurant trouvé</p>
               ) : (
                 filteredRestaurants.map((r) => (
@@ -475,12 +546,113 @@ export default function AuthLogin() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{r.city ?? '—'} · {r.code}</p>
+                      <p className="text-xs text-muted-foreground">{r.city ?? '—'} · <span className="font-mono">{r.code}</span></p>
                     </div>
                   </button>
                 ))
               )}
             </div>
+
+            {/* Bouton Ajouter */}
+            {!showAddRestaurant && (
+              <button
+                onClick={() => {
+                  setShowAddRestaurant(true);
+                  setNewRestaurantForm({ name: '', code: '', city: '', country: 'Vietnam', address: '', phone: '', email: '', timezone: 'Asia/Ho_Chi_Minh' });
+                  setSaveRestaurantError('');
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-primary/40 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Ajouter un restaurant
+              </button>
+            )}
+
+            {/* Formulaire d'ajout inline */}
+            {showAddRestaurant && (
+              <div className="border border-primary/20 rounded-xl p-4 space-y-3 bg-primary/5 animate-slide-up">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-foreground">Nouveau restaurant</p>
+                  <button onClick={() => setShowAddRestaurant(false)} className="p-1 rounded-lg hover:bg-secondary transition-colors">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <input
+                      value={newRestaurantForm.name}
+                      onChange={(e) => setNewRestaurantForm((f) => ({ ...f, name: e.target.value, code: f.code || generateCode(e.target.value) }))}
+                      placeholder="Nom du restaurant *"
+                      className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={newRestaurantForm.code}
+                      onChange={(e) => setNewRestaurantForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                      placeholder="Code *"
+                      maxLength={8}
+                      className="flex-1 px-3 py-2 rounded-xl bg-secondary border border-border text-foreground font-mono text-sm focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewRestaurantForm((f) => ({ ...f, code: generateCode(f.name) }))}
+                      className="p-2 rounded-xl bg-muted hover:bg-muted/70 transition-colors"
+                      title="Régénérer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                  <input
+                    value={newRestaurantForm.city}
+                    onChange={(e) => setNewRestaurantForm((f) => ({ ...f, city: e.target.value }))}
+                    placeholder="Ville"
+                    className="px-3 py-2 rounded-xl bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                  />
+                  <div className="col-span-2">
+                    <input
+                      value={newRestaurantForm.address}
+                      onChange={(e) => setNewRestaurantForm((f) => ({ ...f, address: e.target.value }))}
+                      placeholder="Adresse"
+                      className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <input
+                    value={newRestaurantForm.phone}
+                    onChange={(e) => setNewRestaurantForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="Téléphone"
+                    className="px-3 py-2 rounded-xl bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                  />
+                  <input
+                    value={newRestaurantForm.email}
+                    onChange={(e) => setNewRestaurantForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="Email"
+                    className="px-3 py-2 rounded-xl bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                {saveRestaurantError && (
+                  <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{saveRestaurantError}</p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddRestaurant(false)}
+                    className="flex-1 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleCreateRestaurant}
+                    disabled={savingRestaurant}
+                    className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {savingRestaurant ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    Créer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
