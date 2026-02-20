@@ -1993,7 +1993,14 @@ export type Database = {
       task_status: "pending" | "in_progress" | "done" | "overdue"
       team_name: "BAR" | "KITCHEN" | "FLOOR" | "ATELIER" | "MANAGEMENT" | "ALL"
       unit_type: "btl" | "pcs"
-      user_role: "owner" | "manager" | "staff" | "god" | "admin" | "chef"
+      user_role:
+        | "owner"
+        | "manager"
+        | "staff"
+        | "god"
+        | "admin"
+        | "chef"
+        | "station"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2136,7 +2143,15 @@ export const Constants = {
       task_status: ["pending", "in_progress", "done", "overdue"],
       team_name: ["BAR", "KITCHEN", "FLOOR", "ATELIER", "MANAGEMENT", "ALL"],
       unit_type: ["btl", "pcs"],
-      user_role: ["owner", "manager", "staff", "god", "admin", "chef"],
+      user_role: [
+        "owner",
+        "manager",
+        "staff",
+        "god",
+        "admin",
+        "chef",
+        "station",
+      ],
     },
   },
 } as const
