@@ -256,6 +256,19 @@ export default function Dashboard() {
       menuTile,
     ];
 
+    if (role === 'station') {
+      return [
+        { id: 'tasks',     label: t('nav.tasks'),    emoji: '📋', icon: <CheckCircle className="w-5 h-5" />, badge: overdueCount || undefined, color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
+        { id: 'pointage',  label: t('nav.timeclock'),emoji: '⏱️', icon: <Clock className="w-5 h-5" />,       color: 'bg-cyan-50 dark:bg-cyan-950/30',      iconColor: 'text-cyan-600 dark:text-cyan-400' },
+        { id: 'menu',      label: 'Menu du Jour',    emoji: '🍽️', icon: <UtensilsCrossed className="w-5 h-5" />, color: 'bg-amber-50 dark:bg-amber-950/30', iconColor: 'text-amber-600 dark:text-amber-400' },
+        { id: 'haccp',     label: 'HACCP',           emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
+        { id: 'chat',      label: 'Chat',            emoji: '💬', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'sos',       label: 'Incidents',       emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
+        { id: 'orders',    label: 'Commandes',       emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
+        { id: 'planning',  label: t('nav.planning'), emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
+      ] as Tile[];
+    }
+
     if (isChef && !isManager) {
       return [...base,
         { id: 'haccp',      label: 'HACCP',     emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />, color: 'bg-teal-50 dark:bg-teal-950/30',    iconColor: 'text-teal-600 dark:text-teal-400' },
