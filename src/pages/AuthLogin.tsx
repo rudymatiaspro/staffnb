@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import logo from '../assets/logo.svg';
+import logoDark from '../assets/logo-dark.svg';
 
 export default function AuthLogin() {
   const { signIn, signUp } = useAuth();
@@ -60,7 +61,8 @@ export default function AuthLogin() {
       <div className="w-full max-w-sm relative z-10">
         {/* Brand */}
         <div className="text-center mb-8">
-          <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2" />
+          <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2 dark:hidden" />
+          <img src={logoDark} alt="Staff&B" className="h-12 mx-auto mb-2 hidden dark:block" />
           <p className="text-muted-foreground mt-1.5 text-sm font-medium">F&amp;B Team Management</p>
         </div>
 
