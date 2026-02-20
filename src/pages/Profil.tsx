@@ -4,7 +4,7 @@ import { supabase } from '../integrations/supabase/client';
 import {
   Camera, User, Phone, Calendar, Shield, Check, Loader2, X, Globe,
   Clock, ListTodo, AlertTriangle, ChevronRight, Users, Star,
-  LogIn, LogOut, CheckCircle, XCircle, Timer,
+  LogIn, LogOut, CheckCircle, XCircle, Timer, Pencil,
 } from 'lucide-react';
 import { hashPin, verifyPin, isLegacyHash } from '../lib/pinCrypto';
 import { switchLanguage, LANG_META, type SupportedLang } from '../i18n/index';
@@ -318,29 +318,43 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
 }
 
 // ─── Tab: Multi-team assignments ──────────────────────────────────────────────
+interface RoomInfo { id: string; name: string; team_key: string; }
+
 function TeamsTab({ currentUser }: { currentUser: any }) {
   const [assignedTeams, setAssignedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Room name customization
+  const [rooms, setRooms] = useState<RoomInfo[]>([]);
+  const [editingTeam, setEditingTeam] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
 
   useEffect(() => {
     loadTeams();
+    loadRooms();
   }, [currentUser.id]);
 
   const loadTeams = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('profile_teams')
-      .select('team')
-      .eq('profile_id', currentUser.id);
+    const { data } = await supabase.from('profile_teams').select('team').eq('profile_id', currentUser.id);
     if (data && data.length > 0) {
       setAssignedTeams(data.map((r: any) => r.team as Team));
     } else {
-      // Fall back to primary team
       setAssignedTeams([currentUser.team]);
     }
     setLoading(false);
+  };
+
+  const loadRooms = async () => {
+    const { data } = await supabase.from('rooms').select('id, name, team_key').order('display_order');
+    if (data) setRooms(data);
+  };
+
+  const getTeamName = (teamKey: string) => {
+    const room = rooms.find(r => r.team_key === teamKey);
+    return room?.name || TEAM_LABELS[teamKey] || teamKey;
   };
 
   const toggleTeam = (team: Team) => {
@@ -352,13 +366,27 @@ function TeamsTab({ currentUser }: { currentUser: any }) {
   const handleSave = async () => {
     if (assignedTeams.length === 0) return;
     setSaving(true);
-    // Delete existing, re-insert
     await supabase.from('profile_teams').delete().eq('profile_id', currentUser.id);
-    await supabase.from('profile_teams').insert(
-      assignedTeams.map(t => ({ profile_id: currentUser.id, team: t }))
-    );
+    await supabase.from('profile_teams').insert(assignedTeams.map(t => ({ profile_id: currentUser.id, team: t })));
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const startEditName = (teamKey: string) => {
+    setEditingTeam(teamKey);
+    setEditName(getTeamName(teamKey));
+  };
+
+  const saveTeamName = async () => {
+    if (!editingTeam || !editName.trim()) return;
+    setNameSaving(true);
+    const room = rooms.find(r => r.team_key === editingTeam);
+    if (room) {
+      await supabase.from('rooms').update({ name: editName.trim() }).eq('id', room.id);
+      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, name: editName.trim() } : r));
+    }
+    setNameSaving(false);
+    setEditingTeam(null);
   };
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -377,23 +405,29 @@ function TeamsTab({ currentUser }: { currentUser: any }) {
           <div className="grid grid-cols-2 gap-2">
             {ALL_TEAMS.map(team => {
               const active = assignedTeams.includes(team);
+              const isEditing = editingTeam === team;
               return (
-                <button
-                  key={team}
-                  onClick={() => toggleTeam(team)}
-                  className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border-2 transition-all text-left ${
-                    active
-                      ? 'border-primary bg-primary/8 text-foreground'
-                      : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/40'
-                  }`}
-                >
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${active ? 'bg-primary' : 'bg-border'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{TEAM_LABELS[team]}</p>
-                    <p className="text-[10px] text-muted-foreground">{team}</p>
-                  </div>
-                  {active && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
-                </button>
+                <div key={team} className={`flex items-center rounded-xl border-2 transition-all overflow-hidden ${
+                  active ? 'border-primary bg-primary/8' : 'border-border bg-secondary/50'
+                }`}>
+                  <button
+                    onClick={() => toggleTeam(team)}
+                    className="flex items-center gap-2.5 px-3 py-3 flex-1 text-left min-w-0"
+                  >
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${active ? 'bg-primary' : 'bg-border'}`} />
+                    <p className={`text-xs font-semibold truncate ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {getTeamName(team)}
+                    </p>
+                    {active && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0 ml-auto" />}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startEditName(team); }}
+                    className="px-2 py-3 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                    title="Renommer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -417,9 +451,42 @@ function TeamsTab({ currentUser }: { currentUser: any }) {
       <div className="bg-secondary/40 rounded-xl px-4 py-3 flex items-start gap-2">
         <div className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0">ℹ️</div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Votre équipe principale (<strong className="text-foreground">{TEAM_LABELS[currentUser.team]}</strong>) est définie par votre administrateur. Les équipes supplémentaires vous permettent de voir et valider les tâches de plusieurs zones.
+          Votre équipe principale (<strong className="text-foreground">{getTeamName(currentUser.team)}</strong>) est définie par votre administrateur.
         </p>
       </div>
+
+      {/* Edit team name modal */}
+      {editingTeam && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-foreground">Renommer l'équipe</h3>
+              <button onClick={() => setEditingTeam(null)} className="p-1 rounded-lg hover:bg-secondary">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') setEditingTeam(null); }}
+              className="w-full px-3 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary transition-colors mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditingTeam(null)} className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">Annuler</button>
+              <button
+                onClick={saveTeamName}
+                disabled={nameSaving || !editName.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {nameSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -590,7 +657,7 @@ export default function Profil() {
       {/* Tab bar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex px-4 mb-4">
         <TabButton id="infos" active={tab === 'infos'} icon={User} label="Infos" onClick={() => setTab('infos')} />
-        <TabButton id="teams" active={tab === 'teams'} icon={Users} label="Équipes" onClick={() => setTab('teams')} />
+        <TabButton id="teams" active={tab === 'teams'} icon={Users} label="Mes équipes" onClick={() => setTab('teams')} />
         <TabButton id="history" active={tab === 'history'} icon={Clock} label="Historique" onClick={() => setTab('history')} />
       </div>
 
