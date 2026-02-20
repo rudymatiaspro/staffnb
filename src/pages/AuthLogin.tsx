@@ -207,6 +207,16 @@ export default function AuthLogin() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Logout button — always visible on all steps */}
+      {session && step !== 'login' && (
+        <button
+          onClick={handleSignOut}
+          className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:border-primary/40 transition-all"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Déconnexion
+        </button>
+      )}
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] translate-x-1/3 -translate-y-1/3" />
