@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../integrations/supabase/client';
 import {
   Plus, Pencil, Trash2, RefreshCw, Store, Copy, Check,
-  MapPin, Phone, Mail, Globe, ToggleLeft, ToggleRight,
-  Users, ChevronRight, X, Loader2, ExternalLink,
+  MapPin, Phone, Mail, Users, ChevronRight, X, Loader2,
+  Power,
 } from 'lucide-react';
 
 interface Restaurant {
@@ -36,6 +36,41 @@ const EMPTY_FORM = {
   phone: '', email: '', timezone: 'Europe/Paris', code: '',
 };
 
+// ── Toggle Switch ────────────────────────────────────────────────────────────
+function ToggleSwitch({
+  checked, onChange, loading = false, showLabel = false,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  loading?: boolean;
+  showLabel?: boolean;
+}) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={loading}
+      className={`relative inline-flex items-center gap-2 group ${loading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+      title={checked ? 'Désactiver le restaurant' : 'Activer le restaurant'}
+    >
+      {/* Track */}
+      <span
+        className={`relative w-10 rounded-full transition-all duration-300 flex-shrink-0 ${checked ? 'bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.4)]' : 'bg-muted-foreground/30'}`}
+        style={{ height: '1.375rem' }}
+      >
+        {/* Thumb */}
+        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-300 ${checked ? 'translate-x-4' : 'translate-x-0'} flex items-center justify-center`}>
+          {loading && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
+        </span>
+      </span>
+      {showLabel && (
+        <span className={`text-xs font-semibold transition-colors ${checked ? 'text-primary' : 'text-muted-foreground'}`}>
+          {checked ? 'Actif' : 'Inactif'}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function RestaurantManagement() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +83,7 @@ export function RestaurantManagement() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const loadRestaurants = useCallback(async () => {
     setLoading(true);
@@ -57,7 +93,6 @@ export function RestaurantManagement() {
       .order('created_at', { ascending: false });
 
     if (data) {
-      // Fetch member counts
       const withCounts = await Promise.all(
         ((data as unknown) as Restaurant[]).map(async (r) => {
           const { count } = await supabase
@@ -126,8 +161,12 @@ export function RestaurantManagement() {
   };
 
   const handleToggleActive = async (r: Restaurant) => {
-    await (supabase.from('restaurants' as any) as any).update({ is_active: !r.is_active }).eq('id', r.id);
-    loadRestaurants();
+    setTogglingId(r.id);
+    await (supabase.from('restaurants' as any) as any)
+      .update({ is_active: !r.is_active })
+      .eq('id', r.id);
+    await loadRestaurants();
+    setTogglingId(null);
   };
 
   const handleDelete = async (r: Restaurant) => {
@@ -154,7 +193,7 @@ export function RestaurantManagement() {
     setLoadingMembers(false);
   };
 
-  // ── Members panel ──
+  // ── Members panel ──────────────────────────────────────────────────────────
   if (selectedRestaurant) {
     return (
       <div className="px-4 pt-4 space-y-4">
@@ -193,13 +232,20 @@ export function RestaurantManagement() {
     );
   }
 
+  // ── Active / inactive split ────────────────────────────────────────────────
+  const activeRestaurants = restaurants.filter((r) => r.is_active);
+  const inactiveRestaurants = restaurants.filter((r) => !r.is_active);
+
   return (
-    <div className="px-4 pt-4 space-y-4">
+    <div className="px-4 pt-4 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-foreground">Restaurants</h2>
-          <p className="text-xs text-muted-foreground">{restaurants.length} établissement{restaurants.length > 1 ? 's' : ''}</p>
+          <p className="text-xs text-muted-foreground">
+            {activeRestaurants.length} actif{activeRestaurants.length > 1 ? 's' : ''}
+            {inactiveRestaurants.length > 0 && ` · ${inactiveRestaurants.length} inactif${inactiveRestaurants.length > 1 ? 's' : ''}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadRestaurants} className="p-2 rounded-xl hover:bg-muted transition-colors" title="Actualiser">
@@ -327,76 +373,149 @@ export function RestaurantManagement() {
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {restaurants.map((r) => (
-            <div key={r.id} className={`glass-card rounded-2xl p-4 space-y-3 ${!r.is_active ? 'opacity-60' : ''}`}>
-              {/* Header */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Store className="w-4.5 h-4.5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">{r.name}</p>
-                    {r.city && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{r.city}</p>}
-                  </div>
-                </div>
-
-                {/* Code badge */}
-                <button
-                  onClick={() => copyCode(r.code)}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-muted rounded-lg text-xs font-mono font-bold text-foreground hover:bg-muted/70 transition-colors flex-shrink-0"
-                  title="Copier le code"
-                >
-                  {copiedCode === r.code ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
-                  {r.code}
-                </button>
-              </div>
-
-              {/* Info row */}
-              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                {r.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{r.phone}</span>}
-                {r.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{r.email}</span>}
-                <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {r.member_count ?? 0} membre{(r.member_count ?? 0) > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => viewMembers(r)}
-                  className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
-                >
-                  Voir l'équipe <ChevronRight className="w-3 h-3" />
-                </button>
-
-                <div className="flex-1" />
-
-                {/* Toggle active */}
-                <button
-                  onClick={() => handleToggleActive(r)}
-                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                  title={r.is_active ? 'Désactiver' : 'Activer'}
-                >
-                  {r.is_active
-                    ? <ToggleRight className="w-4 h-4 text-primary" />
-                    : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-                </button>
-
-                <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Modifier">
-                  <Pencil className="w-4 h-4 text-muted-foreground" />
-                </button>
-
-                <button onClick={() => handleDelete(r)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors" title="Supprimer">
-                  <Trash2 className="w-4 h-4 text-destructive/70" />
-                </button>
-              </div>
+        <div className="space-y-6">
+          {/* Active */}
+          {activeRestaurants.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase px-1">
+                Actifs — {activeRestaurants.length}
+              </p>
+              {activeRestaurants.map((r) => (
+                <RestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  copiedCode={copiedCode}
+                  toggling={togglingId === r.id}
+                  onCopy={copyCode}
+                  onToggle={handleToggleActive}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  onViewMembers={viewMembers}
+                />
+              ))}
             </div>
-          ))}
+          )}
+
+          {/* Inactive */}
+          {inactiveRestaurants.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase px-1">
+                Inactifs — {inactiveRestaurants.length}
+              </p>
+              {inactiveRestaurants.map((r) => (
+                <RestaurantCard
+                  key={r.id}
+                  restaurant={r}
+                  copiedCode={copiedCode}
+                  toggling={togglingId === r.id}
+                  onCopy={copyCode}
+                  onToggle={handleToggleActive}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  onViewMembers={viewMembers}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Restaurant Card ──────────────────────────────────────────────────────────
+function RestaurantCard({
+  restaurant: r,
+  copiedCode,
+  toggling,
+  onCopy,
+  onToggle,
+  onEdit,
+  onDelete,
+  onViewMembers,
+}: {
+  restaurant: Restaurant;
+  copiedCode: string | null;
+  toggling: boolean;
+  onCopy: (code: string) => void;
+  onToggle: (r: Restaurant) => void;
+  onEdit: (r: Restaurant) => void;
+  onDelete: (r: Restaurant) => void;
+  onViewMembers: (r: Restaurant) => void;
+}) {
+  return (
+    <div className={`glass-card rounded-2xl p-4 space-y-3 transition-all duration-300 ${!r.is_active ? 'opacity-55 grayscale-[30%]' : ''}`}>
+      {/* Top row: name + toggle */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${r.is_active ? 'bg-primary/10' : 'bg-muted'}`}>
+            <Store className={`w-4.5 h-4.5 ${r.is_active ? 'text-primary' : 'text-muted-foreground'}`} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground truncate">{r.name}</p>
+            {r.city && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="w-3 h-3" />{r.city}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Toggle switch */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <ToggleSwitch
+            checked={r.is_active}
+            onChange={() => onToggle(r)}
+            loading={toggling}
+            showLabel={true}
+          />
+        </div>
+      </div>
+
+      {/* Info row */}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+        {/* Code badge */}
+        <button
+          onClick={() => onCopy(r.code)}
+          className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded-md text-xs font-mono font-bold text-foreground hover:bg-muted/70 transition-colors"
+          title="Copier le code"
+        >
+          {copiedCode === r.code ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
+          {r.code}
+        </button>
+        {r.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{r.phone}</span>}
+        {r.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{r.email}</span>}
+        <span className="flex items-center gap-1">
+          <Users className="w-3 h-3" />
+          {r.member_count ?? 0} membre{(r.member_count ?? 0) > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 pt-0.5 border-t border-border/40">
+        <button
+          onClick={() => onViewMembers(r)}
+          className="flex items-center gap-1 text-xs text-primary font-medium hover:underline mr-auto"
+        >
+          Voir l'équipe <ChevronRight className="w-3 h-3" />
+        </button>
+
+        <button
+          onClick={() => onEdit(r)}
+          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          title="Modifier"
+        >
+          <Pencil className="w-4 h-4 text-muted-foreground" />
+        </button>
+
+        <button
+          onClick={() => onDelete(r)}
+          className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+          title="Supprimer"
+        >
+          <Trash2 className="w-4 h-4 text-destructive/70" />
+        </button>
+      </div>
     </div>
   );
 }
