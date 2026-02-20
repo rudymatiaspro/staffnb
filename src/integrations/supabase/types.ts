@@ -1107,6 +1107,7 @@ export type Database = {
           pin_locked: boolean
           pin_locked_at: string | null
           pin_set: boolean
+          restaurant_id: string | null
           score: number
           station_pin_hash: string | null
           station_pin_set: boolean
@@ -1131,6 +1132,7 @@ export type Database = {
           pin_locked?: boolean
           pin_locked_at?: string | null
           pin_set?: boolean
+          restaurant_id?: string | null
           score?: number
           station_pin_hash?: string | null
           station_pin_set?: boolean
@@ -1155,11 +1157,100 @@ export type Database = {
           pin_locked?: boolean
           pin_locked_at?: string | null
           pin_set?: boolean
+          restaurant_id?: string | null
           score?: number
           station_pin_hash?: string | null
           station_pin_set?: boolean
           status?: string
           team?: Database["public"]["Enums"]["team_name"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_members: {
+        Row: {
+          created_at: string
+          id: string
+          restaurant_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          restaurant_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          restaurant_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_members_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurants: {
+        Row: {
+          address: string | null
+          city: string | null
+          code: string
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          phone: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          code: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          code?: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
