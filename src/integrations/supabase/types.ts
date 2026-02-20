@@ -1095,16 +1095,22 @@ export type Database = {
           created_at: string
           dark_mode: boolean | null
           id: string
+          internal_note: string | null
           language_preference: string | null
           name: string
           notification_prefs: Json | null
           phone: string | null
           photo_url: string | null
+          pin_attempts: number
+          pin_force_reset: boolean
           pin_hash: string | null
+          pin_locked: boolean
+          pin_locked_at: string | null
           pin_set: boolean
           score: number
           station_pin_hash: string | null
           station_pin_set: boolean
+          status: string
           team: Database["public"]["Enums"]["team_name"]
           updated_at: string
         }
@@ -1113,16 +1119,22 @@ export type Database = {
           created_at?: string
           dark_mode?: boolean | null
           id: string
+          internal_note?: string | null
           language_preference?: string | null
           name?: string
           notification_prefs?: Json | null
           phone?: string | null
           photo_url?: string | null
+          pin_attempts?: number
+          pin_force_reset?: boolean
           pin_hash?: string | null
+          pin_locked?: boolean
+          pin_locked_at?: string | null
           pin_set?: boolean
           score?: number
           station_pin_hash?: string | null
           station_pin_set?: boolean
+          status?: string
           team?: Database["public"]["Enums"]["team_name"]
           updated_at?: string
         }
@@ -1131,16 +1143,22 @@ export type Database = {
           created_at?: string
           dark_mode?: boolean | null
           id?: string
+          internal_note?: string | null
           language_preference?: string | null
           name?: string
           notification_prefs?: Json | null
           phone?: string | null
           photo_url?: string | null
+          pin_attempts?: number
+          pin_force_reset?: boolean
           pin_hash?: string | null
+          pin_locked?: boolean
+          pin_locked_at?: string | null
           pin_set?: boolean
           score?: number
           station_pin_hash?: string | null
           station_pin_set?: boolean
+          status?: string
           team?: Database["public"]["Enums"]["team_name"]
           updated_at?: string
         }

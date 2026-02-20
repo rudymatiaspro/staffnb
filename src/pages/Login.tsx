@@ -53,8 +53,41 @@ export default function Login() {
   const handlePinSuccess = async (pin: string) => {
     if (!selectedUser) return;
 
+    // Check account status and lockout from DB
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('pin_locked, pin_attempts, status, pin_force_reset')
+      .eq('id', selectedUser.id)
+      .maybeSingle() as any;
+
+    if (profile?.status === 'disabled') {
+      setErrorMsg('Compte désactivé. Contactez votre Manager.');
+      setSelectedUser(null);
+      setStep('select');
+      return;
+    }
+    if (profile?.status === 'suspended') {
+      setErrorMsg('Compte suspendu. Contactez votre Manager.');
+      setSelectedUser(null);
+      setStep('select');
+      return;
+    }
+    if (profile?.pin_locked) {
+      setErrorMsg('Compte bloqué après 5 tentatives. Contactez votre Admin/Master.');
+      setSelectedUser(null);
+      setStep('select');
+      return;
+    }
+
     if (!selectedUser.pinSet) {
       // First login — any PIN accepted (default 1111), force new PIN choice
+      setPendingPin('');
+      setStep('set_new_pin');
+      return;
+    }
+
+    // Force reset required by admin
+    if (profile?.pin_force_reset) {
       setPendingPin('');
       setStep('set_new_pin');
       return;
@@ -81,10 +114,24 @@ export default function Login() {
     }
 
     if (valid) {
+      // Reset attempts counter on success
+      await supabase.from('profiles').update({ pin_attempts: 0, pin_locked: false, pin_force_reset: false } as any).eq('id', selectedUser.id);
       await logAudit(selectedUser.id, selectedUser.name, 'login');
       login(selectedUser);
     } else {
-      setErrorMsg('PIN incorrect. Réessaie.');
+      const attempts = (profile?.pin_attempts ?? 0) + 1;
+      const locked = attempts >= 5;
+      await supabase.from('profiles').update({
+        pin_attempts: attempts,
+        pin_locked: locked,
+        pin_locked_at: locked ? new Date().toISOString() : null,
+      } as any).eq('id', selectedUser.id);
+
+      if (locked) {
+        setErrorMsg('Compte bloqué après 5 tentatives. Contactez votre Admin/Master.');
+      } else {
+        setErrorMsg(`PIN incorrect. ${5 - attempts} tentative${5 - attempts > 1 ? 's' : ''} restante${5 - attempts > 1 ? 's' : ''}.`);
+      }
       setSelectedUser(null);
       setStep('select');
     }

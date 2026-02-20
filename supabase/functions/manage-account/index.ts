@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
 
     // ── UPDATE role & team ──────────────────────────────────────────────────────
     if (action === 'update_role') {
-      const { userId, role, team, name } = body;
+      const { userId, role, team, name, status, internal_note } = body;
       if (!userId) throw new Error('userId required');
 
       // Prevent changing god role
@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
       // Update profile
       const profileUpdate: Record<string, unknown> = { team };
       if (name) profileUpdate.name = name;
+      if (status) profileUpdate.status = status;
+      if (internal_note !== undefined) profileUpdate.internal_note = internal_note;
       await supabaseAdmin.from('profiles').update(profileUpdate).eq('id', userId);
 
       // Update role
