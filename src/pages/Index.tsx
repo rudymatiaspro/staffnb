@@ -6,7 +6,7 @@ import { supabase } from '../integrations/supabase/client';
 import AuthLogin from './AuthLogin';
 import Login from './Login';
 import Dashboard from './Dashboard';
-import Station from './Station';
+
 import { PinEntry } from '../components/auth/PinEntry';
 import { verifyPin, isLegacyHash } from '../lib/pinCrypto';
 import { Loader2, Lock } from 'lucide-react';
@@ -261,8 +261,6 @@ function AppRouter() {
   const { currentUser } = useApp();
 
   if (!currentUser) return <Login />;
-  // Station accounts go directly to the Station homepage
-  if (currentUser.role === 'station') return <Station />;
   return <Dashboard />;
 }
 
