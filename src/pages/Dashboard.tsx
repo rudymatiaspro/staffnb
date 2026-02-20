@@ -42,6 +42,7 @@ import {
   Globe, RefreshCw,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
+import logoDark from '../assets/logo-dark.svg';
 import { TEAM_LABELS } from '../data/initialData';
 import type { Incident, Team } from '../types';
 
@@ -51,7 +52,7 @@ function getInitialTheme(): 'dark' | 'light' {
     const stored = localStorage.getItem('theme');
     if (stored === 'dark' || stored === 'light') return stored;
   } catch {}
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'light';
 }
 function applyTheme(theme: 'dark' | 'light') {
   document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -285,7 +286,8 @@ export default function Dashboard() {
 
           {/* Logo + name */}
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Logo" className="w-6 h-6" />
+            <img src={logo} alt="Logo" className="w-8 h-8 object-contain dark:hidden" />
+            <img src={logoDark} alt="Logo" className="w-8 h-8 object-contain hidden dark:block" />
             <span className="text-sm font-bold text-foreground hidden sm:inline">{restaurantName}</span>
           </div>
 
