@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users, Delete } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
 import { supabase } from '../integrations/supabase/client';
+import { verifyPin } from '../lib/pinCrypto';
 
-type AuthStep = 'login' | 'restaurant_select' | 'account_list';
+// ─── Types ────────────────────────────────────────────────────────────────────
+type AuthStep = 'login' | 'restaurant_select' | 'account_list' | 'station_pin';
 
 interface Restaurant {
   id: string;
@@ -22,6 +24,7 @@ interface AccountEntry {
   team: string;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE_ORDER = ['god', 'admin', 'owner', 'station', 'manager', 'chef', 'staff', 'sous-chef'];
 const ROLE_LABELS: Record<string, string> = {
   god: 'ADMINISTRATEUR SYSTÈME',
@@ -34,6 +37,20 @@ const ROLE_LABELS: Record<string, string> = {
   staff: 'STAFF',
 };
 
+// Username → email aliases
+const USERNAME_MAP: Record<string, string> = {
+  god: 'god@staffandb.app',
+  rudy: 'rudy@staffandb.app',
+  admin: 'rudy@staffandb.app',
+  cas_station: 'cas_station@staffandb.app',
+};
+
+const resolveEmail = (input: string) => {
+  const lower = input.trim().toLowerCase();
+  return USERNAME_MAP[lower] ?? input.trim();
+};
+
+// ─── Initials avatar ──────────────────────────────────────────────────────────
 function InitialsAvatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
   const initials = name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   const sz = size === 'md' ? 'w-9 h-9 text-sm' : 'w-7 h-7 text-xs';
@@ -44,6 +61,85 @@ function InitialsAvatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md
   );
 }
 
+// ─── Station PIN pad (6 digits) ───────────────────────────────────────────────
+function StationPinPad({ onSuccess, onBack, accountName, error: externalError }: {
+  onSuccess: (pin: string) => void;
+  onBack: () => void;
+  accountName: string;
+  error?: string;
+}) {
+  const [pin, setPin] = useState('');
+  const [shake, setShake] = useState(false);
+
+  // Reset on external error
+  useEffect(() => {
+    if (externalError) {
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+      setPin('');
+    }
+  }, [externalError]);
+
+  const handleDigit = (d: string) => {
+    if (pin.length >= 6) return;
+    const next = pin + d;
+    setPin(next);
+    if (next.length === 6) {
+      setTimeout(() => onSuccess(next), 150);
+    }
+  };
+
+  const handleDelete = () => setPin((p) => p.slice(0, -1));
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','del'];
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="text-center">
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+          <span className="text-2xl font-bold text-primary">{accountName.slice(0,2).toUpperCase()}</span>
+        </div>
+        <h2 className="text-lg font-bold text-foreground">{accountName}</h2>
+        <p className="text-xs text-muted-foreground mt-1">Station · Entrez votre PIN à 6 chiffres</p>
+      </div>
+
+      {/* PIN dots — 6 */}
+      <div className={`flex justify-center gap-3 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+        {[0,1,2,3,4,5].map((i) => (
+          <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${i < pin.length ? 'bg-primary scale-125' : 'bg-border'}`} />
+        ))}
+      </div>
+
+      {externalError && (
+        <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-2.5 animate-slide-up">
+          {externalError}
+        </div>
+      )}
+
+      {/* Numpad */}
+      <div className="grid grid-cols-3 gap-3">
+        {digits.map((d, i) => {
+          if (d === '') return <div key={i} />;
+          if (d === 'del') return (
+            <button key={i} className="pin-btn" onClick={handleDelete} aria-label="Effacer">
+              <Delete className="w-5 h-5" />
+            </button>
+          );
+          return (
+            <button key={i} className="pin-btn" onClick={() => handleDigit(d)}>
+              <span className="text-xl font-bold">{d}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={onBack} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2 hover:underline underline-offset-2">
+        ← Déconnexion
+      </button>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function AuthLogin() {
   const { signIn, signOut, session } = useAuth();
   const [email, setEmail] = useState('');
@@ -53,7 +149,7 @@ export default function AuthLogin() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<AuthStep>('login');
 
-  // God flow state
+  // GOD / Admin flow
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantSearch, setRestaurantSearch] = useState('');
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -62,7 +158,13 @@ export default function AuthLogin() {
   const [impersonating, setImpersonating] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  // Detect role after login to decide next step
+  // Station flow
+  const [stationName, setStationName] = useState('');
+  const [stationPinHash, setStationPinHash] = useState<string | null>(null);
+  const [stationPinSet, setStationPinSet] = useState(false);
+  const [stationPinError, setStationPinError] = useState('');
+
+  // ─── Detect role after Supabase auth login ───────────────────────────────
   useEffect(() => {
     if (!session) return;
     async function detectRole() {
@@ -73,14 +175,28 @@ export default function AuthLogin() {
         .maybeSingle();
       const role = data?.role ?? null;
       setUserRole(role);
+
       if (role === 'god') {
         await loadRestaurants();
         setStep('restaurant_select');
       } else if (role === 'admin') {
         await loadAdminRestaurants(session!.user.id);
         setStep('restaurant_select');
+      } else if (role === 'station') {
+        // Station: email login done, now verify 6-digit PIN
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, name, station_pin_hash, station_pin_set')
+          .eq('id', session!.user.id)
+          .maybeSingle() as any;
+        if (profile) {
+          setStationName(profile.name ?? 'Station');
+          setStationPinHash(profile.station_pin_hash ?? null);
+          setStationPinSet(profile.station_pin_set ?? false);
+        }
+        setStep('station_pin');
       }
-      // owner/manager → handled by Index.tsx / AppRouter automatically
+      // owner / manager → AppRouter in Index.tsx handles redirect automatically
     }
     detectRole();
   }, [session]);
@@ -102,18 +218,11 @@ export default function AuthLogin() {
   async function handleRestaurantSelect(restaurant: Restaurant) {
     setSelectedRestaurant(restaurant);
     if (userRole === 'god') {
-      // Show all accounts for this restaurant
       setAccountsLoading(true);
       setStep('account_list');
       const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, name, photo_url, team')
-        .eq('restaurant_id', restaurant.id);
-
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
+        .from('profiles').select('id, name, photo_url, team').eq('restaurant_id', restaurant.id);
+      const { data: roles } = await supabase.from('user_roles').select('user_id, role');
       const roleMap = Object.fromEntries((roles ?? []).map((r: any) => [r.user_id, r.role]));
       const list: AccountEntry[] = (profiles ?? []).map((p: any) => ({
         id: p.id,
@@ -122,7 +231,6 @@ export default function AuthLogin() {
         photo_url: p.photo_url,
         team: p.team,
       }));
-      // Sort by role hierarchy
       list.sort((a, b) => {
         const ai = ROLE_ORDER.indexOf(a.role);
         const bi = ROLE_ORDER.indexOf(b.role);
@@ -131,8 +239,7 @@ export default function AuthLogin() {
       setAccounts(list);
       setAccountsLoading(false);
     } else {
-      // Admin → redirect directly to dashboard (handled by AppRouter after restaurant selection)
-      // For now, just update the restaurant_id on the admin's profile
+      // Admin → update restaurant context then reload into dashboard
       if (session) {
         await supabase.from('profiles').update({ restaurant_id: restaurant.id }).eq('id', session.user.id);
         window.location.reload();
@@ -142,32 +249,40 @@ export default function AuthLogin() {
 
   async function handleImpersonate(account: AccountEntry) {
     setImpersonating(true);
-    // Store impersonation data in sessionStorage for the GOD banner
     sessionStorage.setItem('god_impersonating', JSON.stringify({
       targetId: account.id,
       targetName: account.name,
       targetRole: account.role,
       restaurantName: selectedRestaurant?.name,
     }));
-    // Update god's profile to use this restaurant context
     if (session) {
       await supabase.from('profiles').update({ restaurant_id: selectedRestaurant?.id }).eq('id', session.user.id);
     }
     window.location.reload();
   }
 
-  // Map username aliases to emails
-  const USERNAME_MAP: Record<string, string> = {
-    god: 'god@staffandb.app',
-    rudy: 'rudy@staffandb.app',
-    admin: 'rudy@staffandb.app',
-    cas_station: 'cas_station@staffandb.app',
-  };
+  // ─── Station PIN verification (6-digit) ──────────────────────────────────
+  async function handleStationPin(pin: string) {
+    setStationPinError('');
+    let valid = false;
 
-  const resolveEmail = (input: string) => {
-    const lower = input.trim().toLowerCase();
-    return USERNAME_MAP[lower] ?? input.trim();
-  };
+    if (!stationPinSet || !stationPinHash) {
+      // Default station PIN
+      valid = pin === '154154';
+    } else if (stationPinHash.includes(':')) {
+      const res = await verifyPin(stationPinHash, pin);
+      valid = res === 'match';
+    } else {
+      valid = stationPinHash === pin;
+    }
+
+    if (valid) {
+      // PIN valid — AppRouter will render <Station /> because session role === 'station'
+      window.location.reload();
+    } else {
+      setStationPinError('PIN incorrect. Réessayez.');
+    }
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,9 +290,7 @@ export default function AuthLogin() {
     setLoading(true);
     const resolvedEmail = resolveEmail(email);
     const { error: err } = await signIn(resolvedEmail, password);
-    if (err) {
-      setError(err.message || 'Identifiant ou mot de passe invalide');
-    }
+    if (err) setError(err.message || 'Identifiant ou mot de passe invalide');
     setLoading(false);
   };
 
@@ -191,6 +304,7 @@ export default function AuthLogin() {
     setEmail('');
     setPassword('');
     setError('');
+    setStationPinError('');
   };
 
   const filteredRestaurants = restaurants.filter((r) =>
@@ -205,10 +319,10 @@ export default function AuthLogin() {
     return acc;
   }, {} as Record<string, AccountEntry[]>);
 
+  // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Logout button — always visible on all steps */}
-      {session && step !== 'login' && (
+      {session && step !== 'login' && step !== 'station_pin' && (
         <button
           onClick={handleSignOut}
           className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:border-primary/40 transition-all"
@@ -217,7 +331,7 @@ export default function AuthLogin() {
           Déconnexion
         </button>
       )}
-      {/* Background blobs */}
+
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] translate-x-1/3 -translate-y-1/3" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[100px] -translate-x-1/4 translate-y-1/4" />
@@ -231,10 +345,11 @@ export default function AuthLogin() {
           <p className="text-muted-foreground mt-1.5 text-sm font-medium">F&amp;B Team Management</p>
         </div>
 
-        {/* ── STEP: Login ── */}
+        {/* ── STEP: Email + password ── */}
         {step === 'login' && (
           <div className="glass-card rounded-2xl p-6 shadow-xl">
-            <h2 className="text-base font-bold text-foreground mb-5">Connexion administrateur</h2>
+            <h2 className="text-base font-bold text-foreground mb-1">Connexion</h2>
+            <p className="text-xs text-muted-foreground mb-5">GOD · Admin · Owner · Manager · Station</p>
 
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
@@ -245,9 +360,10 @@ export default function AuthLogin() {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin"
+                    placeholder="ex: admin"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
                     required
+                    autoComplete="username"
                   />
                 </div>
               </div>
@@ -263,7 +379,8 @@ export default function AuthLogin() {
                     placeholder="••••••••"
                     className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
                     required
-                    minLength={6}
+                    minLength={4}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
@@ -287,22 +404,31 @@ export default function AuthLogin() {
                 disabled={loading}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Connexion…</>
-                ) : (
-                  'Se connecter'
-                )}
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion…</> : 'Se connecter'}
               </button>
             </form>
 
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              Accès réservé aux administrateurs et Masters.<br />
-              Les comptes staff sont créés par le Master.
-            </p>
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-center text-xs text-muted-foreground/60">
+                Chef · Staff · Sous-Chef → sélection par nom + PIN 4 chiffres
+              </p>
+            </div>
           </div>
         )}
 
-        {/* ── STEP: Restaurant selection (GOD / Admin) ── */}
+        {/* ── STEP: Station PIN 6 chiffres ── */}
+        {step === 'station_pin' && (
+          <div className="glass-card rounded-2xl p-6 shadow-xl">
+            <StationPinPad
+              accountName={stationName}
+              onSuccess={handleStationPin}
+              onBack={handleSignOut}
+              error={stationPinError}
+            />
+          </div>
+        )}
+
+        {/* ── STEP: Sélection restaurant (GOD / Admin) ── */}
         {step === 'restaurant_select' && (
           <div className="glass-card rounded-2xl p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
@@ -323,7 +449,6 @@ export default function AuthLogin() {
               </button>
             </div>
 
-            {/* Search */}
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
@@ -359,7 +484,7 @@ export default function AuthLogin() {
           </div>
         )}
 
-        {/* ── STEP: Account list (GOD only) ── */}
+        {/* ── STEP: Liste comptes (GOD uniquement) ── */}
         {step === 'account_list' && (
           <div className="glass-card rounded-2xl p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
