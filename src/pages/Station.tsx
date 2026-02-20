@@ -3,8 +3,9 @@ import { Delete, Clock, CheckCircle, LogIn, LogOut, AlertTriangle, Zap, ListTodo
 import logo from '../assets/logo.svg';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { Task } from '../types';
+import { Task, User } from '../types';
 import { supabase } from '../integrations/supabase/client';
+import { verifyPin } from '../lib/pinCrypto';
 
 
 // ─── Live Clock ───────────────────────────────────────────────────────────────
@@ -64,7 +65,36 @@ const TEAM_LABELS: Record<string, string> = {
   ATELIER: 'Atelier', MANAGEMENT: 'Management', ALL: 'Tous',
 };
 
+// ─── Validate staff PIN via Supabase (4-digit individual PIN) ─────────────────
+async function validateStaffPin4(pin: string, users: User[]): Promise<User | null> {
+  if (!pin || pin.length !== 4) return null;
+  for (const u of users) {
+    if (u.role === 'station') continue; // skip station device account
+    // Fetch pin_hash from DB
+    const { data } = await supabase
+      .from('profiles')
+      .select('pin_hash, pin_set')
+      .eq('id', u.id)
+      .maybeSingle();
+    if (!data) continue;
+    const storedHash = (data as any).pin_hash ?? '';
+    let valid = false;
+    if (!storedHash) {
+      valid = pin === '1111'; // default PIN
+    } else if (storedHash.includes(':')) {
+      const res = await verifyPin(storedHash, pin);
+      valid = res === 'match';
+    } else {
+      // legacy btoa
+      try { valid = storedHash === btoa(pin); } catch { valid = false; }
+    }
+    if (valid) return u;
+  }
+  return null;
+}
+
 // ─── PIN Pad ──────────────────────────────────────────────────────────────────
+// digits: 4 for staff identification, 6 for station device lock
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 
 interface PinPadProps {
@@ -73,13 +103,14 @@ interface PinPadProps {
   onKey: (k: string) => void;
   label?: string;
   compact?: boolean;
+  digits?: 4 | 6;
 }
-function PinPad({ pin, error, onKey, label, compact }: PinPadProps) {
+function PinPad({ pin, error, onKey, label, compact, digits = 4 }: PinPadProps) {
   return (
     <div className={compact ? 'w-full max-w-[220px]' : 'w-full max-w-xs'}>
       {label && <p className="text-center text-xs text-muted-foreground mb-3">{label}</p>}
       <div className="flex justify-center gap-2 mb-4">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+        {Array.from({ length: digits }).map((_, i) => (
           <div key={i} className={`rounded-full transition-all duration-200 ${compact ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} ${
             i < pin.length ? error ? 'bg-destructive scale-110' : 'bg-primary scale-110' : 'bg-secondary border-2 border-border'
           }`} />
@@ -99,6 +130,7 @@ function PinPad({ pin, error, onKey, label, compact }: PinPadProps) {
     </div>
   );
 }
+
 
 // ─── Hero Task Card ───────────────────────────────────────────────────────────
 interface HeroTaskProps {
@@ -200,7 +232,7 @@ function TaskRow({ task, onValidate }: TaskRowProps) {
 type StationMode = 'idle' | 'clock_confirmed' | 'task_pin' | 'task_confirmed';
 
 export default function Station() {
-  const { validateStationPin, clockAction, getTodayTasks, completeTask, users, logout } = useApp();
+  const { clockAction, getTodayTasks, completeTask, users, logout } = useApp();
   const { signOut } = useAuth();
 
 
@@ -227,17 +259,18 @@ export default function Station() {
 
   const heroTask = pendingTasks[0] ?? null;
 
-  // ── Clock-in/out PIN logic ────────────────────────────────────────────────
+  // ── Clock-in/out PIN logic (4-digit individual staff PIN) ────────────────
   const handleClockKey = useCallback(async (key: string) => {
     if (clockState !== 'idle') return;
     if (key === 'clear') { setClockPin(''); setClockError(false); return; }
     if (key === 'del') { setClockPin(p => p.slice(0, -1)); setClockError(false); return; }
-    if (clockPin.length >= 6) return;
+    if (clockPin.length >= 4) return;
     const next = clockPin + key;
     setClockPin(next);
-    if (next.length === 6) {
+    if (next.length === 4) {
       setTimeout(async () => {
-        const user = validateStationPin(next);
+        // Verify 4-digit individual staff PIN via Supabase
+        const user = await validateStaffPin4(next, users);
         if (!user) {
           setClockError(true);
           setClockPin('');
@@ -257,7 +290,6 @@ export default function Station() {
 
           const isPlanned = (plannedShifts?.length ?? 0) > 0;
           if (!isPlanned) {
-            // Notify managers about unplanned clock-in
             const { data: managers } = await supabase
               .from('user_roles')
               .select('user_id')
@@ -281,28 +313,25 @@ export default function Station() {
         setTimeout(() => { setClockState('idle'); setClockPin(''); setClockResult(null); }, 4000);
       }, 100);
     }
-  }, [clockPin, clockState, validateStationPin, clockAction]);
+  }, [clockPin, clockState, clockAction, users]);
 
-  // ── Task validation PIN logic ────────────────────────────────────────────
+  // ── Task validation PIN logic (4-digit individual staff PIN) ─────────────
   const handleTaskKey = useCallback(async (key: string) => {
     if (key === 'clear') { setTaskPin(''); setTaskError(false); return; }
     if (key === 'del') { setTaskPin(p => p.slice(0, -1)); setTaskError(false); return; }
-    if (taskPin.length >= 6) return;
+    if (taskPin.length >= 4) return;
     const next = taskPin + key;
     setTaskPin(next);
-    if (next.length === 6) {
+    if (next.length === 4) {
       setTimeout(async () => {
-        // Validate PIN against station_pin_hash in DB
-        const user = validateStationPin(next);
+        const user = await validateStaffPin4(next, users);
         if (!user || !taskToValidate) {
           setTaskError(true);
           setTaskPin('');
           setTimeout(() => setTaskError(false), 1500);
           return;
         }
-        // Complete the task
         completeTask(taskToValidate.id);
-        // Also update in supabase directly
         try {
           await supabase.from('tasks').update({
             status: 'done',
@@ -317,7 +346,7 @@ export default function Station() {
         setTimeout(() => setTaskResult(null), 4000);
       }, 100);
     }
-  }, [taskPin, taskToValidate, validateStationPin, completeTask]);
+  }, [taskPin, taskToValidate, completeTask, users]);
 
   // Keyboard support
   useEffect(() => {
@@ -374,8 +403,9 @@ export default function Station() {
                 pin={taskPin}
                 error={taskError}
                 onKey={handleTaskKey}
-                label="Entrez votre PIN station pour valider"
+                label="Entrez votre PIN (4 chiffres) pour valider"
                 compact
+                digits={4}
               />
             </div>
             {taskError && (
@@ -434,7 +464,8 @@ export default function Station() {
                 pin={clockPin}
                 error={clockError}
                 onKey={handleClockKey}
-                label="Entrez votre PIN pour pointer"
+                label="Entrez votre PIN (4 chiffres)"
+                digits={4}
               />
               {clockError && (
                 <p className="text-xs text-destructive font-medium mt-3 animate-wiggle">PIN inconnu — réessayez</p>
