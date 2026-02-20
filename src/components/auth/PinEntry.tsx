@@ -1,18 +1,30 @@
 import { useState } from 'react';
-import { User } from '../../types';
+import { User, UserRole } from '../../types';
 import { Delete, ShieldCheck } from 'lucide-react';
-import { TEAM_CSS, TEAM_LABELS } from '../../data/initialData';
+import { TEAM_CSS } from '../../data/initialData';
+
+const ROLE_CLASS_LABELS: Record<UserRole | 'god', string> = {
+  god: 'Divinité',
+  admin: 'Administrateur',
+  owner: 'Propriétaire',
+  manager: 'Manager',
+  chef: 'Chef',
+  staff: 'Équipier',
+  station: 'Station',
+};
 
 interface PinEntryProps {
   user: User;
   isFirstTime: boolean;
   onSuccess: (pin: string) => void;
   onBack: () => void;
+  restaurantName?: string;
+  restaurantCity?: string;
 }
 
 const getInitials = (name: string) => name.slice(0, 2).toUpperCase();
 
-export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps) {
+export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName, restaurantCity }: PinEntryProps) {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [step, setStep] = useState<'enter' | 'confirm'>('enter');
@@ -80,7 +92,13 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack }: PinEntryProps
           )}
         </div>
         <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">{TEAM_LABELS[user.team]}</p>
+        {/* Role class + restaurant info */}
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {ROLE_CLASS_LABELS[user.role as UserRole | 'god'] ?? user.role}
+          {restaurantName && (
+            <> · {restaurantName}{restaurantCity ? `, ${restaurantCity}` : ''}</>
+          )}
+        </p>
         <p className="text-sm text-muted-foreground mt-1">{stepLabel}</p>
         {isFirstTime && step === 'enter' && (
           <div className="flex items-center justify-center gap-1.5 text-xs text-primary/80 mt-2 bg-primary/5 border border-primary/15 rounded-lg px-3 py-1.5 inline-flex mx-auto">

@@ -45,8 +45,33 @@ export default function Login() {
   const [step, setStep] = useState<LoginStep>('select');
   const [errorMsg, setErrorMsg] = useState('');
   const [pendingPin, setPendingPin] = useState('');
+  const [restaurantName, setRestaurantName] = useState<string | undefined>();
+  const [restaurantCity, setRestaurantCity] = useState<string | undefined>();
 
-  const handleUserSelect = (user: User) => {
+  const handleUserSelect = async (user: User) => {
+    // Fetch restaurant info for this user
+    setRestaurantName(undefined);
+    setRestaurantCity(undefined);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('restaurant_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile?.restaurant_id) {
+        const { data: restaurant } = await supabase
+          .from('restaurants')
+          .select('name, city')
+          .eq('id', profile.restaurant_id)
+          .maybeSingle();
+        if (restaurant) {
+          setRestaurantName(restaurant.name ?? undefined);
+          setRestaurantCity(restaurant.city ?? undefined);
+        }
+      }
+    } catch {
+      // Silently ignore — restaurant info is optional display only
+    }
     setSelectedUser(user);
     setStep('pin');
     setErrorMsg('');
@@ -204,6 +229,8 @@ export default function Login() {
               isFirstTime={false}
               onSuccess={handlePinSuccess}
               onBack={handleBack}
+              restaurantName={restaurantName}
+              restaurantCity={restaurantCity}
             />
           )}
 
@@ -222,6 +249,8 @@ export default function Login() {
                 isFirstTime={true}
                 onSuccess={handleNewPinSuccess}
                 onBack={handleBack}
+                restaurantName={restaurantName}
+                restaurantCity={restaurantCity}
               />
             </div>
           )}
