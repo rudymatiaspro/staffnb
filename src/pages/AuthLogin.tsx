@@ -16,6 +16,8 @@ export default function AuthLogin() {
   // Map username aliases to emails (for god / shared accounts)
   const USERNAME_MAP: Record<string, string> = {
     rudy: 'rudy@staffandb.app',
+    admin: 'rudy@staffandb.app',
+    cas_station: 'cas_station@staffandb.app',
   };
 
   const resolveEmail = (input: string) => {
@@ -59,7 +61,7 @@ export default function AuthLogin() {
         {/* Brand */}
         <div className="text-center mb-8">
           <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2" />
-          <p className="text-muted-foreground mt-1.5 text-sm font-medium">Casinha · Team Management</p>
+          <p className="text-muted-foreground mt-1.5 text-sm font-medium">F&amp;B Team Management</p>
         </div>
 
         <div className="glass-card rounded-2xl p-6 shadow-xl">
@@ -102,7 +104,7 @@ export default function AuthLogin() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@casinha.com or rudy"
+              placeholder="admin"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
                   required
                 />
@@ -163,7 +165,7 @@ export default function AuthLogin() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          Staff&B © {new Date().getFullYear()} · v2.0 · Cloud
+          Staff&amp;B © 2026 · v0.1 · Cloud
         </p>
       </div>
     </div>

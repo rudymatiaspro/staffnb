@@ -121,7 +121,7 @@ export default function Login() {
         {/* Brand header */}
         <div className="text-center mb-8">
           <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2" />
-          <p className="text-muted-foreground mt-1.5 text-sm font-medium">Casinha · Team Management</p>
+          <p className="text-muted-foreground mt-1.5 text-sm font-medium">F&amp;B Team Management</p>
         </div>
 
         {/* Card */}
@@ -168,7 +168,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          Staff&B © {new Date().getFullYear()} · v2.0
+          Staff&amp;B © 2026 · v0.1
         </p>
       </div>
     </div>
