@@ -275,21 +275,20 @@ export default function Dashboard() {
       ];
       if (isOwner || isAdmin) {
         tiles.push(
-          { id: 'catalogue',    label: 'Catalogue',    emoji: '📚', icon: <LayoutGrid className="w-5 h-5" />,   color: 'bg-pink-50 dark:bg-pink-950/30',    iconColor: 'text-pink-600 dark:text-pink-400' },
-          { id: 'pins',         label: 'PINs',         emoji: '🔑', icon: <KeyRound className="w-5 h-5" />,     color: 'bg-gray-50 dark:bg-gray-950/30',    iconColor: 'text-gray-600 dark:text-gray-400' },
-          { id: 'leaderboard',  label: 'Classement',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
-          { id: 'settings',     label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',  iconColor: 'text-slate-600 dark:text-slate-400' },
-          { id: 'timesheets_all', label: 'Pointages',  emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',    iconColor: 'text-cyan-600 dark:text-cyan-400' },
-          { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
-          { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
-          { id: 'rooms',        label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+          { id: 'catalogue',      label: 'Catalogue',    emoji: '📚', icon: <LayoutGrid className="w-5 h-5" />,   color: 'bg-pink-50 dark:bg-pink-950/30',       iconColor: 'text-pink-600 dark:text-pink-400' },
+          { id: 'pins',           label: 'PINs',         emoji: '🔑', icon: <KeyRound className="w-5 h-5" />,     color: 'bg-gray-50 dark:bg-gray-950/30',        iconColor: 'text-gray-600 dark:text-gray-400' },
+          { id: 'leaderboard',    label: 'Classement',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30',    iconColor: 'text-yellow-600 dark:text-yellow-400' },
+          { id: 'settings',       label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',      iconColor: 'text-slate-600 dark:text-slate-400' },
+          { id: 'timesheets_all', label: 'Pointages',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,        color: 'bg-cyan-50 dark:bg-cyan-950/30',         iconColor: 'text-cyan-600 dark:text-cyan-400' },
+          { id: 'accounts',       label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30',    iconColor: 'text-indigo-600 dark:text-indigo-400' },
+          { id: 'rooms',          label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
         );
-        // Admin/God only: restaurant management
+        // Admin/God only: Classes, Membres, Restaurants
         if (role === 'god' || role === 'admin') {
           tiles.push(
-            { id: 'restaurants', label: 'Restaurants', emoji: '🏪', icon: <Store className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+            { id: 'restaurants', label: 'Restaurants', emoji: '🏪', icon: <Store className="w-5 h-5" />,  color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
             { id: 'classes',     label: 'Classes',     emoji: '🎓', icon: <Shield className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' },
-            { id: 'membres',     label: 'Membres',     emoji: '👥', icon: <Users className="w-5 h-5" />, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
+            { id: 'membres',     label: 'Membres',     emoji: '👥', icon: <Users className="w-5 h-5" />,  color: 'bg-blue-50 dark:bg-blue-950/30',     iconColor: 'text-blue-600 dark:text-blue-400' },
           );
         }
       }
@@ -318,10 +317,10 @@ export default function Dashboard() {
       case 'sos':       return <IncidentModule />;
       case 'orders':    return <OrdersModule canManage={canManageContent} isChef={isChef && !isManager} />;
       case 'timesheet': return <TimesheetView />;
-      case 'objectives':return <ObjectivesModule />;
+      case 'objectives':return <ObjectivesModule canManage={isManager} />;
       case 'planning':  return isManager ? <PlanningModule /> : <StaffShiftsView />;
       case 'menu':      return <MenuModule />;
-      case 'haccp':     return <HACCPModule />;
+      case 'haccp':     return <HACCPModule canExport={isManager} canDelete={isOwner} />;
       case 'scores':    return <MonScore />;
       case 'leaderboard': return <Leaderboard />;
       case 'reports':   return <ReportsView />;

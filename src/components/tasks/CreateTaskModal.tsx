@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Team } from '../../types';
 import { X, Clock, Users, AlignLeft, Calendar, Zap, RefreshCw, Camera, Plus, Minus } from 'lucide-react';
@@ -59,6 +59,14 @@ Stepper.displayName = 'Stepper';
 
 export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
   const { currentUser, users } = useApp();
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
+  // Fetch restaurant_id for current user (needed for RLS)
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    supabase.from('profiles').select('restaurant_id').eq('id', currentUser.id).maybeSingle()
+      .then(({ data }) => setRestaurantId(data?.restaurant_id ?? null));
+  }, [currentUser?.id]);
 
   // Base fields
   const [name, setName]               = useState('');
@@ -149,6 +157,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         created_by: currentUser?.id || null,
         points: priority === 'urgente' ? 20 : 10,
         priority: priority,
+        restaurant_id: restaurantId,
         // Recurrence
         recurrence_days: isRecurring ? recurrenceDays : [],
         recurrence_times: isRecurring ? recurrenceTimes : [],
@@ -158,7 +167,10 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         photo_proofs_titles: requirePhotos ? photoTitles.filter(Boolean) : [],
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur création tâche:', error);
+        throw error;
+      }
       onClose();
     } catch (err) {
       console.error('Erreur création tâche:', err);

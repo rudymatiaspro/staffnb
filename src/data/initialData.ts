@@ -95,11 +95,11 @@ export const INITIAL_GAMIFICATION: GamificationSettings = {
 
 export const TEAM_LABELS: Record<string, string> = {
   BAR: 'Bar',
-  KITCHEN: 'Kitchen',
-  FLOOR: 'Floor',
-  ATELIER: 'Atelier',
-  MANAGEMENT: 'Management',
-  ALL: 'All Teams',
+  KITCHEN: 'Cuisine',
+  FLOOR: 'Restaurant',
+  ATELIER: 'Pâtisserie',
+  MANAGEMENT: 'Managers',
+  ALL: 'Tous',
 };
 
 export const TEAM_CSS: Record<string, string> = {
