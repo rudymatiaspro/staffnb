@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Staff&amp;B · Casinha</title>
-    <meta name="description" content="Staff&amp;b — F&amp;B Team Management">
-    <meta name="author" content="Casinha" />
+  <title>Staff&amp;B · F&amp;B Team Management</title>
+    <meta name="description" content="Staff&amp;B — F&amp;B Team Management">
+    <meta name="author" content="Staff&amp;B" />
 
     
     
     <meta property="og:type" content="website" />
 
-    <!-- Apply theme before render to avoid flash -->
+    <!-- Apply theme before render to avoid flash — light by default -->
     <script>
       (function(){
         try {
           var t = localStorage.getItem('theme');
-          if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          if (t === 'dark') {
             document.documentElement.classList.add('dark');
           }
         } catch(e){}
