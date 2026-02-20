@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { verifyPin } from '../../lib/pinCrypto';
+import mammoth from 'mammoth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type OrderUnit = 'kg' | 'g' | 'L' | 'cL' | 'pcs' | 'carton' | 'caisse';
@@ -1182,11 +1183,108 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
     return () => { supabase.removeChannel(channel); };
   }, [fetchOrders]);
 
-  // ─── Import orders CSV/Excel ───────────────────────────────────────────────
-  const handleOrderFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── Parse rows from text (PDF/Word extraction) ───────────────────────────
+  const parseTextToRows = (text: string): ImportOrderRow[] => {
+    const validUnits: OrderUnit[] = ['kg', 'g', 'L', 'cL', 'pcs', 'carton', 'caisse'];
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const parsed: ImportOrderRow[] = [];
+
+    for (const line of lines) {
+      // Try tab / semicolon / comma separated
+      const parts = line.split(/\t|;|,/).map((p) => p.trim());
+      if (parts.length < 2) continue;
+      const productName = parts[0];
+      if (!productName || productName.length < 2) continue;
+
+      const qtyRaw = parseFloat(parts[1]?.replace(',', '.') ?? '');
+      if (isNaN(qtyRaw) || qtyRaw <= 0) continue;
+
+      const unitRaw = (parts[2] ?? 'pcs').toLowerCase().trim() as OrderUnit;
+      const unit = validUnits.includes(unitRaw) ? unitRaw : 'pcs';
+      const unitPrice = parts[3] ? parseFloat(parts[3].replace(',', '.')) : undefined;
+
+      const matched = products.find((p) => p.name.toLowerCase() === productName.toLowerCase());
+      parsed.push({
+        productName,
+        ref: '',
+        quantity: qtyRaw,
+        unit,
+        unitPrice: unitPrice && !isNaN(unitPrice) ? unitPrice : undefined,
+        supplier: '',
+        matchStatus: matched ? 'matched' : 'unmatched',
+        matchedProductId: matched?.id,
+      });
+    }
+    return parsed;
+  };
+
+  // ─── Import orders (CSV / Excel / PDF / Word) ─────────────────────────────
+  const handleOrderFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportOrderError('');
+
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+    // ── Word (.docx) ──
+    if (ext === 'docx' || ext === 'doc') {
+      const arrayBuffer = await file.arrayBuffer();
+      try {
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        const text = result.value;
+        if (!text.trim()) {
+          setImportOrderError("Ce fichier semble être un scan. L'import automatique n'est pas disponible. Veuillez utiliser un fichier CSV ou Excel.");
+          e.target.value = '';
+          return;
+        }
+        const parsed = parseTextToRows(text);
+        if (parsed.length === 0) {
+          setImportOrderError('Aucune ligne exploitable trouvée dans le document. Vérifiez le format (colonnes : Produit ; Quantité ; Unité).');
+          e.target.value = '';
+          return;
+        }
+        setImportOrderRows(parsed);
+      } catch {
+        setImportOrderError('Impossible de lire le fichier Word.');
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // ── PDF ──
+    if (ext === 'pdf') {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        // Dynamic import to avoid bundling pdfjs in main chunk
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          fullText += content.items.map((item) => ('str' in item ? item.str : '')).join(' ') + '\n';
+        }
+        if (!fullText.trim()) {
+          setImportOrderError("Ce fichier semble être un scan. L'import automatique n'est pas disponible. Veuillez utiliser un fichier CSV ou Excel.");
+          e.target.value = '';
+          return;
+        }
+        const parsed = parseTextToRows(fullText);
+        if (parsed.length === 0) {
+          setImportOrderError('Aucune ligne exploitable trouvée dans le PDF. Vérifiez le format (colonnes : Produit ; Quantité ; Unité).');
+          e.target.value = '';
+          return;
+        }
+        setImportOrderRows(parsed);
+      } catch {
+        setImportOrderError('Impossible de lire le fichier PDF.');
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // ── CSV / Excel ──
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -1197,6 +1295,8 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
         if (!rows || rows.length < 2) { setImportOrderError('Fichier vide.'); return; }
 
         const parsed: ImportOrderRow[] = [];
+        const validUnits: OrderUnit[] = ['kg', 'g', 'L', 'cL', 'pcs', 'carton', 'caisse'];
+
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i] as unknown[];
           const productName = String(row[0] ?? '').trim();
@@ -1211,21 +1311,15 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
             continue;
           }
 
-          const validUnits: OrderUnit[] = ['kg', 'g', 'L', 'cL', 'pcs', 'carton', 'caisse'];
           const safeUnit = validUnits.includes(unit) ? unit : 'pcs';
-
-          // Try to match in catalogue
           const matched = products.find(
             (p) => p.name.toLowerCase() === productName.toLowerCase() ||
               (p as unknown as { supplierRef?: string }).supplierRef?.toLowerCase() === ref.toLowerCase()
           );
 
           parsed.push({
-            productName,
-            ref,
-            quantity,
-            unit: safeUnit,
-            unitPrice,
+            productName, ref, quantity, unit: safeUnit,
+            unitPrice: unitPrice && !isNaN(unitPrice) ? unitPrice : undefined,
             supplier,
             matchStatus: matched ? 'matched' : 'unmatched',
             matchedProductId: matched?.id,
@@ -1384,7 +1478,7 @@ export function OrdersModule({ canManage = false, isChef = false }: OrdersModule
           {/* Import commande */}
           <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-foreground text-xs font-semibold cursor-pointer hover:bg-muted border border-border">
             <Upload className="w-3.5 h-3.5" /> Importer commande
-            <input ref={importRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleOrderFileImport} />
+            <input ref={importRef} type="file" accept=".csv,.xlsx,.xls,.pdf,.docx,.doc" className="hidden" onChange={handleOrderFileImport} />
           </label>
 
           {importOrderError && <p className="text-xs text-destructive">{importOrderError}</p>}

@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../integrations/supabase/client';
-import { Camera, User, Phone, Calendar, Shield, Check, Loader2, X } from 'lucide-react';
+import { Camera, User, Phone, Calendar, Shield, Check, Loader2, X, Globe } from 'lucide-react';
 import { hashPin, verifyPin, isLegacyHash } from '../lib/pinCrypto';
+import { switchLanguage, LANG_META, type SupportedLang } from '../i18n/index';
 
 const ROLE_LABELS: Record<string, string> = {
   god: 'Administrateur',
@@ -26,6 +27,12 @@ export default function Profil() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.photo ?? '');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Language
+  const [currentLang, setCurrentLang] = useState<SupportedLang>(
+    (localStorage.getItem('i18n_lang') as SupportedLang) ?? 'fr'
+  );
+  const [langSaving, setLangSaving] = useState(false);
 
   // PIN change
   const [showPinChange, setShowPinChange] = useState(false);
@@ -61,6 +68,16 @@ export default function Profil() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSwitchLang = async (lang: SupportedLang) => {
+    setLangSaving(true);
+    await switchLanguage(lang);
+    setCurrentLang(lang);
+    if (currentUser?.id) {
+      await supabase.from('profiles').update({ language_preference: lang }).eq('id', currentUser.id);
+    }
+    setLangSaving(false);
   };
 
   const handlePinDigit = (d: string, setter: (fn: (prev: string) => string) => void) => {
@@ -247,6 +264,32 @@ export default function Profil() {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Language */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-bold text-foreground uppercase tracking-wide">Langue de l'application</span>
+          {langSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-auto" />}
+        </div>
+        <div className="p-3 grid grid-cols-3 gap-2">
+          {(Object.entries(LANG_META) as [SupportedLang, { flag: string; label: string }][]).map(([code, { flag, label }]) => (
+            <button
+              key={code}
+              onClick={() => handleSwitchLang(code)}
+              disabled={langSaving}
+              className={`flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                currentLang === code
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+              }`}
+            >
+              <span className="text-lg">{flag}</span>
+              <span className="truncate w-full text-center">{label}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
