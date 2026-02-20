@@ -26,6 +26,7 @@ import { Leaderboard } from '../components/leaderboard/Leaderboard';
 import { MonScore } from '../components/scoring/MonScore';
 import { OwnerSettings } from '../components/dashboard/OwnerSettings';
 import { AccountManagement } from '../components/dashboard/AccountManagement';
+import { RoomManagement } from '../components/dashboard/RoomManagement';
 import { ShiftSwapModule } from '../components/planning/ShiftSwapModule';
 import { StaffShiftsView } from '../components/planning/StaffShiftsView';
 import { StaffAvailabilityView } from '../components/planning/AvailabilityModule';
@@ -76,7 +77,7 @@ type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
-  | 'pointage' | 'profile' | 'stock' | 'accounts';
+  | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms';
 
 interface Tile {
   id: ModuleKey;
@@ -221,6 +222,7 @@ export default function Dashboard() {
           { id: 'settings',     label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',  iconColor: 'text-slate-600 dark:text-slate-400' },
           { id: 'timesheets_all', label: 'Pointages',  emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',    iconColor: 'text-cyan-600 dark:text-cyan-400' },
           { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+          { id: 'rooms',        label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
         );
       }
       return tiles;
@@ -260,6 +262,7 @@ export default function Dashboard() {
       case 'pins':      return <PinManagement />;
       case 'settings':  return <OwnerSettings />;
       case 'accounts':  return <AccountManagement />;
+      case 'rooms':     return <RoomManagement />;
       case 'contests':  return <MalusContestModule />;
       case 'swaps':     return <ShiftSwapModule />;
       case 'availability': return <StaffAvailabilityView />;
@@ -276,6 +279,7 @@ export default function Dashboard() {
     menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Stock',
     planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
     settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations', accounts: 'Gestion des comptes',
+    rooms: 'Gestion des salles',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
     pointage: t('nav.timeclock'), profile: t('profile.title'),
   };
