@@ -27,7 +27,7 @@ export function PinManagement({ teamFilter }: Props) {
     let pin: string;
     let attempts = 0;
     do {
-      pin = String(Math.floor(1000 + Math.random() * 9000));
+      pin = String(Math.floor(100000 + Math.random() * 900000));
       attempts++;
     } while (allPins.includes(pin) && attempts < 100);
     return pin;
@@ -35,13 +35,13 @@ export function PinManagement({ teamFilter }: Props) {
 
   const handleSavePin = (userId: string) => {
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      setPinError('PIN must be exactly 4 digits');
+      setPinError('Le PIN de connexion doit être exactement 4 chiffres');
       return;
     }
     // Check uniqueness (exclude the user being edited)
     const duplicate = users.find(u => u.id !== userId && u.pinSet && u.pin === newPin);
     if (duplicate) {
-      setPinError('This PIN is already used by another staff member. Choose a different one.');
+      setPinError('Ce PIN est déjà utilisé par un autre membre. Choisissez-en un autre.');
       return;
     }
     setPin(userId, newPin);
