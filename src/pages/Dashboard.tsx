@@ -37,7 +37,7 @@ import ProfilPage from './Profil';
 import { StockModule } from '../components/stock/StockModule';
 
 import {
-  LogOut, WifiOff, BellOff, Bell,
+  LogOut, WifiOff, BellOff, Bell, Mail,
   CheckCircle, MessageSquare, AlertTriangle, ShoppingCart, Clock, Target,
   CalendarDays, Thermometer, ChefHat, Home, User, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
@@ -148,6 +148,7 @@ export default function Dashboard() {
   const [currentLang, setCurrentLang] = useState<SupportedLang>((localStorage.getItem('i18n_lang') as SupportedLang) ?? 'fr');
   const [currentTime, setCurrentTime] = useState(new Date());
   const knownIdsRef = useRef<Set<string> | null>(null);
+  const [unreadManagerMessages, setUnreadManagerMessages] = useState(0);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
@@ -156,6 +157,39 @@ export default function Dashboard() {
     const t = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Unread manager messages — count messages in 'managers' channel newer than last visit
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = currentUser.role as AppRole | undefined;
+    if (!isManagerOrAbove(role)) return;
+
+    const lastOpen = localStorage.getItem('last_chat_managers_open') ?? '1970-01-01T00:00:00Z';
+
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('channel', 'managers')
+        .neq('sender_id', currentUser.id)
+        .gt('created_at', lastOpen);
+      setUnreadManagerMessages(count ?? 0);
+    };
+
+    fetchUnread();
+
+    const channel = supabase
+      .channel('manager-msgs-badge')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'channel=eq.managers' }, (payload) => {
+        const msg = payload.new as { sender_id: string; created_at: string };
+        if (msg.sender_id !== currentUser.id) {
+          setUnreadManagerMessages((prev) => prev + 1);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser]);
 
   const handleToggleDark = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -324,33 +358,57 @@ export default function Dashboard() {
 
           {/* Logo + name */}
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Logo" className="w-8 h-8 object-contain dark:hidden" />
-            <img src={logoDark} alt="Logo" className="w-8 h-8 object-contain hidden dark:block" />
+            <img src={logo} alt="Logo" className="h-[34px] w-auto object-contain dark:hidden" />
+            <img src={logoDark} alt="Logo" className="h-[34px] w-auto object-contain hidden dark:block" />
             <span className="text-sm font-bold text-foreground hidden sm:inline">{restaurantName}</span>
           </div>
 
           {/* Right side */}
           <div className="flex items-center gap-2">
 
-            {/* Realtime indicator */}
+          {/* Realtime indicator */}
             {(realtimeStatus as string) === 'CLOSED' && (
               <span className="flex items-center gap-1 text-xs text-destructive">
                 <WifiOff className="w-3.5 h-3.5" /> Hors ligne
               </span>
             )}
 
-            {/* Notif permission */}
-            {isSupported && permission === 'default' && (
-              <button onClick={requestPermission} title="Activer les notifications"
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                <BellOff className="w-4 h-4" />
+            {/* Browser notif toggle: Bell (active) or BellOff (inactive) */}
+            {isSupported && (
+              <button
+                onClick={permission !== 'granted' ? requestPermission : undefined}
+                title={permission === 'granted' ? 'Notifications activées' : permission === 'denied' ? 'Notifications bloquées' : 'Activer les notifications'}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              >
+                {permission === 'granted'
+                  ? <Bell className="w-4 h-4 text-primary" />
+                  : <BellOff className="w-4 h-4 text-muted-foreground" />
+                }
+              </button>
+            )}
+
+            {/* Mail: unread manager messages (managers/owner/god only) */}
+            {isManager && (
+              <button
+                onClick={() => {
+                  setActiveModule('chat');
+                  setUnreadManagerMessages(0);
+                  try { localStorage.setItem('last_chat_managers_open', new Date().toISOString()); } catch {}
+                }}
+                title="Messages équipe managers"
+                className="relative p-1.5 rounded-lg hover:bg-muted transition-colors"
+              >
+                <Mail className={`w-4 h-4 ${unreadManagerMessages > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                {unreadManagerMessages > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive" />
+                )}
               </button>
             )}
 
             {/* Clock */}
             <span className="text-xs font-mono text-muted-foreground hidden sm:inline">{timeStr}</span>
 
-            {/* Notification bell */}
+            {/* Notification bell (in-app) */}
             <NotificationBell />
 
             {/* Avatar + enriched dropdown menu */}
@@ -360,7 +418,7 @@ export default function Dashboard() {
                 className="flex items-center gap-1.5"
               >
                 {currentUser.photo ? (
-                  <img src={currentUser.photo} alt={currentUser.name} className="w-8 h-8 rounded-full object-cover border-2 border-border" />
+                  <img src={currentUser.photo} alt={currentUser.name} className="w-[34px] h-[34px] rounded-full object-cover border-2 border-border" />
                 ) : (
                   <InitialsAvatar name={currentUser.name} />
                 )}
