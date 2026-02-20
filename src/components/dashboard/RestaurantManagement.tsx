@@ -87,22 +87,28 @@ export function RestaurantManagement() {
 
   const loadRestaurants = useCallback(async () => {
     setLoading(true);
-    const { data } = await (supabase
-      .from('restaurants' as any) as any)
+    const { data, error: err } = await supabase
+      .from('restaurants')
       .select('*')
       .order('created_at', { ascending: false });
 
+    if (err) {
+      console.error('loadRestaurants error:', err);
+      setLoading(false);
+      return;
+    }
+
     if (data) {
       const withCounts = await Promise.all(
-        ((data as unknown) as Restaurant[]).map(async (r) => {
+        data.map(async (r) => {
           const { count } = await supabase
-            .from('profiles' as any)
+            .from('profiles')
             .select('*', { count: 'exact', head: true })
             .eq('restaurant_id', r.id);
           return { ...r, member_count: count ?? 0 };
         })
       );
-      setRestaurants(withCounts);
+      setRestaurants(withCounts as Restaurant[]);
     }
     setLoading(false);
   }, []);
@@ -148,11 +154,27 @@ export function RestaurantManagement() {
     };
 
     if (editingId) {
-      const { error: err } = await (supabase.from('restaurants' as any) as any).update(payload).eq('id', editingId);
-      if (err) { setError(err.message); setSaving(false); return; }
+      const { error: err } = await supabase.from('restaurants').update(payload).eq('id', editingId);
+      if (err) {
+        if (err.message.includes('duplicate key') || err.message.includes('unique constraint')) {
+          setError(`Le code "${payload.code}" est déjà utilisé par un autre restaurant. Régénérez-en un autre.`);
+        } else {
+          setError(err.message);
+        }
+        setSaving(false);
+        return;
+      }
     } else {
-      const { error: err } = await (supabase.from('restaurants' as any) as any).insert(payload);
-      if (err) { setError(err.message); setSaving(false); return; }
+      const { error: err } = await supabase.from('restaurants').insert(payload);
+      if (err) {
+        if (err.message.includes('duplicate key') || err.message.includes('unique constraint')) {
+          setError(`Le code "${payload.code}" est déjà utilisé par un autre restaurant. Cliquez sur 🔄 pour en générer un nouveau.`);
+        } else {
+          setError(err.message);
+        }
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
@@ -162,16 +184,14 @@ export function RestaurantManagement() {
 
   const handleToggleActive = async (r: Restaurant) => {
     setTogglingId(r.id);
-    await (supabase.from('restaurants' as any) as any)
-      .update({ is_active: !r.is_active })
-      .eq('id', r.id);
+    await supabase.from('restaurants').update({ is_active: !r.is_active }).eq('id', r.id);
     await loadRestaurants();
     setTogglingId(null);
   };
 
   const handleDelete = async (r: Restaurant) => {
     if (!confirm(`Supprimer le restaurant "${r.name}" ? Cette action est irréversible.`)) return;
-    await (supabase.from('restaurants' as any) as any).delete().eq('id', r.id);
+    await supabase.from('restaurants').delete().eq('id', r.id);
     loadRestaurants();
   };
 
@@ -185,7 +205,7 @@ export function RestaurantManagement() {
     setSelectedRestaurant(r);
     setLoadingMembers(true);
     const { data } = await supabase
-      .from('profiles' as any)
+      .from('profiles')
       .select('id, name, team, status, pin_set')
       .eq('restaurant_id', r.id)
       .order('name');
