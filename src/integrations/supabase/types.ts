@@ -1146,6 +1146,39 @@ export type Database = {
         }
         Relationships: []
       }
+      rooms: {
+        Row: {
+          color: string
+          created_at: string
+          display_order: number
+          id: string
+          is_system: boolean
+          name: string
+          team_key: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_system?: boolean
+          name: string
+          team_key: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_system?: boolean
+          name?: string
+          team_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       score_events: {
         Row: {
           id: string
