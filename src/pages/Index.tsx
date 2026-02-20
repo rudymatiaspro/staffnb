@@ -5,13 +5,17 @@ import { supabase } from '../integrations/supabase/client';
 import AuthLogin from './AuthLogin';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import Station from './Station';
 import { Loader2 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
 // ─── Inner router: handles in-app staff PIN selection ─────────────────────────
 function AppRouter() {
   const { currentUser } = useApp();
-  return currentUser ? <Dashboard /> : <Login />;
+  if (!currentUser) return <Login />;
+  // Station accounts go directly to the Station homepage
+  if (currentUser.role === 'station') return <Station />;
+  return <Dashboard />;
 }
 
 // ─── Onboarding: seed the authenticated user's profile & role ─────────────────

@@ -18,6 +18,7 @@ const ROLE_LABELS_FR: Record<string, string> = {
 };
 
 // Role sort order (lower = higher priority in list)
+// 'station' is excluded from the PIN list — it logs in via email+PIN on AuthLogin
 const ROLE_ORDER: Record<string, number> = {
   god:     0,
   admin:   1,
@@ -62,8 +63,11 @@ export function NameSelector({ onSelect }: NameSelectorProps) {
   const { users } = useApp();
   const [search, setSearch] = useState('');
 
+  // Station accounts log in via email+PIN on the main auth screen — exclude them here
+  const eligibleUsers = users.filter((u) => u.role !== 'station');
+
   // Sort by role hierarchy then alphabetically
-  const sortedUsers = [...users].sort((a, b) => {
+  const sortedUsers = [...eligibleUsers].sort((a, b) => {
     const ro = (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99);
     if (ro !== 0) return ro;
     return a.name.localeCompare(b.name);
