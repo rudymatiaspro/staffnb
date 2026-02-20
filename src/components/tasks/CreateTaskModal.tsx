@@ -60,12 +60,26 @@ Stepper.displayName = 'Stepper';
 export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
   const { currentUser, users } = useApp();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-  // Fetch restaurant_id for current user (needed for RLS)
+  // Fetch restaurant_id using the real auth session (not impersonated user)
   useEffect(() => {
-    if (!currentUser?.id) return;
-    supabase.from('profiles').select('restaurant_id').eq('id', currentUser.id).maybeSingle()
-      .then(({ data }) => setRestaurantId(data?.restaurant_id ?? null));
+    const fetchRestaurantId = async () => {
+      // Get the real authenticated user (works even in God impersonation)
+      const { data: { user } } = await supabase.auth.getUser();
+      const realUid = user?.id ?? currentUser?.id;
+      setAuthUserId(realUid ?? null);
+      if (!realUid) return;
+      const { data } = await supabase.from('profiles').select('restaurant_id').eq('id', realUid).maybeSingle();
+      if (data?.restaurant_id) {
+        setRestaurantId(data.restaurant_id);
+      } else if (currentUser?.id && currentUser.id !== realUid) {
+        // Fallback: fetch from impersonated profile
+        const { data: d2 } = await supabase.from('profiles').select('restaurant_id').eq('id', currentUser.id).maybeSingle();
+        setRestaurantId(d2?.restaurant_id ?? null);
+      }
+    };
+    fetchRestaurantId();
   }, [currentUser?.id]);
 
   // Base fields
@@ -154,7 +168,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         is_punctual: !isRecurring,
         assigned_user_id: assignedUserId || null,
         assigned_user_name: assignedUser?.name || null,
-        created_by: currentUser?.id || null,
+        created_by: authUserId || currentUser?.id || null,
         points: priority === 'urgente' ? 20 : 10,
         priority: priority,
         restaurant_id: restaurantId,

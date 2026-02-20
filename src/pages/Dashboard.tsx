@@ -277,14 +277,13 @@ export default function Dashboard() {
         { id: 'reports',    label: 'Rapports',        emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
         menuTile,
       ];
-      if (isOwner || isAdmin) {
+        if (isOwner || isAdmin) {
         tiles.push(
           { id: 'catalogue',      label: 'Catalogue',    emoji: '📚', icon: <LayoutGrid className="w-5 h-5" />,   color: 'bg-pink-50 dark:bg-pink-950/30',       iconColor: 'text-pink-600 dark:text-pink-400' },
           { id: 'pins',           label: 'PINs',         emoji: '🔑', icon: <KeyRound className="w-5 h-5" />,     color: 'bg-gray-50 dark:bg-gray-950/30',        iconColor: 'text-gray-600 dark:text-gray-400' },
           { id: 'leaderboard',    label: 'Classement',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30',    iconColor: 'text-yellow-600 dark:text-yellow-400' },
           { id: 'settings',       label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',      iconColor: 'text-slate-600 dark:text-slate-400' },
           { id: 'timesheets_all', label: 'Pointages',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,        color: 'bg-cyan-50 dark:bg-cyan-950/30',         iconColor: 'text-cyan-600 dark:text-cyan-400' },
-          { id: 'accounts',       label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30',    iconColor: 'text-indigo-600 dark:text-indigo-400' },
           { id: 'rooms',          label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
         );
         // Admin/God only: Classes, Membres, Restaurants
