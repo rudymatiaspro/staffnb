@@ -13,7 +13,96 @@ import { Loader2, Lock } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
 
-// ─── PIN re-lock overlay ───────────────────────────────────────────────────────
+// ─── Station PIN re-lock (6-digit) ────────────────────────────────────────────
+function StationPinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
+  const { currentUser } = useApp();
+  const { signOut: authSignOut } = useAuth();
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
+
+  if (!currentUser) return null;
+
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','del'];
+
+  const handleKey = async (d: string) => {
+    if (d === 'del') { setPin(p => p.slice(0, -1)); setError(''); return; }
+    if (pin.length >= 6) return;
+    const next = pin + d;
+    setPin(next);
+    if (next.length === 6) {
+      setTimeout(async () => {
+        // Verify against station_pin_hash
+        const { data: profile } = await supabase
+          .from('profiles').select('station_pin_hash').eq('id', currentUser.id).maybeSingle();
+
+        const storedHash = (profile as any)?.station_pin_hash ?? '';
+        let valid = false;
+        if (!storedHash) {
+          valid = next === '154154';
+        } else if (storedHash.includes(':')) {
+          const res = await verifyPin(storedHash, next);
+          valid = res === 'match';
+        } else {
+          valid = storedHash === next;
+        }
+        if (valid) {
+          onUnlock();
+        } else {
+          setShake(true);
+          setTimeout(() => setShake(false), 400);
+          setError('PIN station incorrect. Réessaie.');
+          setPin('');
+        }
+      }, 100);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-xs">
+        <div className="text-center mb-6">
+          <img src={logo} alt="Staff&B" className="h-10 mx-auto mb-2 dark:hidden" />
+          <img src={logoDark} alt="Staff&B" className="h-10 mx-auto mb-2 hidden dark:block" />
+          <div className="flex items-center justify-center gap-2 mt-3 text-muted-foreground text-sm">
+            <Lock className="w-4 h-4" />
+            Station verrouillée
+          </div>
+        </div>
+        <div className="glass-card rounded-2xl p-6 shadow-xl space-y-5">
+          <p className="text-center text-sm text-muted-foreground">Entrez le PIN station (6 chiffres)</p>
+          {/* 6-dot indicator */}
+          <div className={`flex justify-center gap-3 ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+            {[0,1,2,3,4,5].map(i => (
+              <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${i < pin.length ? 'bg-primary scale-125' : 'bg-border'}`} />
+            ))}
+          </div>
+          {error && (
+            <div className="text-center text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
+              {error}
+            </div>
+          )}
+          {/* Numpad */}
+          <div className="grid grid-cols-3 gap-3">
+            {digits.map((d, i) => {
+              if (d === '') return <div key={i} />;
+              return (
+                <button key={i} className="pin-btn" onClick={() => handleKey(d)}>
+                  {d === 'del' ? <span className="text-base">⌫</span> : <span className="text-xl font-bold">{d}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => authSignOut()} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1 hover:underline">
+            ← Déconnexion
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PIN re-lock overlay (standard 4-digit) ────────────────────────────────────
 // Shown when user returns to the app after leaving (without logout)
 function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   const { currentUser } = useApp();
@@ -22,7 +111,6 @@ function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   const [error, setError] = useState('');
 
   if (!user) return null;
-
 
   const handlePinSuccess = async (pin: string) => {
     const storedHash = user.pin ?? '';
@@ -83,7 +171,6 @@ function PinLockWrapper({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(false);
   const lastActiveRef = React.useRef(Date.now());
 
-  // Track user activity
   const resetTimer = useCallback(() => {
     lastActiveRef.current = Date.now();
   }, []);
@@ -91,17 +178,13 @@ function PinLockWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Events that count as activity
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
 
-    // On visibility change (tab switch / minimize)
     const handleVisibility = () => {
       if (document.hidden) {
-        // Record when we left
         lastActiveRef.current = Date.now();
       } else {
-        // Returning — check elapsed time
         const elapsed = Date.now() - lastActiveRef.current;
         if (elapsed > LOCK_TIMEOUT_MS) {
           setLocked(true);
@@ -119,13 +202,17 @@ function PinLockWrapper({ children }: { children: React.ReactNode }) {
 
   if (!currentUser) return <>{children}</>;
 
+  const isStation = currentUser.role === 'station';
+
   return (
     <>
-      {locked && <PinLockOverlay onUnlock={() => setLocked(false)} />}
+      {locked && isStation && <StationPinLockOverlay onUnlock={() => setLocked(false)} />}
+      {locked && !isStation && <PinLockOverlay onUnlock={() => setLocked(false)} />}
       {children}
     </>
   );
 }
+
 
 // ─── Auto-login for Owner / Station accounts ──────────────────────────────────
 // These roles skip the "Qui es-tu ?" selector and connect directly.

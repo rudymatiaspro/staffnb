@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Delete, Clock, CheckCircle, LogIn, LogOut, AlertTriangle, Zap, ListTodo, X } from 'lucide-react';
+import { Delete, Clock, CheckCircle, LogIn, LogOut, AlertTriangle, Zap, ListTodo, X, Power } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Task } from '../types';
 import { supabase } from '../integrations/supabase/client';
+
 
 // ─── Live Clock ───────────────────────────────────────────────────────────────
 function LiveClock() {
@@ -198,7 +200,9 @@ function TaskRow({ task, onValidate }: TaskRowProps) {
 type StationMode = 'idle' | 'clock_confirmed' | 'task_pin' | 'task_confirmed';
 
 export default function Station() {
-  const { validateStationPin, clockAction, getTodayTasks, completeTask, users } = useApp();
+  const { validateStationPin, clockAction, getTodayTasks, completeTask, users, logout } = useApp();
+  const { signOut } = useAuth();
+
 
   // Clock-in/out state
   const [clockPin, setClockPin] = useState('');
@@ -385,8 +389,16 @@ export default function Station() {
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <img src={logo} alt="Staff&B" className="h-8" />
         <LiveClock />
-        <div className="w-16" /> {/* spacer */}
+        <button
+          onClick={() => { logout(); signOut(); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:border-destructive/40 transition-all"
+          title="Déconnexion"
+        >
+          <Power className="w-3.5 h-3.5" />
+          Déconnexion
+        </button>
       </div>
+
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex flex-1 gap-0 overflow-hidden">
