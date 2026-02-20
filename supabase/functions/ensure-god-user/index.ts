@@ -17,9 +17,9 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const GOD_EMAIL = 'rudy@staffandb.app';
-    const GOD_PASSWORD = 'S0fia2025!';
-    const GOD_NAME = 'Rudy';
+    const GOD_EMAIL = 'god@staffandb.app';
+    const GOD_PASSWORD = 'Fatima!';
+    const GOD_NAME = 'GOD';
 
     // Check if god user already exists
     const { data: existingUsers, error: listErr } = await supabaseAdmin.auth.admin.listUsers();

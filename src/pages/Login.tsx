@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { User } from '../types';
 import { NameSelector } from '../components/auth/NameSelector';
 import { PinEntry } from '../components/auth/PinEntry';
@@ -8,6 +9,7 @@ import { supabase } from '../integrations/supabase/client';
 import { logAudit } from '../lib/auditLogger';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
+import { LogOut } from 'lucide-react';
 
 type LoginStep = 'select' | 'pin' | 'set_new_pin';
 
@@ -38,6 +40,7 @@ async function updatePinHash(profileId: string, pinHash: string, pinSet = true) 
 
 export default function Login() {
   const { login, setPin, users } = useApp();
+  const { signOut } = useAuth();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [step, setStep] = useState<LoginStep>('select');
   const [errorMsg, setErrorMsg] = useState('');
@@ -159,6 +162,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Logout button — always visible during staff login phase */}
+      <button
+        onClick={() => signOut()}
+        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:border-primary/40 transition-all"
+      >
+        <LogOut className="w-3.5 h-3.5" />
+        Déconnexion
+      </button>
       {/* Subtle background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] translate-x-1/3 -translate-y-1/3" />
