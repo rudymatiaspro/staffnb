@@ -65,6 +65,9 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
         return;
       }
 
+      const { data: gamSettings } = await supabase.from('gamification_settings').select('points_with_photo').limit(1).single();
+      const pointsWithPhoto = gamSettings?.points_with_photo ?? 2;
+
       // Upload photo
       const ext = photoFile.name.split('.').pop() || 'jpg';
       const path = `${task.id}/${Date.now()}.${ext}`;
@@ -75,6 +78,19 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('task-proofs').getPublicUrl(path);
+
+      // Award photo bonus score event
+      if (currentUser && pointsWithPhoto > 0) {
+        await supabase.from('score_events').insert({
+          user_id: currentUser.id,
+          user_name: currentUser.name,
+          team: currentUser.team,
+          type: 'bonus',
+          reason: `📸 Photo proof — ${task.name}`,
+          points: pointsWithPhoto,
+        });
+      }
+
       onValidated(task.id, publicUrl);
       setStep('done');
     } catch (err) {

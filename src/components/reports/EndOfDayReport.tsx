@@ -22,14 +22,18 @@ function downloadBlob(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-async function exportCSV(dateFrom: string, dateTo: string) {
-  const { data: tasks } = await supabase
+async function exportCSVFiltered(dateFrom: string, dateTo: string, team: string) {
+  let query = supabase
     .from('tasks')
     .select('*')
     .gte('created_at', dateFrom + 'T00:00:00')
     .lte('created_at', dateTo + 'T23:59:59')
     .order('created_at', { ascending: true });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (team !== 'ALL') query = (query as any).eq('team', team);
+
+  const { data: tasks } = await query;
   if (!tasks) return;
 
   const header = ['Date', 'Tâche', 'Équipe', 'Assigné à', 'Statut', 'Points', 'Validé à'];
@@ -44,10 +48,10 @@ async function exportCSV(dateFrom: string, dateTo: string) {
   ]);
 
   const csv = [header, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-  downloadBlob(csv, `rapport-tasks-${dateFrom}.csv`, 'text/csv;charset=utf-8;');
+  downloadBlob(csv, `rapport-tasks-${dateFrom}${team !== 'ALL' ? '-' + team : ''}.csv`, 'text/csv;charset=utf-8;');
 }
 
-async function exportPDF(dateFrom: string, dateTo: string, restaurantName: string) {
+async function exportPDFFiltered(dateFrom: string, dateTo: string, restaurantName: string, team: string) {
   const [tasksRes, rankingsRes, incidentsRes] = await Promise.all([
     supabase.from('tasks').select('*').gte('created_at', dateFrom + 'T00:00:00').lte('created_at', dateTo + 'T23:59:59').order('created_at'),
     supabase.rpc('get_staff_rankings'),
@@ -168,16 +172,20 @@ async function exportPDF(dateFrom: string, dateTo: string, restaurantName: strin
 }
 
 // ─── Export Panel ─────────────────────────────────────────────────────────────
+const TEAM_OPTIONS = ['ALL', 'BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'] as const;
+type TeamFilter = typeof TEAM_OPTIONS[number];
+
 function ExportPanel({ restaurantName }: { restaurantName: string }) {
   const today = new Date().toISOString().split('T')[0];
   const [dateFrom, setDateFrom] = useState(today);
   const [dateTo, setDateTo] = useState(today);
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>('ALL');
   const [loadingCsv, setLoadingCsv] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
 
   const handle = async (type: 'csv' | 'pdf') => {
-    if (type === 'csv') { setLoadingCsv(true); await exportCSV(dateFrom, dateTo); setLoadingCsv(false); }
-    else { setLoadingPdf(true); await exportPDF(dateFrom, dateTo, restaurantName); setLoadingPdf(false); }
+    if (type === 'csv') { setLoadingCsv(true); await exportCSVFiltered(dateFrom, dateTo, teamFilter); setLoadingCsv(false); }
+    else { setLoadingPdf(true); await exportPDFFiltered(dateFrom, dateTo, restaurantName, teamFilter); setLoadingPdf(false); }
   };
 
   return (
@@ -196,6 +204,18 @@ function ExportPanel({ restaurantName }: { restaurantName: string }) {
           <label className="text-[10px] text-muted-foreground font-medium">Au</label>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
             className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Équipe</label>
+          <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value as TeamFilter)}
+            className="text-xs bg-secondary border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40">
+            <option value="ALL">Toutes</option>
+            <option value="BAR">Bar</option>
+            <option value="KITCHEN">Cuisine</option>
+            <option value="FLOOR">Salle</option>
+            <option value="ATELIER">Atelier</option>
+            <option value="MANAGEMENT">Management</option>
+          </select>
         </div>
       </div>
       <div className="flex gap-2">

@@ -330,17 +330,31 @@ function ObjectiveFormModal({ editingObjective, onClose, onSubmit, taskCompletio
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-secondary/60 space-y-2">
+          <div className="p-3 rounded-xl bg-secondary/60 space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.autoTrack}
                 onChange={e => setForm(p => ({ ...p, autoTrack: e.target.checked }))}
                 className="rounded" />
-              <span className="text-xs font-medium text-foreground">Auto-track from task completion rate</span>
+              <span className="text-xs font-medium text-foreground">Suivi automatique</span>
             </label>
             {form.autoTrack && (
-              <p className="text-[10px] text-muted-foreground pl-5">
-                Currently: {taskCompletionRate}% of today's tasks completed
-              </p>
+              <div className="pl-5 space-y-2">
+                <label className="text-[10px] text-muted-foreground font-medium block">Métrique suivie</label>
+                <select
+                  value={form.autoTrackMetric}
+                  onChange={e => setForm(p => ({ ...p, autoTrackMetric: e.target.value }))}
+                  className="w-full text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground"
+                >
+                  <option value="tasks_completed">Tâches complétées aujourd'hui</option>
+                  <option value="incidents_resolved">Incidents résolus (semaine)</option>
+                  <option value="score_average">Score moyen de l'équipe</option>
+                  <option value="orders_validated">Commandes validées (semaine)</option>
+                </select>
+                {form.autoTrackMetric === 'tasks_completed' && (
+                  <p className="text-[10px] text-muted-foreground">Actuellement: {taskCompletionRate}% des tâches complétées</p>
+                )}
+                <p className="text-[10px] text-primary/70">⚡ Mis à jour automatiquement toutes les 30 minutes</p>
+              </div>
             )}
           </div>
 

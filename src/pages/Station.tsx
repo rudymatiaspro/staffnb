@@ -224,7 +224,7 @@ export default function Station() {
   const heroTask = pendingTasks[0] ?? null;
 
   // ── Clock-in/out PIN logic ────────────────────────────────────────────────
-  const handleClockKey = useCallback((key: string) => {
+  const handleClockKey = useCallback(async (key: string) => {
     if (clockState !== 'idle') return;
     if (key === 'clear') { setClockPin(''); setClockError(false); return; }
     if (key === 'del') { setClockPin(p => p.slice(0, -1)); setClockError(false); return; }
@@ -232,7 +232,7 @@ export default function Station() {
     const next = clockPin + key;
     setClockPin(next);
     if (next.length === 4) {
-      setTimeout(() => {
+      setTimeout(async () => {
         const user = validateStationPin(next);
         if (!user) {
           setClockError(true);
@@ -241,6 +241,37 @@ export default function Station() {
           return;
         }
         const action = clockAction(user.id);
+
+        // ── Planning integration: check if shift is planned ─────────────
+        if (action === 'in') {
+          const today = new Date().toISOString().split('T')[0];
+          const { data: plannedShifts } = await supabase
+            .from('planning_shifts')
+            .select('id, shift_start, shift_end')
+            .eq('user_id', user.id)
+            .eq('date', today);
+
+          const isPlanned = (plannedShifts?.length ?? 0) > 0;
+          if (!isPlanned) {
+            // Notify managers about unplanned clock-in
+            const { data: managers } = await supabase
+              .from('user_roles')
+              .select('user_id')
+              .in('role', ['manager', 'owner', 'admin']);
+            if (managers?.length) {
+              await supabase.from('notifications').insert(
+                managers.map((m) => ({
+                  user_id: m.user_id,
+                  type: 'unplanned_clockin',
+                  title: `⚠️ Pointage non planifié — ${user.name}`,
+                  body: `${user.name} a pointé son entrée sans être planifié aujourd'hui.`,
+                  ref_type: 'shift',
+                }))
+              );
+            }
+          }
+        }
+
         setClockResult({ name: user.name, action });
         setClockState('confirmed');
         setTimeout(() => { setClockState('idle'); setClockPin(''); setClockResult(null); }, 4000);

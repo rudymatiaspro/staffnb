@@ -143,23 +143,35 @@ export function ScoreEventsView({ userId, showAll = false }: ScoreEventsViewProp
         {!loading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">Aucun événement</p>
         )}
-        {filtered.map(evt => (
-          <div key={evt.id} className={`flex items-center gap-3 p-3 rounded-xl border ${evt.points > 0 ? 'bg-timer-safe/5 border-timer-safe/20' : 'bg-destructive/5 border-destructive/20'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${evt.points > 0 ? 'bg-timer-safe/20' : 'bg-destructive/20'}`}>
-              {evt.points > 0 ? <TrendingUp className="w-4 h-4 text-timer-safe" /> : <TrendingDown className="w-4 h-4 text-destructive" />}
+        {filtered.map(evt => {
+          const isDoubleManager = evt.reason?.includes('malus doublé manager');
+          const isCollective = evt.type === 'collective_penalty';
+          return (
+            <div key={evt.id} className={`flex items-center gap-3 p-3 rounded-xl border ${evt.points > 0 ? 'bg-timer-safe/5 border-timer-safe/20' : isDoubleManager ? 'bg-orange-500/5 border-orange-500/30' : isCollective ? 'bg-purple-500/5 border-purple-500/20' : 'bg-destructive/5 border-destructive/20'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${evt.points > 0 ? 'bg-timer-safe/20' : isDoubleManager ? 'bg-orange-500/20' : isCollective ? 'bg-purple-500/20' : 'bg-destructive/20'}`}>
+                {evt.points > 0 ? <TrendingUp className="w-4 h-4 text-timer-safe" /> : <TrendingDown className={`w-4 h-4 ${isDoubleManager ? 'text-orange-500' : isCollective ? 'text-purple-500' : 'text-destructive'}`} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                {showAll && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-semibold text-foreground">{evt.userName}</p>
+                    {isDoubleManager && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 font-bold">×2 MANAGER</span>}
+                    {isCollective && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500 font-bold">COLLECTIF</span>}
+                  </div>
+                )}
+                {!showAll && isDoubleManager && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 font-bold">×2 MANAGER</span>}
+                {!showAll && isCollective && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500 font-bold">COLLECTIF</span>}
+                <p className="text-sm text-foreground truncate">{evt.reason || evt.type}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {evt.timestamp.toLocaleDateString('fr-FR')} · {evt.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <span className={`text-sm font-black flex-shrink-0 ${evt.points > 0 ? 'text-timer-safe' : isDoubleManager ? 'text-orange-500' : isCollective ? 'text-purple-500' : 'text-destructive'}`}>
+                {evt.points > 0 ? '+' : ''}{evt.points}pts
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              {showAll && <p className="text-xs font-semibold text-foreground">{evt.userName}</p>}
-              <p className="text-sm text-foreground truncate">{evt.reason || evt.type}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {evt.timestamp.toLocaleDateString('fr-FR')} · {evt.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-            <span className={`text-sm font-black flex-shrink-0 ${evt.points > 0 ? 'text-timer-safe' : 'text-destructive'}`}>
-              {evt.points > 0 ? '+' : ''}{evt.points}pts
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
