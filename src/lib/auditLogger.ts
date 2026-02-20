@@ -10,12 +10,14 @@ export type AuditAction =
   | 'order_confirmed_manager'
   | 'order_rejected'
   | 'haccp_logged'
+  | 'haccp_deleted'
   | 'pin_changed'
   | 'pin_reset'
   | 'shift_added'
   | 'shift_deleted'
   | 'incident_created'
-  | 'incident_resolved';
+  | 'incident_resolved'
+  | 'record_deleted';
 
 export async function logAudit(
   userId: string,

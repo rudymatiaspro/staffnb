@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
-import { Thermometer, Plus, AlertTriangle, CheckCircle, Download, X, ShieldCheck } from 'lucide-react';
+import { Thermometer, Plus, AlertTriangle, CheckCircle, Download, X, ShieldCheck, Trash2 } from 'lucide-react';
 import { PinEntry } from '../auth/PinEntry';
 import { verifyPin } from '../../lib/pinCrypto';
 import { logAudit } from '../../lib/auditLogger';
@@ -57,14 +57,16 @@ function fmt(iso: string) {
 interface Props {
   canExport?: boolean;
   canManageLocations?: boolean;
+  canDelete?: boolean;
 }
 
-export function HACCPModule({ canExport = false }: Props) {
+export function HACCPModule({ canExport = false, canDelete = false }: Props) {
   const { currentUser } = useApp();
   const [logs, setLogs] = useState<HACCPLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingEntry, setPendingEntry] = useState<Omit<HACCPLog, 'id' | 'created_at'> | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -226,6 +228,28 @@ export function HACCPModule({ canExport = false }: Props) {
     setPendingEntry(null);
   };
 
+  const handleDeleteLog = async (logId: string) => {
+    await supabase.from('temperature_logs').delete().eq('id', logId);
+    setDeletingId(null);
+    // Notify via day report
+    if (currentUser) {
+      await logAudit(currentUser.id, currentUser.name, 'haccp_deleted', 'temperature_log', logId, { deleted_by: currentUser.name });
+      // Insert notification for managers
+      const { data: managers } = await supabase.from('user_roles').select('user_id').in('role', ['manager', 'admin', 'owner', 'god']);
+      if (managers) {
+        await supabase.from('notifications').insert(
+          managers.map(m => ({
+            user_id: m.user_id,
+            type: 'haccp',
+            title: '🗑️ Relevé HACCP supprimé',
+            body: `Un relevé HACCP a été supprimé par ${currentUser.name}.`,
+          }))
+        );
+      }
+    }
+    fetchLogs();
+  };
+
   const exportCSV = () => {
     const headers = 'Zone,Température (°C),Statut,Contrôleur,Observation,Date/Heure\n';
     const rows = logs.map(l =>
@@ -329,14 +353,39 @@ export function HACCPModule({ canExport = false }: Props) {
                 </div>
                 <p className="text-[10px] text-muted-foreground">{log.logged_by}{log.observation ? ` · ${log.observation}` : ''}</p>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className={`text-sm font-black ${log.status === 'alert' ? 'text-destructive' : 'text-[hsl(var(--timer-safe))]'}`}>
-                  {log.temperature}°C
-                </p>
-                <p className="text-[9px] text-muted-foreground">{fmt(log.created_at)}</p>
+              <div className="text-right flex-shrink-0 flex items-center gap-2">
+                <div>
+                  <p className={`text-sm font-black ${log.status === 'alert' ? 'text-destructive' : 'text-[hsl(var(--timer-safe))]'}`}>
+                    {log.temperature}°C
+                  </p>
+                  <p className="text-[9px] text-muted-foreground">{fmt(log.created_at)}</p>
+                </div>
+                {canDelete && (
+                  <button
+                    onClick={() => setDeletingId(log.id)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Supprimer ce relevé"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+            <h3 className="text-sm font-bold text-foreground mb-2">Supprimer ce relevé ?</h3>
+            <p className="text-xs text-muted-foreground mb-5">Cette action est irréversible. Les managers seront notifiés dans le rapport du jour.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">Annuler</button>
+              <button onClick={() => handleDeleteLog(deletingId)} className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-xs font-bold hover:opacity-90">Supprimer</button>
+            </div>
+          </div>
         </div>
       )}
 
