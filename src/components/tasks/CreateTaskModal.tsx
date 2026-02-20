@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Team } from '../../types';
 import { X, Clock, Users, AlignLeft, Calendar, Zap, RefreshCw, Camera, Plus, Minus } from 'lucide-react';
@@ -27,19 +27,14 @@ const DAYS = [
   { key: 'dimanche', label: 'D' },
 ];
 
-function Stepper({
-  value,
-  min,
-  max,
-  onChange,
-}: {
+const Stepper = React.forwardRef<HTMLDivElement, {
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
-}) {
+}>(({ value, min, max, onChange }, ref) => {
   return (
-    <div className="flex items-center gap-2">
+    <div ref={ref} className="flex items-center gap-2">
       <button
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}
@@ -59,7 +54,8 @@ function Stepper({
       </button>
     </div>
   );
-}
+});
+Stepper.displayName = 'Stepper';
 
 export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
   const { currentUser, users } = useApp();
