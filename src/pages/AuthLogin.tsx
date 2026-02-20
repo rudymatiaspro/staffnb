@@ -5,11 +5,9 @@ import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
 
 export default function AuthLogin() {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'setup'>('signin');
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,19 +31,7 @@ export default function AuthLogin() {
     const resolvedEmail = resolveEmail(email);
     const { error: err } = await signIn(resolvedEmail, password);
     if (err) {
-      setError(err.message || 'Invalid username or password');
-    }
-    setLoading(false);
-  };
-
-  const handleSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!name.trim()) { setError('Please enter your name'); return; }
-    setLoading(true);
-    const { error: err } = await signUp(email, password, name.trim());
-    if (err) {
-      setError(err.message || 'Could not create account');
+      setError(err.message || 'Identifiant ou mot de passe invalide');
     }
     setLoading(false);
   };
@@ -67,46 +53,18 @@ export default function AuthLogin() {
         </div>
 
         <div className="glass-card rounded-2xl p-6 shadow-xl">
-          {/* Tab switcher */}
-          <div className="flex gap-1 p-1 bg-secondary rounded-xl mb-5">
-            <button
-              onClick={() => { setMode('signin'); setError(''); }}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'signin' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setMode('setup'); setError(''); }}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'setup' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Create Account
-            </button>
-          </div>
+          <h2 className="text-base font-bold text-foreground mb-5">Connexion administrateur</h2>
 
-          <form onSubmit={mode === 'signin' ? handleSignIn : handleSetup} className="space-y-4">
-            {mode === 'setup' && (
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Lena"
-                  className="w-full px-3 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
-                  required
-                />
-              </div>
-            )}
-
+          <form onSubmit={handleSignIn} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email or username</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email ou identifiant</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin"
+                  placeholder="admin"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary transition-colors"
                   required
                 />
@@ -114,7 +72,7 @@ export default function AuthLogin() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Password</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
@@ -149,21 +107,17 @@ export default function AuthLogin() {
               className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Please wait…</>
-              ) : mode === 'signin' ? (
-                'Sign In'
+                <><Loader2 className="w-4 h-4 animate-spin" /> Connexion…</>
               ) : (
-                'Create Account'
+                'Se connecter'
               )}
             </button>
           </form>
 
-          {mode === 'setup' && (
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              The first account created becomes the <span className="text-primary font-semibold">Owner</span>.<br />
-              Contact your manager to get access if you're staff.
-            </p>
-          )}
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            Accès réservé aux administrateurs et Masters.<br />
+            Les comptes staff sont créés par le Master.
+          </p>
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
