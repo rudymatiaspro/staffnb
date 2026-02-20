@@ -25,6 +25,7 @@ import { MalusContestModule } from '../components/scoring/MalusContestModule';
 import { Leaderboard } from '../components/leaderboard/Leaderboard';
 import { MonScore } from '../components/scoring/MonScore';
 import { OwnerSettings } from '../components/dashboard/OwnerSettings';
+import { AccountManagement } from '../components/dashboard/AccountManagement';
 import { ShiftSwapModule } from '../components/planning/ShiftSwapModule';
 import { StaffShiftsView } from '../components/planning/StaffShiftsView';
 import { StaffAvailabilityView } from '../components/planning/AvailabilityModule';
@@ -60,12 +61,13 @@ function applyTheme(theme: 'dark' | 'light') {
 }
 
 // ─── Role helpers ─────────────────────────────────────────────────────────────
-type AppRole = 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
+type AppRole = 'god' | 'owner' | 'admin' | 'manager' | 'chef' | 'staff';
 
-function isOwnerOrAdmin(role?: AppRole) { return role === 'owner' || role === 'admin'; }
-function isManagerOrAbove(role?: AppRole) { return role === 'manager' || isOwnerOrAdmin(role); }
+function isGodOrOwner(role?: AppRole) { return role === 'god' || role === 'owner' || role === 'admin'; }
+function isOwnerOrAdmin(role?: AppRole) { return isGodOrOwner(role); }
+function isManagerOrAbove(role?: AppRole) { return role === 'manager' || isGodOrOwner(role); }
 function isChefOrAbove(role?: AppRole) { return role === 'chef' || isManagerOrAbove(role); }
-function canEdit(role?: AppRole) { return role === 'admin' || role === 'manager'; }
+function canEdit(role?: AppRole) { return isGodOrOwner(role) || role === 'manager'; }
 
 const SEVERITY_EMOJI: Record<Incident['severity'], string> = { high: '🚨', medium: '⚠️', low: 'ℹ️', critical: '🚨' };
 
@@ -74,7 +76,7 @@ type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
-  | 'pointage' | 'profile' | 'stock';
+  | 'pointage' | 'profile' | 'stock' | 'accounts';
 
 interface Tile {
   id: ModuleKey;
@@ -89,6 +91,7 @@ interface Tile {
 // ─── Role label helper ────────────────────────────────────────────────────────
 function getRoleLabel(role?: AppRole): string {
   switch (role) {
+    case 'god':     return 'Administrateur';
     case 'owner':   return 'Propriétaire';
     case 'admin':   return 'Administrateur';
     case 'manager': return 'Manager';
@@ -217,6 +220,7 @@ export default function Dashboard() {
           { id: 'leaderboard',  label: 'Classement',   emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
           { id: 'settings',     label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',  iconColor: 'text-slate-600 dark:text-slate-400' },
           { id: 'timesheets_all', label: 'Pointages',  emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',    iconColor: 'text-cyan-600 dark:text-cyan-400' },
+          { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
         );
       }
       return tiles;
@@ -255,6 +259,7 @@ export default function Dashboard() {
       case 'catalogue': return <ProductCatalogue />;
       case 'pins':      return <PinManagement />;
       case 'settings':  return <OwnerSettings />;
+      case 'accounts':  return <AccountManagement />;
       case 'contests':  return <MalusContestModule />;
       case 'swaps':     return <ShiftSwapModule />;
       case 'availability': return <StaffAvailabilityView />;
@@ -270,7 +275,7 @@ export default function Dashboard() {
     tasks: t('nav.tasks'), chat: 'Messages', sos: 'Incidents SOS', orders: 'Commandes',
     menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Stock',
     planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
-    settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations',
+    settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations', accounts: 'Gestion des comptes',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
     pointage: t('nav.timeclock'), profile: t('profile.title'),
   };
