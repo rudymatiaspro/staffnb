@@ -114,6 +114,26 @@ function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md
   );
 }
 
+// ─── GOD impersonation banner ────────────────────────────────────────────────
+function GodBanner() {
+  const raw = sessionStorage.getItem('god_impersonating');
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    const handleQuit = () => {
+      sessionStorage.removeItem('god_impersonating');
+      window.location.reload();
+    };
+    return (
+      <div className="fixed top-0 left-0 right-0 z-[200] bg-warning text-warning-foreground px-4 py-1.5 flex items-center justify-between gap-2 text-xs font-bold shadow-lg"
+        style={{ background: 'hsl(45 100% 50%)', color: 'hsl(45 100% 10%)' }}>
+        <span>👁 Session GOD — Connecté en tant que <strong>{data.targetName}</strong> ({data.restaurantName})</span>
+        <button onClick={handleQuit} className="underline hover:no-underline flex-shrink-0">Quitter</button>
+      </div>
+    );
+  } catch { return null; }
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -296,6 +316,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <GodBanner />
 
       {/* ══════════════════ HEADER ══════════════════ */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border h-14">
