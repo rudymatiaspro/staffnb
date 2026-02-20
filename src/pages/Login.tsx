@@ -7,6 +7,7 @@ import { verifyPin, hashPin, isLegacyHash } from '../lib/pinCrypto';
 import { supabase } from '../integrations/supabase/client';
 import { logAudit } from '../lib/auditLogger';
 import logo from '../assets/logo.svg';
+import logoDark from '../assets/logo-dark.svg';
 
 type LoginStep = 'select' | 'pin' | 'set_new_pin';
 
@@ -120,7 +121,8 @@ export default function Login() {
       <div className="w-full max-w-sm relative z-10">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2" />
+          <img src={logo} alt="Staff&B" className="h-12 mx-auto mb-2 dark:hidden" />
+          <img src={logoDark} alt="Staff&B" className="h-12 mx-auto mb-2 hidden dark:block" />
           <p className="text-muted-foreground mt-1.5 text-sm font-medium">F&amp;B Team Management</p>
         </div>
 
