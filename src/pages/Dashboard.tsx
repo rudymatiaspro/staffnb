@@ -93,13 +93,13 @@ interface Tile {
 // ─── Role label helper ────────────────────────────────────────────────────────
 function getRoleLabel(role?: AppRole): string {
   switch (role) {
-    case 'god':     return 'Administrateur';
+    case 'god':     return 'Divinité';
     case 'owner':   return 'Propriétaire';
     case 'admin':   return 'Administrateur';
     case 'manager': return 'Manager';
     case 'chef':    return 'Chef';
     case 'staff':   return 'Équipier';
-    case 'station': return 'Station (Main device)';
+    case 'station': return 'Station';
     default:        return '';
   }
 }
@@ -374,19 +374,7 @@ export default function Dashboard() {
               </span>
             )}
 
-            {/* Browser notif toggle: Bell (active) or BellOff (inactive) */}
-            {isSupported && (
-              <button
-                onClick={permission !== 'granted' ? requestPermission : undefined}
-                title={permission === 'granted' ? 'Notifications activées' : permission === 'denied' ? 'Notifications bloquées' : 'Activer les notifications'}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-              >
-                {permission === 'granted'
-                  ? <Bell className="w-4 h-4 text-primary" />
-                  : <BellOff className="w-4 h-4 text-muted-foreground" />
-                }
-              </button>
-            )}
+            {/* Browser notif — affiché uniquement dans le menu (pas ici) */}
 
             {/* Mail: unread manager messages (managers/owner/god only) */}
             {isManager && (
@@ -491,11 +479,31 @@ export default function Dashboard() {
                     </div>
                   </button>
 
-                  {/* Notifications */}
-                  <button onClick={() => setShowUserMenu(false)}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors">
-                    <Bell className="w-3.5 h-3.5 text-muted-foreground" /> {t('menu.notifications')}
-                  </button>
+                  {/* Notifications push — toggle */}
+                  {isSupported && (
+                    <button
+                      onClick={async () => {
+                        if (permission !== 'granted') {
+                          await requestPermission();
+                        } else {
+                          // Can't revoke programmatically — inform user
+                          alert('Pour désactiver, modifiez les paramètres de votre navigateur.');
+                        }
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-muted transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        {permission === 'granted'
+                          ? <Bell className="w-3.5 h-3.5 text-muted-foreground" />
+                          : <BellOff className="w-3.5 h-3.5 text-muted-foreground" />
+                        }
+                        {t('menu.notifications')}
+                      </span>
+                      <div className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${permission === 'granted' ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+                        <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${permission === 'granted' ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </div>
+                    </button>
+                  )}
 
                   {/* Divider */}
                   <div className="border-t border-border my-1" />
