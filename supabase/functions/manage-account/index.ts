@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     // ── CREATE account ──────────────────────────────────────────────────────────
     if (action === 'create') {
-      const { name, email, password, role, team } = body;
+      const { name, email, password, role, team, restaurant_id } = body;
       if (!name || !email || !password) throw new Error('name, email, password required');
 
       // Create auth user
@@ -56,13 +56,16 @@ Deno.serve(async (req) => {
       if (!newUser) throw new Error('Failed to create user');
 
       // Create profile
-      const { error: profileErr } = await supabaseAdmin.from('profiles').insert({
+      const profileInsert: Record<string, unknown> = {
         id: newUser.id,
         name,
         team: team ?? 'BAR',
         pin_set: false,
         station_pin_set: false,
-      });
+      };
+      if (restaurant_id) profileInsert.restaurant_id = restaurant_id;
+
+      const { error: profileErr } = await supabaseAdmin.from('profiles').insert(profileInsert);
       if (profileErr && !profileErr.message.includes('duplicate')) throw profileErr;
 
       // Create role

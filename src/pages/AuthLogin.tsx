@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users, Delete, Plus, X, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, LogOut, Search, ArrowLeft, Building2, Users, Delete, Plus, X, RefreshCw, CheckCircle2, UserPlus } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
 import { supabase } from '../integrations/supabase/client';
 import { verifyPin } from '../lib/pinCrypto';
+import type { Session } from '@supabase/supabase-js';
 
 function generateCode(name: string): string {
   const prefix = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3).padEnd(3, 'X');
@@ -55,6 +56,148 @@ const resolveEmail = (input: string) => {
   const lower = input.trim().toLowerCase();
   return USERNAME_MAP[lower] ?? input.trim();
 };
+
+// ─── Empty accounts panel — create Owner + Station ───────────────────────────
+function EmptyAccountsPanel({
+  restaurant,
+  session,
+  onCreated,
+}: {
+  restaurant: Restaurant;
+  session: Session | null;
+  onCreated: () => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const ownerEmail = `${restaurant.code.toLowerCase()}@staffnb.app`;
+  const stationEmail = `station1${restaurant.code.toLowerCase()}@staffnb.app`;
+  const tempPassword = 'F00d!F00d!';
+
+  async function handleCreate() {
+    if (!session) return;
+    setCreating(true);
+    setError('');
+    try {
+      const token = session.access_token;
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      };
+      const base = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
+      // Create Owner
+      const ownerRes = await fetch(`${base}/manage-account`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create',
+          name: `Owner ${restaurant.name}`,
+          email: ownerEmail,
+          password: tempPassword,
+          role: 'owner',
+          team: 'MANAGEMENT',
+          restaurant_id: restaurant.id,
+        }),
+      });
+      const ownerData = await ownerRes.json();
+      if (!ownerData.success) throw new Error(`Owner: ${ownerData.error}`);
+
+      // Assign restaurant_id to owner profile
+      await supabase.from('profiles').update({ restaurant_id: restaurant.id }).eq('id', ownerData.userId);
+
+      // Create Station
+      const stationRes = await fetch(`${base}/manage-account`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create',
+          name: `Station ${restaurant.name}`,
+          email: stationEmail,
+          password: tempPassword,
+          role: 'station',
+          team: 'BAR',
+          restaurant_id: restaurant.id,
+        }),
+      });
+      const stationData = await stationRes.json();
+      if (!stationData.success) throw new Error(`Station: ${stationData.error}`);
+
+      // Assign restaurant_id to station profile
+      await supabase.from('profiles').update({ restaurant_id: restaurant.id }).eq('id', stationData.userId);
+
+      setDone(true);
+      setTimeout(onCreated, 1200);
+    } catch (err: any) {
+      setError(err.message ?? 'Erreur lors de la création des comptes.');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="text-center py-8 space-y-3 animate-slide-up">
+        <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
+        <p className="text-sm font-semibold text-foreground">Comptes créés avec succès !</p>
+        <p className="text-xs text-muted-foreground">Chargement de la liste…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-4 space-y-4 animate-slide-up">
+      <div className="text-center">
+        <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+        <p className="text-sm font-semibold text-foreground">Aucun compte dans ce restaurant</p>
+        <p className="text-xs text-muted-foreground mt-1">Créez les comptes initiaux avec la nomenclature standard</p>
+      </div>
+
+      {/* Preview des comptes à créer */}
+      <div className="bg-secondary/60 border border-border rounded-xl p-3 space-y-2.5 text-xs">
+        <div className="flex items-start gap-2.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-foreground">Propriétaire</p>
+            <p className="text-muted-foreground font-mono">{ownerEmail}</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-foreground">Station (appareil principal)</p>
+            <p className="text-muted-foreground font-mono">{stationEmail}</p>
+          </div>
+        </div>
+        <div className="border-t border-border pt-2 mt-1 flex items-center gap-1.5 text-muted-foreground">
+          <Lock className="w-3 h-3 flex-shrink-0" />
+          <span>Mot de passe temporaire : <span className="font-mono font-semibold text-foreground">F00d!F00d!</span></span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleCreate}
+        disabled={creating}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
+      >
+        {creating ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Création en cours…</>
+        ) : (
+          <><UserPlus className="w-4 h-4" /> Créer les comptes initiaux</>
+        )}
+      </button>
+      <p className="text-center text-xs text-muted-foreground/60">Le client devra changer le mot de passe lors de sa première connexion</p>
+    </div>
+  );
+}
 
 // ─── Initials avatar ──────────────────────────────────────────────────────────
 function InitialsAvatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
@@ -698,15 +841,29 @@ export default function AuthLogin() {
               </button>
             </div>
 
-            {accountsLoading ? (
+          {accountsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
             ) : accounts.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucun compte dans ce restaurant</p>
-              </div>
+              <EmptyAccountsPanel
+                restaurant={selectedRestaurant!}
+                session={session}
+                onCreated={async () => {
+                  // Reload accounts
+                  setAccountsLoading(true);
+                  const { data: profiles } = await supabase
+                    .from('profiles').select('id, name, photo_url, team').eq('restaurant_id', selectedRestaurant!.id);
+                  const { data: roles } = await supabase.from('user_roles').select('user_id, role');
+                  const roleMap = Object.fromEntries((roles ?? []).map((r: any) => [r.user_id, r.role]));
+                  const list: AccountEntry[] = (profiles ?? []).map((p: any) => ({
+                    id: p.id, name: p.name, role: roleMap[p.id] ?? 'staff', photo_url: p.photo_url, team: p.team,
+                  }));
+                  list.sort((a, b) => (ROLE_ORDER.indexOf(a.role) === -1 ? 99 : ROLE_ORDER.indexOf(a.role)) - (ROLE_ORDER.indexOf(b.role) === -1 ? 99 : ROLE_ORDER.indexOf(b.role)));
+                  setAccounts(list);
+                  setAccountsLoading(false);
+                }}
+              />
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {Object.entries(groupedAccounts).map(([role, group]) => (
