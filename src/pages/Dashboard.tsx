@@ -35,12 +35,14 @@ import { MenuModule } from '../components/menu/MenuModule';
 import PointagePage from './Pointage';
 import ProfilPage from './Profil';
 import { StockModule } from '../components/stock/StockModule';
+import { ClassesModule } from '../components/admin/ClassesModule';
+import { MembresModule } from '../components/admin/MembresModule';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
   CheckCircle, MessageSquare, AlertTriangle, ShoppingCart, Clock, Target,
-  CalendarDays, Thermometer, ChefHat, Home, User, Package,
-  FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
+  CalendarDays, Thermometer, ChefHat, Home, User, Users, Package,
+  FileText, KeyRound, Trophy, Activity, UtensilsCrossed, Shield,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
   Globe, RefreshCw, Store,
 } from 'lucide-react';
@@ -78,7 +80,8 @@ type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
-  | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms' | 'restaurants';
+  | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms' | 'restaurants'
+  | 'classes' | 'membres';
 
 interface Tile {
   id: ModuleKey;
@@ -278,12 +281,15 @@ export default function Dashboard() {
           { id: 'settings',     label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',  iconColor: 'text-slate-600 dark:text-slate-400' },
           { id: 'timesheets_all', label: 'Pointages',  emoji: '⏱️', icon: <Clock className="w-5 h-5" />,         color: 'bg-cyan-50 dark:bg-cyan-950/30',    iconColor: 'text-cyan-600 dark:text-cyan-400' },
           { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+          { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
           { id: 'rooms',        label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
         );
         // Admin/God only: restaurant management
         if (role === 'god' || role === 'admin') {
           tiles.push(
             { id: 'restaurants', label: 'Restaurants', emoji: '🏪', icon: <Store className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+            { id: 'classes',     label: 'Classes',     emoji: '🎓', icon: <Shield className="w-5 h-5" />, color: 'bg-purple-50 dark:bg-purple-950/30', iconColor: 'text-purple-600 dark:text-purple-400' },
+            { id: 'membres',     label: 'Membres',     emoji: '👥', icon: <Users className="w-5 h-5" />, color: 'bg-blue-50 dark:bg-blue-950/30', iconColor: 'text-blue-600 dark:text-blue-400' },
           );
         }
       }
@@ -324,6 +330,8 @@ export default function Dashboard() {
       case 'pins':      return <PinManagement />;
       case 'settings':  return <OwnerSettings />;
       case 'accounts':  return <AccountManagement />;
+      case 'classes':   return <ClassesModule />;
+      case 'membres':   return <MembresModule />;
       case 'rooms':     return <RoomManagement />;
       case 'restaurants': return <RestaurantManagement />;
       case 'contests':  return <MalusContestModule />;
@@ -343,6 +351,7 @@ export default function Dashboard() {
     planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
     settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations', accounts: 'Gestion des comptes',
     rooms: 'Gestion des salles', restaurants: 'Restaurants',
+    classes: 'Classes & Privilèges', membres: 'Gestion des Membres',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
     pointage: t('nav.timeclock'), profile: t('profile.title'),
   };
