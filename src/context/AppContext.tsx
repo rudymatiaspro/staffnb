@@ -484,7 +484,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [showToast]);
 
   const validateStationPin = useCallback((pin: string): User | null => {
-    if (!pin || pin.length !== 4) return null;
+    if (!pin || pin.length !== 6) return null;
     return users.find((u) => {
       if (!u.stationPinSet) return false;
       return u.stationPin === pin;

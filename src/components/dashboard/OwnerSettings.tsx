@@ -143,13 +143,13 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
     const setter = isConfirm ? setPinConfirmInput : setPinInput;
     if (key === 'del') { setter(current.slice(0, -1)); setPinError(''); return; }
     if (key === 'clear') { setter(''); setPinError(''); return; }
-    if (current.length >= 4) return;
+    if (current.length >= 6) return;
     setter(current + key);
   };
 
   const handlePinSubmit = () => {
     if (pinStep === 'enter') {
-      if (pinInput.length !== 4) { setPinError('PIN must be exactly 4 digits'); return; }
+      if (pinInput.length !== 6) { setPinError('Le PIN station doit être exactement 6 chiffres'); return; }
       setPinStep('confirm');
       setPinError('');
     } else {
@@ -653,17 +653,17 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
             </div>
 
             <p className="text-xs text-muted-foreground mb-4 text-center">
-              {pinStep === 'enter' ? 'Enter a 4-digit PIN for the clock-in station' : 'Re-enter the same PIN to confirm'}
+              {pinStep === 'enter' ? 'Saisissez un PIN station à 6 chiffres' : 'Ressaisissez le même PIN pour confirmer'}
             </p>
 
             {/* PIN dots */}
-            <div className="flex justify-center gap-4 mb-4">
-              {[0, 1, 2, 3].map((i) => {
+            <div className="flex justify-center gap-2.5 mb-4">
+              {[0, 1, 2, 3, 4, 5].map((i) => {
                 const val = pinStep === 'enter' ? pinInput : pinConfirmInput;
                 return (
                   <div
                     key={i}
-                    className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                    className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
                       i < val.length ? 'bg-primary scale-110' : 'bg-secondary border-2 border-border'
                     }`}
                   />
@@ -695,14 +695,14 @@ export function OwnerSettings({ readOnly = false }: { readOnly?: boolean }) {
                 onClick={pinStep === 'enter' ? closePinModal : () => { setPinStep('enter'); setPinConfirmInput(''); setPinError(''); }}
                 className="flex-1 py-2.5 rounded-xl border border-input text-sm font-medium hover:bg-secondary transition-colors"
               >
-                {pinStep === 'enter' ? 'Cancel' : 'Back'}
+                {pinStep === 'enter' ? 'Annuler' : 'Retour'}
               </button>
               <button
                 onClick={handlePinSubmit}
-                disabled={pinStep === 'enter' ? pinInput.length !== 4 : pinConfirmInput.length !== 4}
+                disabled={pinStep === 'enter' ? pinInput.length !== 6 : pinConfirmInput.length !== 6}
                 className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
               >
-                {pinStep === 'enter' ? 'Next →' : 'Save PIN'}
+                {pinStep === 'enter' ? 'Suivant →' : 'Enregistrer'}
               </button>
             </div>
           </div>

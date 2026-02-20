@@ -76,9 +76,9 @@ function PinPad({ pin, error, onKey, label, compact }: PinPadProps) {
   return (
     <div className={compact ? 'w-full max-w-[220px]' : 'w-full max-w-xs'}>
       {label && <p className="text-center text-xs text-muted-foreground mb-3">{label}</p>}
-      <div className="flex justify-center gap-3 mb-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className={`rounded-full transition-all duration-200 ${compact ? 'w-3 h-3' : 'w-4 h-4'} ${
+      <div className="flex justify-center gap-2 mb-4">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className={`rounded-full transition-all duration-200 ${compact ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} ${
             i < pin.length ? error ? 'bg-destructive scale-110' : 'bg-primary scale-110' : 'bg-secondary border-2 border-border'
           }`} />
         ))}
@@ -228,10 +228,10 @@ export default function Station() {
     if (clockState !== 'idle') return;
     if (key === 'clear') { setClockPin(''); setClockError(false); return; }
     if (key === 'del') { setClockPin(p => p.slice(0, -1)); setClockError(false); return; }
-    if (clockPin.length >= 4) return;
+    if (clockPin.length >= 6) return;
     const next = clockPin + key;
     setClockPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
         const user = validateStationPin(next);
         if (!user) {
@@ -283,10 +283,10 @@ export default function Station() {
   const handleTaskKey = useCallback(async (key: string) => {
     if (key === 'clear') { setTaskPin(''); setTaskError(false); return; }
     if (key === 'del') { setTaskPin(p => p.slice(0, -1)); setTaskError(false); return; }
-    if (taskPin.length >= 4) return;
+    if (taskPin.length >= 6) return;
     const next = taskPin + key;
     setTaskPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
         // Validate PIN against station_pin_hash in DB
         const user = validateStationPin(next);
