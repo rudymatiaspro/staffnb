@@ -44,7 +44,7 @@ import {
   CalendarDays, Thermometer, ChefHat, Home, User, Users, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed, Shield,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
-  Globe, RefreshCw, Store,
+  Globe, RefreshCw, Store, Edit2, X,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
@@ -247,7 +247,7 @@ export default function Dashboard() {
       { id: 'scores',    label: 'Mon Score',        emoji: '🏆', icon: <Trophy className="w-5 h-5" />,       color: 'bg-yellow-50 dark:bg-yellow-950/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
       { id: 'planning',  label: t('nav.planning'),  emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
       { id: 'orders',    label: 'Commandes',        emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30', iconColor: 'text-orange-600 dark:text-orange-400' },
-      { id: 'chat',      label: 'Équipe',           emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+      { id: 'chat',      label: 'Chat',             emoji: '💬', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
       { id: 'sos',       label: 'Incidents',        emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
       menuTile,
     ];
@@ -267,7 +267,7 @@ export default function Dashboard() {
         { id: 'orders',     label: 'Commandes',       emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />,  color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
         { id: 'stock',      label: 'Stock',           emoji: '📦', icon: <Package className="w-5 h-5" />,       color: 'bg-blue-50 dark:bg-blue-950/30',      iconColor: 'text-blue-600 dark:text-blue-400' },
         { id: 'haccp',      label: 'HACCP',           emoji: '🌡️', icon: <Thermometer className="w-5 h-5" />,   color: 'bg-teal-50 dark:bg-teal-950/30',      iconColor: 'text-teal-600 dark:text-teal-400' },
-        { id: 'chat',       label: 'Équipe',          emoji: '👥', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
+        { id: 'chat',       label: 'Chat',            emoji: '💬', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30',  iconColor: 'text-violet-600 dark:text-violet-400' },
         { id: 'sos',        label: 'Incidents',       emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
         { id: 'objectives', label: 'Objectifs',       emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
         { id: 'reports',    label: 'Rapports',        emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
@@ -587,6 +587,113 @@ export default function Dashboard() {
 // ══════════════════════════════════════════════════════════════════════════════
 // HomeScreen
 // ══════════════════════════════════════════════════════════════════════════════
+
+interface RoomInfo { id: string; name: string; team_key: string; }
+
+function TeamsBlock({ currentUser }: { currentUser: any }) {
+  const [rooms, setRooms] = useState<RoomInfo[]>([]);
+  const [assignedTeams, setAssignedTeams] = useState<string[]>([]);
+  const [editingTeam, setEditingTeam] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from('rooms').select('id, name, team_key').order('display_order').then(({ data }) => { if (data) setRooms(data); });
+    supabase.from('profile_teams').select('team').eq('profile_id', currentUser.id).then(({ data }) => {
+      if (data && data.length > 0) setAssignedTeams(data.map((r: any) => r.team));
+      else setAssignedTeams([currentUser.team]);
+    });
+  }, [currentUser.id]);
+
+  const getTeamName = (teamKey: string) => {
+    const room = rooms.find(r => r.team_key === teamKey);
+    return room?.name || TEAM_LABELS[teamKey] || teamKey;
+  };
+
+  const saveTeamName = async () => {
+    if (!editingTeam || !editName.trim()) return;
+    setNameSaving(true);
+    const room = rooms.find(r => r.team_key === editingTeam);
+    if (room) {
+      await supabase.from('rooms').update({ name: editName.trim() }).eq('id', room.id);
+      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, name: editName.trim() } : r));
+    }
+    setNameSaving(false);
+    setEditingTeam(null);
+  };
+
+  const displayedTeams = rooms.length > 0
+    ? rooms.map(r => r.team_key)
+    : ['BAR', 'KITCHEN', 'FLOOR', 'ATELIER', 'MANAGEMENT'];
+
+  return (
+    <>
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-bold text-foreground uppercase tracking-wide">Équipes</span>
+        </div>
+        <div className="p-3 grid grid-cols-2 gap-2">
+          {displayedTeams.map(teamKey => {
+            const active = assignedTeams.includes(teamKey);
+            return (
+              <div key={teamKey} className={`flex items-center rounded-xl border transition-all overflow-hidden ${
+                active ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary/40'
+              }`}>
+                <div className="flex items-center gap-2 px-3 py-2.5 flex-1 min-w-0">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${active ? 'bg-primary' : 'bg-border'}`} />
+                  <p className={`text-xs font-semibold truncate ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {getTeamName(teamKey)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setEditingTeam(teamKey); setEditName(getTeamName(teamKey)); }}
+                  className="px-2 py-2.5 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                  title="Renommer"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {editingTeam && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-foreground">Renommer l'équipe</h3>
+              <button onClick={() => setEditingTeam(null)} className="p-1 rounded-lg hover:bg-secondary">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') setEditingTeam(null); }}
+              className="w-full px-3 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary transition-colors mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditingTeam(null)} className="flex-1 py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-secondary">Annuler</button>
+              <button
+                onClick={saveTeamName}
+                disabled={nameSaving || !editName.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {nameSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function HomeScreen({ tiles, onSelect, role, currentUser, allTasks, team, isManager, currentTime }: {
   tiles: Tile[];
   onSelect: (id: ModuleKey) => void;
@@ -621,6 +728,9 @@ function HomeScreen({ tiles, onSelect, role, currentUser, allTasks, team, isMana
       <div className="grid grid-cols-3 gap-3">
         {tiles.map((tile) => <ModuleTile key={tile.id} tile={tile} onSelect={onSelect} />)}
       </div>
+
+      {/* Teams block */}
+      <TeamsBlock currentUser={currentUser} />
     </div>
   );
 }
