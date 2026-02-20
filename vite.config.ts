@@ -15,14 +15,14 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "favicon.svg", "logo.svg"],
+      includeAssets: ["favicon.ico", "favicon.svg", "icon-1024.png"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/, /^\/station/],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
       },
       manifest: {
-        name: "Staff&B · Casinha",
-        short_name: "Staff&B",
+        name: "Staff&b · Casinha",
+        short_name: "Staff&b",
         description: "Casinha Team Management",
         theme_color: "#0f172a",
         background_color: "#0f172a",
@@ -30,7 +30,9 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         start_url: "/",
         icons: [
-          { src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" },
+          { src: "/icon-1024.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-1024.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-1024.png", sizes: "1024x1024", type: "image/png", purpose: "maskable" },
         ],
       },
     }),
