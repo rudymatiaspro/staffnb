@@ -27,6 +27,7 @@ import { MonScore } from '../components/scoring/MonScore';
 import { OwnerSettings } from '../components/dashboard/OwnerSettings';
 import { AccountManagement } from '../components/dashboard/AccountManagement';
 import { RoomManagement } from '../components/dashboard/RoomManagement';
+import { RestaurantManagement } from '../components/dashboard/RestaurantManagement';
 import { ShiftSwapModule } from '../components/planning/ShiftSwapModule';
 import { StaffShiftsView } from '../components/planning/StaffShiftsView';
 import { StaffAvailabilityView } from '../components/planning/AvailabilityModule';
@@ -41,7 +42,7 @@ import {
   CalendarDays, Thermometer, ChefHat, Home, User, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
-  Globe, RefreshCw,
+  Globe, RefreshCw, Store,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
@@ -77,7 +78,7 @@ type ModuleKey =
   | 'home' | 'tasks' | 'chat' | 'sos' | 'orders' | 'timesheet' | 'objectives'
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
-  | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms';
+  | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms' | 'restaurants';
 
 interface Tile {
   id: ModuleKey;
@@ -224,6 +225,12 @@ export default function Dashboard() {
           { id: 'accounts',     label: 'Comptes',      emoji: '👤', icon: <User className="w-5 h-5" />,         color: 'bg-indigo-50 dark:bg-indigo-950/30', iconColor: 'text-indigo-600 dark:text-indigo-400' },
           { id: 'rooms',        label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
         );
+        // Admin/God only: restaurant management
+        if (role === 'god' || role === 'admin') {
+          tiles.push(
+            { id: 'restaurants', label: 'Restaurants', emoji: '🏪', icon: <Store className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
+          );
+        }
       }
       return tiles;
     }
@@ -263,6 +270,7 @@ export default function Dashboard() {
       case 'settings':  return <OwnerSettings />;
       case 'accounts':  return <AccountManagement />;
       case 'rooms':     return <RoomManagement />;
+      case 'restaurants': return <RestaurantManagement />;
       case 'contests':  return <MalusContestModule />;
       case 'swaps':     return <ShiftSwapModule />;
       case 'availability': return <StaffAvailabilityView />;
@@ -279,7 +287,7 @@ export default function Dashboard() {
     menu: 'Menu du Jour', haccp: 'HACCP', scores: 'Classement', reports: 'Rapports', stock: 'Stock',
     planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
     settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations', accounts: 'Gestion des comptes',
-    rooms: 'Gestion des salles',
+    rooms: 'Gestion des salles', restaurants: 'Restaurants',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
     pointage: t('nav.timeclock'), profile: t('profile.title'),
   };
