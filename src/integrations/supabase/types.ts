@@ -2112,6 +2112,14 @@ export type Database = {
       is_god_or_admin: { Args: never; Returns: boolean }
       is_manager_or_owner: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
+      is_restaurant_member: {
+        Args: { _restaurant_id: string }
+        Returns: boolean
+      }
+      is_restaurant_owner: {
+        Args: { _restaurant_id: string }
+        Returns: boolean
+      }
       recalculate_all_scores: { Args: never; Returns: undefined }
       spawn_recurring_orders: { Args: never; Returns: undefined }
       update_objective_progress: { Args: never; Returns: undefined }
