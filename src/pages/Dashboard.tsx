@@ -37,6 +37,7 @@ import ProfilPage from './Profil';
 import { StockModule } from '../components/stock/StockModule';
 import { ClassesModule } from '../components/admin/ClassesModule';
 import { MembresModule } from '../components/admin/MembresModule';
+import { CakesModule } from '../components/cakes/CakesModule';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
@@ -44,7 +45,7 @@ import {
   CalendarDays, Thermometer, ChefHat, Home, User, Users, Package,
   FileText, KeyRound, Trophy, Activity, UtensilsCrossed, Shield,
   Star, ChevronDown, ChevronUp, LayoutGrid, AlertOctagon, Settings, Sun, Moon, Plus,
-  Globe, RefreshCw, Store, Edit2, X,
+  Globe, RefreshCw, Store, Edit2, X, CakeSlice,
 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import logoDark from '../assets/logo-dark.svg';
@@ -81,7 +82,7 @@ type ModuleKey =
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
   | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms' | 'restaurants'
-  | 'classes' | 'membres';
+  | 'classes' | 'membres' | 'cakes';
 
 interface Tile {
   id: ModuleKey;
@@ -254,6 +255,7 @@ export default function Dashboard() {
       { id: 'chat',      label: 'Chat',             emoji: '💬', icon: <MessageSquare className="w-5 h-5" />, color: 'bg-violet-50 dark:bg-violet-950/30', iconColor: 'text-violet-600 dark:text-violet-400' },
       { id: 'sos',       label: 'Incidents',        emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
       menuTile,
+      { id: 'cakes', label: 'Cakes', emoji: '🧁', icon: <CakeSlice className="w-5 h-5" />, color: 'bg-pink-50 dark:bg-pink-950/30', iconColor: 'text-pink-600 dark:text-pink-400' },
     ];
 
     if (role === 'station') {
@@ -266,6 +268,7 @@ export default function Dashboard() {
         { id: 'sos',       label: 'Incidents',       emoji: '⚠️', icon: <AlertTriangle className="w-5 h-5" />, badge: unreadHighIncidents || undefined, color: 'bg-red-50 dark:bg-red-950/30', iconColor: 'text-red-600 dark:text-red-400' },
         { id: 'orders',    label: 'Commandes',       emoji: '📦', icon: <ShoppingCart className="w-5 h-5" />, color: 'bg-orange-50 dark:bg-orange-950/30',  iconColor: 'text-orange-600 dark:text-orange-400' },
         { id: 'planning',  label: t('nav.planning'), emoji: '📅', icon: <CalendarDays className="w-5 h-5" />, color: 'bg-indigo-50 dark:bg-indigo-950/30',  iconColor: 'text-indigo-600 dark:text-indigo-400' },
+        { id: 'cakes',     label: 'Cakes',           emoji: '🧁', icon: <CakeSlice className="w-5 h-5" />,    color: 'bg-pink-50 dark:bg-pink-950/30',      iconColor: 'text-pink-600 dark:text-pink-400' },
       ] as Tile[];
     }
 
@@ -289,6 +292,7 @@ export default function Dashboard() {
         { id: 'objectives', label: 'Objectifs',       emoji: '🎯', icon: <Target className="w-5 h-5" />,        color: 'bg-emerald-50 dark:bg-emerald-950/30', iconColor: 'text-emerald-600 dark:text-emerald-400' },
         { id: 'reports',    label: 'Rapports',        emoji: '📈', icon: <FileText className="w-5 h-5" />,      color: 'bg-slate-50 dark:bg-slate-950/30',    iconColor: 'text-slate-600 dark:text-slate-400' },
         menuTile,
+        { id: 'cakes', label: 'Cakes', emoji: '🧁', icon: <CakeSlice className="w-5 h-5" />, color: 'bg-pink-50 dark:bg-pink-950/30', iconColor: 'text-pink-600 dark:text-pink-400' },
       ];
         if (isOwner || isAdmin) {
         tiles.push(
@@ -354,6 +358,7 @@ export default function Dashboard() {
       case 'availability': return <StaffAvailabilityView />;
       case 'timesheets_all': return <TimesheetView />;
       case 'pointage':  return <PointagePage />;
+      case 'cakes':     return <CakesModule isAdmin={isOwner} />;
       case 'profile':   return <ProfilPage />;
       default:          return null;
     }
@@ -368,7 +373,7 @@ export default function Dashboard() {
     rooms: 'Gestion des salles', restaurants: 'Restaurants',
     classes: 'Classes & Privilèges', membres: 'Gestion des Membres',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
-    pointage: t('nav.timeclock'), profile: t('profile.title'),
+    pointage: t('nav.timeclock'), profile: t('profile.title'), cakes: 'Cakes',
   };
 
   const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });

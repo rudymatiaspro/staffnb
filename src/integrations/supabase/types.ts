@@ -105,6 +105,111 @@ export type Database = {
           },
         ]
       }
+      cake_production_logs: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          logged_by: string | null
+          logged_by_name: string
+          note: string | null
+          quantity: number
+          reference_id: string
+          reference_name: string
+          restaurant_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string
+          note?: string | null
+          quantity: number
+          reference_id: string
+          reference_name?: string
+          restaurant_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string
+          note?: string | null
+          quantity?: number
+          reference_id?: string
+          reference_name?: string
+          restaurant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cake_production_logs_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cake_production_logs_reference_id_fkey"
+            columns: ["reference_id"]
+            isOneToOne: false
+            referencedRelation: "cake_references"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cake_production_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cake_references: {
+        Row: {
+          category: string
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          is_custom: boolean
+          name: string
+          restaurant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_custom?: boolean
+          name: string
+          restaurant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_custom?: boolean
+          name?: string
+          restaurant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cake_references_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_menu_items: {
         Row: {
           category: string
