@@ -38,6 +38,7 @@ import { StockModule } from '../components/stock/StockModule';
 import { ClassesModule } from '../components/admin/ClassesModule';
 import { MembresModule } from '../components/admin/MembresModule';
 import { CakesModule } from '../components/cakes/CakesModule';
+import { BackOfficePermissions } from '../components/admin/BackOfficePermissions';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
@@ -82,7 +83,7 @@ type ModuleKey =
   | 'planning' | 'menu' | 'haccp' | 'scores' | 'leaderboard' | 'reports' | 'catalogue' | 'pins'
   | 'settings' | 'contests' | 'swaps' | 'availability' | 'timesheets_all'
   | 'pointage' | 'profile' | 'stock' | 'accounts' | 'rooms' | 'restaurants'
-  | 'classes' | 'membres' | 'cakes';
+  | 'classes' | 'membres' | 'cakes' | 'backoffice';
 
 interface Tile {
   id: ModuleKey;
@@ -302,6 +303,7 @@ export default function Dashboard() {
           { id: 'settings',       label: 'Paramètres',   emoji: '⚙️', icon: <Settings className="w-5 h-5" />,     color: 'bg-slate-50 dark:bg-slate-950/30',      iconColor: 'text-slate-600 dark:text-slate-400' },
           { id: 'timesheets_all', label: 'Pointages',    emoji: '⏱️', icon: <Clock className="w-5 h-5" />,        color: 'bg-cyan-50 dark:bg-cyan-950/30',         iconColor: 'text-cyan-600 dark:text-cyan-400' },
           { id: 'rooms',          label: 'Salles',       emoji: '🏠', icon: <Home className="w-5 h-5" />,          color: 'bg-emerald-50 dark:bg-emerald-950/30',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
+          { id: 'backoffice',     label: 'Back Office',  emoji: '🔐', icon: <Shield className="w-5 h-5" />,       color: 'bg-rose-50 dark:bg-rose-950/30',        iconColor: 'text-rose-600 dark:text-rose-400' },
         );
         // Admin/God only: Classes, Membres, Restaurants
         if (role === 'god' || role === 'admin') {
@@ -359,6 +361,7 @@ export default function Dashboard() {
       case 'timesheets_all': return <TimesheetView />;
       case 'pointage':  return <PointagePage />;
       case 'cakes':     return <CakesModule isAdmin={isOwner} />;
+      case 'backoffice': return <BackOfficePermissions isGodOrAdmin={role === 'god' || role === 'admin'} />;
       case 'profile':   return <ProfilPage />;
       default:          return null;
     }
@@ -371,7 +374,7 @@ export default function Dashboard() {
     planning: t('nav.planning'), objectives: 'Objectifs', catalogue: 'Catalogue', pins: 'PINs',
     settings: 'Paramètres', leaderboard: 'Classement', contests: 'Contestations', accounts: 'Gestion des comptes',
     rooms: 'Gestion des salles', restaurants: 'Restaurants',
-    classes: 'Classes & Privilèges', membres: 'Gestion des Membres',
+    classes: 'Classes & Privilèges', membres: 'Gestion des Membres', backoffice: 'Back Office — Permissions',
     swaps: 'Échanges de shifts', availability: 'Disponibilités', timesheets_all: 'Pointages',
     pointage: t('nav.timeclock'), profile: t('profile.title'), cakes: 'Cakes',
   };
@@ -788,7 +791,7 @@ function TasksModule({ role, team, isManager, onCreateTask }: {
     <div className="px-4 pt-4 space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground">Tâches du jour</h2>
-        {isManager && (
+        {(isManager || role === 'station') && (
           <button onClick={onCreateTask}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity">
             <Plus className="w-3.5 h-3.5" /> Nouvelle
