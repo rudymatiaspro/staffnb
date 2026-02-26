@@ -293,10 +293,10 @@ export function ManagerView() {
                     {expanded && (
                       <div className="px-4 pb-4 space-y-2 animate-slide-up">
                         {pending.map((task) => (
-                          <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} compact />
+                          <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} compact />
                         ))}
                         {done.map((task) => (
-                          <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} compact />
+                          <TaskCard key={task.id} task={task} canComplete={false} canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} compact />
                         ))}
                         {teamTasks.length === 0 && (
                           <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
