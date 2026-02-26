@@ -310,15 +310,15 @@ export function ManagerView() {
           ) : (
             <div className="space-y-3">
               {filteredTasks.filter(t => t.status === 'overdue').map(task => (
-                <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
+                <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
               ))}
               {filteredTasks.filter(t => t.status === 'pending')
                 .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
                 .map(task => (
-                  <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
+                  <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
                 ))}
               {filteredTasks.filter(t => t.status === 'done').map(task => (
-                <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} />
+                <TaskCard key={task.id} task={task} canComplete={false} canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
               ))}
               {filteredTasks.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
