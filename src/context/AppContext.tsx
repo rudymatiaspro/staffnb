@@ -550,9 +550,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) db.deleteTemplate(templateId);
   }, [showToast, isAuthenticated, db]);
 
-  const deleteTask = useCallback((taskId: string) => {
+  const deleteTask = useCallback(async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }, []);
+    if (isAuthenticated) {
+      await supabase.from('tasks').delete().eq('id', taskId);
+    }
+  }, [isAuthenticated]);
 
   const updateGamificationSettings = useCallback((settings: GamificationSettings) => {
     setGamificationSettings(settings);
