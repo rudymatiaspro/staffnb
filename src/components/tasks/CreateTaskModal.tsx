@@ -91,7 +91,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
     new Date().toISOString().split('T')[0]
   );
   const [deadlineTime, setDeadlineTime] = useState('09:00');
-  const [priority, setPriority]       = useState<'normale' | 'urgente'>('normale');
+  const [priority, setPriority]       = useState<'normal' | 'urgent'>('normal');
   const [submitting, setSubmitting]   = useState(false);
 
   // Recurrence
@@ -169,7 +169,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         assigned_user_id: assignedUserId || null,
         assigned_user_name: assignedUser?.name || null,
         created_by: authUserId || currentUser?.id || null,
-        points: priority === 'urgente' ? 20 : 10,
+        points: priority === 'urgent' ? 20 : 10,
         priority: priority,
         restaurant_id: restaurantId,
         // Recurrence
@@ -328,9 +328,9 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setPriority('normale')}
+                onClick={() => setPriority('normal')}
                 className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold border transition-all ${
-                  priority === 'normale'
+                  priority === 'normal'
                     ? 'bg-primary/10 text-primary border-primary'
                     : 'bg-muted text-muted-foreground border-border hover:border-muted-foreground'
                 }`}
@@ -339,9 +339,9 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setPriority('urgente')}
+                onClick={() => setPriority('urgent')}
                 className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
-                  priority === 'urgente'
+                  priority === 'urgent'
                     ? 'bg-destructive/10 text-destructive border-destructive'
                     : 'bg-muted text-muted-foreground border-border hover:border-destructive/50'
                 }`}
