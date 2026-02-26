@@ -339,7 +339,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setPriority('urgente')}
+                onClick={() => setPriority('urgent')}}
                 className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
                   priority === 'urgente'
                     ? 'bg-destructive/10 text-destructive border-destructive'
