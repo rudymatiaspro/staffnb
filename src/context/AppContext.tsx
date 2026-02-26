@@ -3,6 +3,7 @@ import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamSco
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 import { useSupabaseData, StaffRanking } from '../integrations/supabase/hooks';
 import { useAuth } from './AuthContext';
+import { supabase } from '../integrations/supabase/client';
 
 export interface ValidationEvent {
   id: string;
@@ -550,9 +551,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) db.deleteTemplate(templateId);
   }, [showToast, isAuthenticated, db]);
 
-  const deleteTask = useCallback((taskId: string) => {
+  const deleteTask = useCallback(async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }, []);
+    if (isAuthenticated) {
+      await supabase.from('tasks').delete().eq('id', taskId);
+    }
+  }, [isAuthenticated]);
 
   const updateGamificationSettings = useCallback((settings: GamificationSettings) => {
     setGamificationSettings(settings);

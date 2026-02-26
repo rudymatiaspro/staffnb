@@ -39,6 +39,8 @@ type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'orders' | 'ti
 
 export function ManagerView() {
   const { getTodayTasks, deleteTask, validationLog, getTeamScore, users, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents } = useApp();
+  const userRole = currentUser?.role as string;
+  const canManageTasks = userRole === 'god' || userRole === 'admin' || userRole === 'owner';
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filterTeam, setFilterTeam] = useState<Team | 'ALL'>('ALL');
@@ -291,10 +293,10 @@ export function ManagerView() {
                     {expanded && (
                       <div className="px-4 pb-4 space-y-2 animate-slide-up">
                         {pending.map((task) => (
-                          <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} compact />
+                          <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} compact />
                         ))}
                         {done.map((task) => (
-                          <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} compact />
+                          <TaskCard key={task.id} task={task} canComplete={false} canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} compact />
                         ))}
                         {teamTasks.length === 0 && (
                           <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
@@ -308,15 +310,15 @@ export function ManagerView() {
           ) : (
             <div className="space-y-3">
               {filteredTasks.filter(t => t.status === 'overdue').map(task => (
-                <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
+                <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
               ))}
               {filteredTasks.filter(t => t.status === 'pending')
                 .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
                 .map(task => (
-                  <TaskCard key={task.id} task={task} canComplete canDelete onDelete={() => deleteTask(task.id)} />
+                  <TaskCard key={task.id} task={task} canComplete canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
                 ))}
               {filteredTasks.filter(t => t.status === 'done').map(task => (
-                <TaskCard key={task.id} task={task} canComplete={false} canDelete onDelete={() => deleteTask(task.id)} />
+                <TaskCard key={task.id} task={task} canComplete={false} canDelete={canManageTasks} onDelete={() => deleteTask(task.id)} />
               ))}
               {filteredTasks.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
