@@ -139,7 +139,11 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
       if (confirmPin !== newPin) { setPinError('Les PINs ne correspondent pas.'); setConfirmPin(''); return; }
       setPinSaving(true);
       const hash = await hashPin(newPin);
-      await supabase.functions.invoke('update-pin', { body: { profileId: currentUser.id, pinHash: hash, pinSet: true } });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      await supabase.functions.invoke('update-pin', {
+        body: { profileId: currentUser.id, pinHash: hash, pinSet: true },
+      });
       setPinSaving(false); setPinSaved(true);
       setTimeout(() => { setShowPinChange(false); setPinStep('old'); setOldPin(''); setNewPin(''); setConfirmPin(''); setPinSaved(false); }, 2000);
     }

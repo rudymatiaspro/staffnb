@@ -24,11 +24,11 @@ async function updatePinHash(profileId: string, pinHash: string, pinSet = true) 
 
     if (!error) return;
 
-    // Fallback: use edge function for synthetic (PIN-only) profiles
+    // Fallback: use edge function (requires auth session)
     const { data: { session } } = await supabase.auth.getSession();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
+    if (!session?.access_token) {
+      console.warn('[updatePinHash] No auth session — cannot call edge function');
+      return;
     }
     await supabase.functions.invoke('update-pin', {
       body: { profileId, pinHash, pinSet },
