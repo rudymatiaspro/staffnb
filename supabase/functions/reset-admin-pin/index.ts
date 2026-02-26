@@ -1,12 +1,13 @@
 /**
  * Edge function to reset admin PINs using PBKDF2 server-side.
- * Only callable internally (no auth required since it's a one-time setup helper).
- * Uses Web Crypto API (available in Deno).
+ * Requires authentication and god/admin role.
  */
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const ITERATIONS = 100_000;
@@ -37,16 +38,50 @@ async function hashPin(pin: string): Promise<string> {
   return `${bufToB64(saltBuf)}:${bufToB64(bits)}`;
 }
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    // ── AUTH: Validate JWT ──
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Invalid authentication' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const callerId = claimsData.claims.sub as string;
+
+    // ── AUTHORIZATION: Only god/admin can reset PINs ──
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: callerRole } = await serviceClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', callerId)
+      .single();
+
+    if (!callerRole || !['god', 'admin'].includes(callerRole.role)) {
+      return new Response(JSON.stringify({ error: 'Forbidden — god/admin only' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = await req.json().catch(() => ({}));
     const { pin = '7839', userIds } = body;
@@ -60,7 +95,7 @@ Deno.serve(async (req) => {
     const results = [];
     for (const userId of userIds) {
       const newHash = await hashPin(pin);
-      const { error } = await supabase
+      const { error } = await serviceClient
         .from('profiles')
         .update({
           pin_hash: newHash,
@@ -78,7 +113,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
