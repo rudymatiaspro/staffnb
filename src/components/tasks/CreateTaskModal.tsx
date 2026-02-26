@@ -330,7 +330,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
                 type="button"
                 onClick={() => setPriority('normal')}}
                 className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold border transition-all ${
-                  priority === 'normale'
+                  priority === 'normal'
                     ? 'bg-primary/10 text-primary border-primary'
                     : 'bg-muted text-muted-foreground border-border hover:border-muted-foreground'
                 }`}
