@@ -91,7 +91,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
     new Date().toISOString().split('T')[0]
   );
   const [deadlineTime, setDeadlineTime] = useState('09:00');
-  const [priority, setPriority]       = useState<'normale' | 'urgente'>('normale');
+  const [priority, setPriority]       = useState<'normal' | 'urgent'>('normal');
   const [submitting, setSubmitting]   = useState(false);
 
   // Recurrence
