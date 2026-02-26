@@ -39,7 +39,8 @@ type ManagerTab = 'tasks' | 'activity' | 'scores' | 'catalogue' | 'orders' | 'ti
 
 export function ManagerView() {
   const { getTodayTasks, deleteTask, validationLog, getTeamScore, users, dayCloseState, dayReports, triggerCloseDay, currentUser, unreadHighIncidents, clearIncidentBadge, incidents } = useApp();
-  const canDeleteTasks = currentUser?.role === 'god' || currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const userRole = currentUser?.role as string;
+  const canManageTasks = userRole === 'god' || userRole === 'admin' || userRole === 'owner';
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filterTeam, setFilterTeam] = useState<Team | 'ALL'>('ALL');
