@@ -3,6 +3,7 @@ import { AppState, User, Task, TaskTemplate, GamificationSettings, Team, TeamSco
 import { INITIAL_USERS, INITIAL_TEMPLATES, INITIAL_GAMIFICATION } from '../data/initialData';
 import { useSupabaseData, StaffRanking } from '../integrations/supabase/hooks';
 import { useAuth } from './AuthContext';
+import { supabase } from '../integrations/supabase/client';
 
 export interface ValidationEvent {
   id: string;
