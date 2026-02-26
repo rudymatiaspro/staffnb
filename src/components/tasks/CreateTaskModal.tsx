@@ -169,7 +169,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
         assigned_user_id: assignedUserId || null,
         assigned_user_name: assignedUser?.name || null,
         created_by: authUserId || currentUser?.id || null,
-        points: priority === 'urgente' ? 20 : 10,
+        points: priority === 'urgent' ? 20 : 10,
         priority: priority,
         restaurant_id: restaurantId,
         // Recurrence
