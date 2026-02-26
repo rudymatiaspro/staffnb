@@ -328,7 +328,7 @@ export function CreateTaskModal({ onClose }: CreateTaskModalProps) {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setPriority('normale')}
+                onClick={() => setPriority('normal')}}
                 className={`flex-1 py-2.5 rounded-xl text-[14px] font-semibold border transition-all ${
                   priority === 'normale'
                     ? 'bg-primary/10 text-primary border-primary'
