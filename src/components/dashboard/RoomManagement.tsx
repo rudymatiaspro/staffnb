@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../integrations/supabase/client';
 import { useApp } from '../../context/AppContext';
 import type { Team } from '../../types';
 import {
-  Home, Plus, Trash2, Edit2, Check, X, GripVertical,
+  Home, Plus, Trash2, Edit2, Check, X,
   AlertTriangle, Loader2, Users, ArrowUp, ArrowDown, ShieldAlert,
 } from 'lucide-react';
 
@@ -73,12 +73,12 @@ export function RoomManagement() {
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('blue');
 
-  // Reassign member modal
-  const [reassignUserId, setReassignUserId] = useState<string | null>(null);
-  const [reassignTeamKey, setReassignTeamKey] = useState('');
-
   // Delete confirm
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Drag-and-drop state
+  const [draggedUserId, setDraggedUserId] = useState<string | null>(null);
+  const [dragOverRoomId, setDragOverRoomId] = useState<string | null>(null);
 
   // ── Fetch ──
   const fetchRooms = async () => {
@@ -144,8 +144,7 @@ export function RoomManagement() {
 
   // ── Delete room ──
   const handleDeleteRoom = async (room: Room) => {
-    if (room.is_system) return showFeedback('error', 'Les salles système ne peuvent pas être supprimées.');
-    // Check if members are assigned
+    if (room.is_system) return showFeedback('error', 'La salle système ne peut pas être supprimée.');
     const members = users.filter(u => u.team === room.team_key);
     if (members.length > 0) {
       return showFeedback('error', `Impossible : ${members.length} membre(s) sont encore dans cette salle. Réaffectez-les d'abord.`);
@@ -179,22 +178,49 @@ export function RoomManagement() {
     fetchRooms();
   };
 
-  // ── Reassign member ──
-  const handleReassign = async () => {
-    if (!reassignUserId || !reassignTeamKey) return;
-    const user = users.find(u => u.id === reassignUserId);
-    if (!user) return;
+  // ── Drag & Drop reassign ──
+  const handleDragStart = (e: React.DragEvent, userId: string) => {
+    setDraggedUserId(userId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', userId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, roomId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverRoomId(roomId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverRoomId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetRoom: Room) => {
+    e.preventDefault();
+    setDragOverRoomId(null);
+    const userId = e.dataTransfer.getData('text/plain') || draggedUserId;
+    setDraggedUserId(null);
+    if (!userId) return;
+
+    const user = users.find(u => u.id === userId);
+    if (!user || user.team === targetRoom.team_key) return;
+
     setSaving(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('profiles') as any).update({ team: reassignTeamKey }).eq('id', reassignUserId);
+    const { error } = await (supabase.from('profiles') as any).update({ team: targetRoom.team_key }).eq('id', userId);
     setSaving(false);
+
     if (error) {
       showFeedback('error', error.message);
     } else {
-      updateUser({ ...user, team: reassignTeamKey as Team });
-      showFeedback('success', `✅ ${user.name} affecté(e) à ${rooms.find(r => r.team_key === reassignTeamKey)?.name}`);
-      setReassignUserId(null);
+      updateUser({ ...user, team: targetRoom.team_key as Team });
+      showFeedback('success', `✅ ${user.name} → ${targetRoom.name}`);
     }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedUserId(null);
+    setDragOverRoomId(null);
   };
 
   // ── Members per room ──
@@ -218,7 +244,7 @@ export function RoomManagement() {
             <Home className="w-4 h-4 text-primary" />
             Gestion des salles
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{rooms.length} salle{rooms.length > 1 ? 's' : ''} · glissez pour réagencer</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{rooms.length} salle{rooms.length > 1 ? 's' : ''} · glissez les membres pour les réaffecter</p>
         </div>
         <button
           onClick={() => setShowAdd(!showAdd)}
@@ -293,9 +319,20 @@ export function RoomManagement() {
           const isEditing = editingId === room.id;
           const isDeleteConfirm = deleteConfirmId === room.id;
           const colorBg = COLOR_BG[room.color] || COLOR_BG.blue;
+          const isDragOver = dragOverRoomId === room.id;
 
           return (
-            <div key={room.id} className="rounded-xl border border-border overflow-hidden bg-card">
+            <div
+              key={room.id}
+              className={`rounded-xl border overflow-hidden bg-card transition-all ${
+                isDragOver
+                  ? 'border-primary ring-2 ring-primary/30 scale-[1.01]'
+                  : 'border-border'
+              }`}
+              onDragOver={(e) => handleDragOver(e, room.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, room)}
+            >
 
               {/* Room header row */}
               <div className="flex items-center gap-3 px-4 py-3">
@@ -411,84 +448,50 @@ export function RoomManagement() {
                 </div>
               </div>
 
-              {/* Members list */}
-              {members.length > 0 && (
-                <div className="border-t border-border px-4 py-2.5 bg-muted/30">
+              {/* Members list (draggable) + drop zone */}
+              <div className={`border-t border-border px-4 py-2.5 transition-colors ${
+                isDragOver ? 'bg-primary/10' : members.length > 0 ? 'bg-muted/30' : 'bg-transparent'
+              }`}>
+                {members.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {members.map(member => (
-                      <button
+                      <div
                         key={member.id}
-                        onClick={() => { setReassignUserId(member.id); setReassignTeamKey(member.team); }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border hover:border-primary/50 transition-colors ${colorBg}`}
-                        title="Cliquer pour réaffecter"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, member.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border cursor-grab active:cursor-grabbing select-none transition-all hover:border-primary/50 ${colorBg} ${
+                          draggedUserId === member.id ? 'opacity-40 scale-95' : ''
+                        }`}
+                        title="Glissez pour réaffecter"
                       >
                         <span>{member.name}</span>
-                        <GripVertical className="w-3 h-3 opacity-50" />
-                      </button>
+                        <svg className="w-3 h-3 opacity-40" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                          <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                          <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                        </svg>
+                      </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className={`text-[11px] italic transition-colors ${isDragOver ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                    {isDragOver ? '↓ Déposer ici pour affecter' : 'Aucun membre — glissez un membre ici'}
+                  </p>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Reassign modal */}
-      {reassignUserId && (() => {
-        const user = users.find(u => u.id === reassignUserId);
-        if (!user) return null;
-        return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm px-4 pb-4 sm:pb-0"
-            onClick={() => setReassignUserId(null)}>
-            <div
-              className="w-full max-w-sm bg-card rounded-2xl border border-border p-5 space-y-4 shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Réaffecter {user.name}</h3>
-                <p className="text-xs text-muted-foreground mt-1">Salle actuelle : <span className="font-medium text-foreground">{rooms.find(r => r.team_key === user.team)?.name ?? user.team}</span></p>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {rooms.map(r => (
-                  <button
-                    key={r.team_key}
-                    onClick={() => setReassignTeamKey(r.team_key)}
-                    className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left flex items-center gap-2 ${
-                      reassignTeamKey === r.team_key
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-secondary text-foreground hover:border-primary/30'
-                    }`}
-                  >
-                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${COLOR_DOT[r.color] || 'bg-blue-500'}`} />
-                    {r.name}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setReassignUserId(null)} className="flex-1 py-2.5 rounded-xl bg-secondary text-secondary-foreground text-sm">
-                  Annuler
-                </button>
-                <button
-                  onClick={handleReassign}
-                  disabled={saving || !reassignTeamKey || reassignTeamKey === user.team}
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Confirmer
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Info note */}
       <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-muted/50 border border-border">
         <ShieldAlert className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Les salles <strong>système</strong> (Bar, Cuisine, Salle, Atelier, Direction) ne peuvent pas être supprimées mais peuvent être renommées.
-          Pour supprimer une salle personnalisée, tous ses membres doivent d'abord être réaffectés.
+          La salle <strong>système</strong> ({rooms.find(r => r.is_system)?.name ?? 'Salle principale'}) est la salle par défaut et ne peut pas être supprimée.
+          Toutes les autres salles peuvent être supprimées une fois leurs membres réaffectés.
+          Glissez-déposez les badges pour réaffecter les membres.
         </p>
       </div>
     </div>
