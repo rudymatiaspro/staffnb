@@ -108,7 +108,7 @@ export default function Login() {
     }
 
     if (!selectedUser.pinSet) {
-      // First login — any PIN accepted (default 1111), force new PIN choice
+      // First login — any PIN accepted (default 000111), force new PIN choice
       setPendingPin('');
       setStep('set_new_pin');
       return;
