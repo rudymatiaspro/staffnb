@@ -413,7 +413,7 @@ export function MembresModule() {
               </button>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSetPin} disabled={pinSaving || newPin.length < 4} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-40">
+              <button onClick={handleSetPin} disabled={pinSaving || newPin.length < 6} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-40">
                 {pinSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 Enregistrer
               </button>

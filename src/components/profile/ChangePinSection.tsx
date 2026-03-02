@@ -115,7 +115,7 @@ export function ChangePinSection() {
         onChange={setOldPin}
         show={showOld}
         onToggle={() => setShowOld(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
       <PinInput
         label="Nouveau PIN"
@@ -123,7 +123,7 @@ export function ChangePinSection() {
         onChange={setNewPin}
         show={showNew}
         onToggle={() => setShowNew(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
       <PinInput
         label="Confirmer le nouveau PIN"
@@ -131,7 +131,7 @@ export function ChangePinSection() {
         onChange={setConfirmPin}
         show={showNew}
         onToggle={() => setShowNew(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
 
       {error && (

@@ -94,7 +94,7 @@ async function validateStaffPin4(pin: string, users: User[]): Promise<User | nul
 }
 
 // ─── PIN Pad ──────────────────────────────────────────────────────────────────
-// digits: 4 for staff identification, 6 for station device lock
+// digits: 6 for staff identification, 6 for station device lock
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 
 interface PinPadProps {

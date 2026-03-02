@@ -133,7 +133,7 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
       if (!valid) { setPinError('PIN actuel incorrect.'); setOldPin(''); return; }
       setPinError(''); setPinStep('new');
     } else if (pinStep === 'new') {
-      if (newPin.length !== 4) return;
+      if (newPin.length !== 6) return;
       setPinStep('confirm');
     } else {
       if (confirmPin !== newPin) { setPinError('Les PINs ne correspondent pas.'); setConfirmPin(''); return; }

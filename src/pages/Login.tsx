@@ -240,8 +240,8 @@ export default function Login() {
               <div className="text-center space-y-1">
                 <p className="text-sm font-semibold text-foreground">Bienvenue, {selectedUser.name} !</p>
                 <p className="text-xs text-muted-foreground">
-                  Première connexion — choisis ton PIN personnel.<br />
-                  Il remplacera le PIN par défaut <strong>1111</strong>.
+                  Première connexion — choisis ton PIN personnel à 6 chiffres.<br />
+                  Il remplacera le PIN par défaut <strong>000111</strong>.
                 </p>
               </div>
               <PinEntry

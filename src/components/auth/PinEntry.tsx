@@ -109,8 +109,8 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
       </div>
 
       {/* PIN dots */}
-      <div className={`flex justify-center gap-5 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
-        {[0, 1, 2, 3].map((i) => (
+      <div className={`flex justify-center gap-4 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
             className={`w-4 h-4 rounded-full transition-all duration-200 ${
