@@ -185,8 +185,8 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
               </div>
 
               {/* PIN dots */}
-              <div className="flex justify-center gap-4 my-4">
-                {[0, 1, 2, 3].map((i) => (
+              <div className="flex justify-center gap-3 my-4">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
                     pin.length > i ? 'bg-primary border-primary' : 'border-border'
                   }`} />
