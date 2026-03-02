@@ -66,7 +66,7 @@ const TEAM_LABELS: Record<string, string> = {
 };
 
 // ─── Validate staff PIN via Supabase (4-digit individual PIN) ─────────────────
-async function validateStaffPin4(pin: string, users: User[]): Promise<User | null> {
+async function validateStaffPin6(pin: string, users: User[]): Promise<User | null> {
   if (!pin || pin.length !== 6) return null;
   for (const u of users) {
     if (u.role === 'station') continue; // skip station device account
@@ -105,7 +105,7 @@ interface PinPadProps {
   compact?: boolean;
   digits?: 4 | 6;
 }
-function PinPad({ pin, error, onKey, label, compact, digits = 4 }: PinPadProps) {
+function PinPad({ pin, error, onKey, label, compact, digits = 6 }: PinPadProps) {
   return (
     <div className={compact ? 'w-full max-w-[220px]' : 'w-full max-w-xs'}>
       {label && <p className="text-center text-xs text-muted-foreground mb-3">{label}</p>}
@@ -264,13 +264,13 @@ export default function Station() {
     if (clockState !== 'idle') return;
     if (key === 'clear') { setClockPin(''); setClockError(false); return; }
     if (key === 'del') { setClockPin(p => p.slice(0, -1)); setClockError(false); return; }
-    if (clockPin.length >= 4) return;
+    if (clockPin.length >= 6) return;
     const next = clockPin + key;
     setClockPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
-        // Verify 4-digit individual staff PIN via Supabase
-        const user = await validateStaffPin4(next, users);
+        // Verify 6-digit individual staff PIN via Supabase
+        const user = await validateStaffPin6(next, users);
         if (!user) {
           setClockError(true);
           setClockPin('');
@@ -319,12 +319,12 @@ export default function Station() {
   const handleTaskKey = useCallback(async (key: string) => {
     if (key === 'clear') { setTaskPin(''); setTaskError(false); return; }
     if (key === 'del') { setTaskPin(p => p.slice(0, -1)); setTaskError(false); return; }
-    if (taskPin.length >= 4) return;
+    if (taskPin.length >= 6) return;
     const next = taskPin + key;
     setTaskPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
-        const user = await validateStaffPin4(next, users);
+        const user = await validateStaffPin6(next, users);
         if (!user || !taskToValidate) {
           setTaskError(true);
           setTaskPin('');
@@ -403,9 +403,9 @@ export default function Station() {
                 pin={taskPin}
                 error={taskError}
                 onKey={handleTaskKey}
-                label="Entrez votre PIN (4 chiffres) pour valider"
+                label="Entrez votre PIN (6 chiffres) pour valider"
                 compact
-                digits={4}
+                digits={6}
               />
             </div>
             {taskError && (
@@ -464,8 +464,8 @@ export default function Station() {
                 pin={clockPin}
                 error={clockError}
                 onKey={handleClockKey}
-                label="Entrez votre PIN (4 chiffres)"
-                digits={4}
+                label="Entrez votre PIN (6 chiffres)"
+                digits={6}
               />
               {clockError && (
                 <p className="text-xs text-destructive font-medium mt-3 animate-wiggle">PIN inconnu — réessayez</p>

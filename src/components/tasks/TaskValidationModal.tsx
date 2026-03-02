@@ -185,8 +185,8 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
               </div>
 
               {/* PIN dots */}
-              <div className="flex justify-center gap-4 my-4">
-                {[0, 1, 2, 3].map((i) => (
+              <div className="flex justify-center gap-3 my-4">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
                     pin.length > i ? 'bg-primary border-primary' : 'border-border'
                   }`} />
@@ -220,7 +220,7 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
                 </button>
                 <button
                   onClick={handleValidate}
-                  disabled={pin.length !== 4 || uploading}
+                  disabled={pin.length !== 6 || uploading}
                   className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
                 >
                   {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
