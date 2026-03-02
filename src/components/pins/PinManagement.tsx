@@ -203,10 +203,10 @@ function UserPinRow({ user, showPin, isEditing, newPin, pinError, onToggleShow, 
             <input
               type="text"
               inputMode="numeric"
-              placeholder="4-digit PIN"
+              placeholder="PIN à 6 chiffres"
               value={newPin}
               onChange={e => onPinChange(e.target.value)}
-              maxLength={4}
+              maxLength={6}
               className="flex-1 text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground font-mono tracking-widest placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button onClick={onGenerate} title="Generate random PIN" className="p-2 rounded-xl border border-border hover:bg-secondary">

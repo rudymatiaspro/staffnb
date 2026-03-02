@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
       const profileInsert: Record<string, unknown> = {
         id: newUser.id,
         name,
+        email,
         team: team ?? 'BAR',
         pin_set: false,
         station_pin_set: false,
