@@ -1253,6 +1253,7 @@ export type Database = {
           birth_date: string | null
           created_at: string
           dark_mode: boolean | null
+          email: string | null
           id: string
           internal_note: string | null
           language_preference: string | null
@@ -1278,6 +1279,7 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           dark_mode?: boolean | null
+          email?: string | null
           id: string
           internal_note?: string | null
           language_preference?: string | null
@@ -1303,6 +1305,7 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           dark_mode?: boolean | null
+          email?: string | null
           id?: string
           internal_note?: string | null
           language_preference?: string | null
