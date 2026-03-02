@@ -405,7 +405,7 @@ export function MembresModule() {
                 maxLength={6}
                 value={newPin}
                 onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="4 ou 6 chiffres"
+                placeholder="6 chiffres"
                 className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <button type="button" onClick={() => setShowNewPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
