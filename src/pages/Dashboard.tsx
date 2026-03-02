@@ -384,6 +384,34 @@ export default function Dashboard() {
 
   const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+  const isMobile = useIsMobile();
+  const showDesktopBackOffice = !isMobile && isOwner;
+
+  // ── Desktop back-office layout for God/Admin/Owner ──
+  if (showDesktopBackOffice) {
+    return (
+      <>
+        <GodBanner />
+        <BackOfficeLayout
+          activeModule={activeModule as BOModuleKey}
+          onModuleSelect={(id) => setActiveModule(id as ModuleKey)}
+          role={role ?? 'owner'}
+          userName={currentUser.name}
+          restaurantName={restaurantName}
+          onSignOut={() => signOut()}
+          onChangeUser={() => logout()}
+          onToggleTheme={handleToggleDark}
+          theme={theme}
+          moduleTitle={moduleTitle[activeModule] ?? 'Accueil'}
+        >
+          {renderModule()}
+          {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
+          <ToastNotification />
+        </BackOfficeLayout>
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <GodBanner />
