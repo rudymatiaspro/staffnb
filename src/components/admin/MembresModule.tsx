@@ -525,6 +525,14 @@ export function MembresModule() {
                       <label className="text-xs text-muted-foreground mb-1 block">Nom</label>
                       <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
                     </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                      <input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="email@domaine.com" className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Téléphone</label>
+                      <input type="tel" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="+33 6 12 34 56 78" className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
+                    </div>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Rôle</label>
                       <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))} className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary">
