@@ -102,7 +102,7 @@ function StationPinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-// ─── PIN re-lock overlay (standard 4-digit) ────────────────────────────────────
+// ─── PIN re-lock overlay (standard 6-digit) ────────────────────────────────────
 // Shown when user returns to the app after leaving (without logout)
 function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   const { currentUser } = useApp();
