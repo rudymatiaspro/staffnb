@@ -209,7 +209,7 @@ export function MembresModule() {
       const token = await getToken();
       const res = await supabase.functions.invoke('manage-account', {
         headers: { Authorization: `Bearer ${token}` },
-        body: { action: 'update_role', userId, role: editForm.role, team: editForm.team, name: editForm.name, status: editForm.status, internal_note: editForm.note },
+        body: { action: 'update_role', userId, role: editForm.role, team: editForm.team, name: editForm.name, status: editForm.status, internal_note: editForm.note, phone: editForm.phone, email: editForm.email },
       });
       if (res.data?.success) {
         showFeedback('success', '✅ Profil mis à jour');
