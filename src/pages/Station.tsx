@@ -464,8 +464,8 @@ export default function Station() {
                 pin={clockPin}
                 error={clockError}
                 onKey={handleClockKey}
-                label="Entrez votre PIN (4 chiffres)"
-                digits={4}
+                label="Entrez votre PIN (6 chiffres)"
+                digits={6}
               />
               {clockError && (
                 <p className="text-xs text-destructive font-medium mt-3 animate-wiggle">PIN inconnu — réessayez</p>
