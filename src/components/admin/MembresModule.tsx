@@ -61,6 +61,7 @@ interface MemberRow {
   team: string;
   photo_url: string | null;
   phone: string | null;
+  email: string | null;
   pin_hash: string | null;
   pin_set: boolean;
   pin_locked: boolean;
