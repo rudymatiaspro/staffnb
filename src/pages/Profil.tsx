@@ -119,7 +119,7 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
   };
 
   const handlePinDigit = (d: string, setter: (fn: (prev: string) => string) => void) => {
-    setter((prev) => prev.length < 4 ? prev + d : prev);
+    setter((prev) => prev.length < 6 ? prev + d : prev);
   };
 
   const handlePinValidate = async () => {
