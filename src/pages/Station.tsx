@@ -319,12 +319,12 @@ export default function Station() {
   const handleTaskKey = useCallback(async (key: string) => {
     if (key === 'clear') { setTaskPin(''); setTaskError(false); return; }
     if (key === 'del') { setTaskPin(p => p.slice(0, -1)); setTaskError(false); return; }
-    if (taskPin.length >= 4) return;
+    if (taskPin.length >= 6) return;
     const next = taskPin + key;
     setTaskPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
-        const user = await validateStaffPin4(next, users);
+        const user = await validateStaffPin6(next, users);
         if (!user || !taskToValidate) {
           setTaskError(true);
           setTaskPin('');
