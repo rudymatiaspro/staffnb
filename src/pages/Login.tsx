@@ -125,7 +125,7 @@ export default function Login() {
     let valid = false;
 
     if (!storedHash) {
-      valid = pin === '1111';
+      valid = pin === '000111';
     } else if (storedHash.includes(':')) {
       // PBKDF2
       const res = await verifyPin(storedHash, pin);
