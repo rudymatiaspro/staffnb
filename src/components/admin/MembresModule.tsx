@@ -105,8 +105,8 @@ export function MembresModule() {
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; role: string; team: Team; status: AccountStatus; note: string }>({
-    name: '', role: 'staff', team: 'BAR', status: 'active', note: '',
+  const [editForm, setEditForm] = useState<{ name: string; role: string; team: Team; status: AccountStatus; note: string; phone: string; email: string }>({
+    name: '', role: 'staff', team: 'BAR', status: 'active', note: '', phone: '', email: '',
   });
 
   // PIN reset modal
