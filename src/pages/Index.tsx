@@ -232,8 +232,8 @@ function AutoLoginGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Owner and Station → auto-login directly
-    if ((matchedUser.role === 'owner' || matchedUser.role === 'station') && !currentUser) {
+    // Owner, Manager, and Station → auto-login directly (they already authenticated via email/password)
+    if (['owner', 'station', 'manager'].includes(matchedUser.role ?? '') && !currentUser) {
       login(matchedUser);
     }
     setChecking(false);

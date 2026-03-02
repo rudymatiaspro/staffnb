@@ -7,6 +7,7 @@ import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { supabase } from '../integrations/supabase/client';
 import { switchLanguage, LANG_META, type SupportedLang } from '../i18n/index';
+import { useIsMobile } from '../hooks/use-mobile';
 
 // Module imports
 import { TaskCard } from '../components/tasks/TaskCard';
@@ -39,6 +40,8 @@ import { ClassesModule } from '../components/admin/ClassesModule';
 import { MembresModule } from '../components/admin/MembresModule';
 import { CakesModule } from '../components/cakes/CakesModule';
 import { BackOfficePermissions } from '../components/admin/BackOfficePermissions';
+import { BackOfficeLayout } from '../components/backoffice/BackOfficeLayout';
+import type { ModuleKey as BOModuleKey } from '../components/backoffice/BackOfficeSidebar';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
@@ -380,6 +383,34 @@ export default function Dashboard() {
   };
 
   const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  const isMobile = useIsMobile();
+  const showDesktopBackOffice = !isMobile && isOwner;
+
+  // ── Desktop back-office layout for God/Admin/Owner ──
+  if (showDesktopBackOffice) {
+    return (
+      <>
+        <GodBanner />
+        <BackOfficeLayout
+          activeModule={activeModule as BOModuleKey}
+          onModuleSelect={(id) => setActiveModule(id as ModuleKey)}
+          role={role ?? 'owner'}
+          userName={currentUser.name}
+          restaurantName={restaurantName}
+          onSignOut={() => signOut()}
+          onChangeUser={() => logout()}
+          onToggleTheme={handleToggleDark}
+          theme={theme}
+          moduleTitle={moduleTitle[activeModule] ?? 'Accueil'}
+        >
+          {renderModule()}
+          {showCreateModal && <CreateTaskModal onClose={() => setShowCreateModal(false)} />}
+          <ToastNotification />
+        </BackOfficeLayout>
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
