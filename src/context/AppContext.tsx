@@ -452,7 +452,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!user) return false;
       const stored = user.pin ?? '';
       // PBKDF2 hash format: "salt:hash" — async verification done in Login.tsx
-      // Here we handle: legacy btoa, empty (default 1111), or direct
+      // Here we handle: legacy btoa, empty (default 000111), or direct
       if (stored.includes(':')) {
         // PBKDF2 — can't verify synchronously; Login.tsx uses async verifyPin
         // Return true here to let Login.tsx do async validation
