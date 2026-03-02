@@ -20,10 +20,10 @@ export function ChangePinSection() {
     setError('');
     setSuccess(false);
     if (!currentUser) return;
-    if (oldPin.length !== 4 || !/^\d{4}$/.test(oldPin)) { setError('L\'ancien PIN doit être 4 chiffres'); return; }
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) { setError('Le nouveau PIN doit être 4 chiffres'); return; }
+    if (oldPin.length !== 6 || !/^\d{6}$/.test(oldPin)) { setError('L\'ancien PIN doit être 6 chiffres'); return; }
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) { setError('Le nouveau PIN doit être 6 chiffres'); return; }
     if (newPin !== confirmPin) { setError('Les PINs ne correspondent pas'); return; }
-    if (newPin === '1111') { setError('Impossible d\'utiliser le PIN par défaut 1111'); return; }
+    if (newPin === '000111') { setError('Impossible d\'utiliser le PIN par défaut 000111'); return; }
 
     setLoading(true);
     try {
