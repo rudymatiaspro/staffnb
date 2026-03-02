@@ -40,12 +40,12 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
   };
 
   const handleDigit = (digit: string) => {
-    if (currentPin.length >= 4) return;
+    if (currentPin.length >= 6) return;
     const newPin = currentPin + digit;
     setCurrentPin(newPin);
     setError('');
 
-    if (newPin.length === 4) {
+    if (newPin.length === 6) {
       setTimeout(() => {
         if (!isFirstTime) {
           onSuccess(newPin);
