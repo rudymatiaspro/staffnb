@@ -80,7 +80,7 @@ async function validateStaffPin4(pin: string, users: User[]): Promise<User | nul
     const storedHash = (data as any).pin_hash ?? '';
     let valid = false;
     if (!storedHash) {
-      valid = pin === '1111'; // default PIN
+      valid = pin === '000111'; // default PIN
     } else if (storedHash.includes(':')) {
       const res = await verifyPin(storedHash, pin);
       valid = res === 'match';
