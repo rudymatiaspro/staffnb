@@ -76,9 +76,9 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
 
   const stepLabel = isFirstTime
     ? step === 'enter'
-      ? 'Create your 4-digit PIN'
-      : 'Confirm your PIN'
-    : 'Enter your PIN';
+      ? 'Créez votre PIN à 6 chiffres'
+      : 'Confirmez votre PIN'
+    : 'Entrez votre PIN';
 
   return (
     <div className="space-y-6 animate-slide-up">
