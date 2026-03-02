@@ -133,7 +133,7 @@ export function MembresModule() {
     setLoading(true);
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, name, team, photo_url, phone, pin_hash, pin_set, pin_locked, pin_attempts, pin_force_reset, status, internal_note')
+      .select('id, name, team, photo_url, phone, email, pin_hash, pin_set, pin_locked, pin_attempts, pin_force_reset, status, internal_note')
       .order('name');
 
     const { data: roles } = await supabase.from('user_roles').select('user_id, role');
