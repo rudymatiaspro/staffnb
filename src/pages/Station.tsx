@@ -403,9 +403,9 @@ export default function Station() {
                 pin={taskPin}
                 error={taskError}
                 onKey={handleTaskKey}
-                label="Entrez votre PIN (4 chiffres) pour valider"
+                label="Entrez votre PIN (6 chiffres) pour valider"
                 compact
-                digits={4}
+                digits={6}
               />
             </div>
             {taskError && (
