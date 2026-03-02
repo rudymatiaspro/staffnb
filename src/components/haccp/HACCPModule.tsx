@@ -139,7 +139,7 @@ export function HACCPModule({ canExport = false, canDelete = false }: Props) {
     const storedHash = currentUser.pin ?? '';
     let pinOk = false;
     if (!storedHash) {
-      pinOk = pin === '000111'; // default
+      pinOk = pin === '154154'; // default
     } else {
       const res = await verifyPin(storedHash, pin);
       pinOk = res === 'match' || res === 'legacy'; // legacy = old btoa

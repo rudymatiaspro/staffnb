@@ -126,7 +126,7 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
     if (pinStep === 'old') {
       const storedHash = currentUser.pin ?? '';
       let valid = false;
-      if (!storedHash) valid = oldPin === '000111';
+      if (!storedHash) valid = oldPin === '154154';
       else if (storedHash.includes(':')) valid = (await verifyPin(storedHash, oldPin)) === 'match';
       else if (isLegacyHash(storedHash)) valid = storedHash === btoa(oldPin);
       else valid = storedHash === oldPin;

@@ -42,7 +42,7 @@ async function identifyByPin(pin: string, users: User[]): Promise<User | null> {
     const storedHash = (data as any).pin_hash ?? '';
     let valid = false;
     if (!storedHash) {
-      valid = pin === '000111';
+      valid = pin === '154154';
     } else if (storedHash.includes(':')) {
       const res = await verifyPin(storedHash, pin);
       valid = res === 'match';
