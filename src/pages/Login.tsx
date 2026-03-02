@@ -77,7 +77,7 @@ export default function Login() {
     setErrorMsg('');
   };
 
-  // ── Step 1: verify PIN (async PBKDF2 / legacy btoa / default 1111) ──────────
+  // ── Step 1: verify PIN (async PBKDF2 / legacy btoa / default 000111) ──────────
   const handlePinSuccess = async (pin: string) => {
     if (!selectedUser) return;
 
