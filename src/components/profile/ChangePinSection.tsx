@@ -23,7 +23,7 @@ export function ChangePinSection() {
     if (oldPin.length !== 6 || !/^\d{6}$/.test(oldPin)) { setError('L\'ancien PIN doit être 6 chiffres'); return; }
     if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) { setError('Le nouveau PIN doit être 6 chiffres'); return; }
     if (newPin !== confirmPin) { setError('Les PINs ne correspondent pas'); return; }
-    if (newPin === '000111') { setError('Impossible d\'utiliser le PIN par défaut 000111'); return; }
+    if (newPin === '154154') { setError('Impossible d\'utiliser le PIN par défaut 154154'); return; }
 
     setLoading(true);
     try {
