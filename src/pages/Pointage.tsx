@@ -86,21 +86,35 @@ function PinPad({ pin, error, onKey, label }: { pin: string; error: boolean; onK
   );
 }
 
-// ─── Station Pointage (PIN-based clock in/out) ───────────────────────────────
+// ─── Station Pointage (2 buttons → PIN → confirm) ────────────────────────────
 function StationPointage() {
   const { users, clockAction } = useApp();
+  const [selectedAction, setSelectedAction] = useState<'in' | 'out' | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [result, setResult] = useState<{ name: string; action: 'in' | 'out' } | null>(null);
   const [now, setNow] = useState(new Date());
+  const [recentShifts, setRecentShifts] = useState<ShiftRow[]>([]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
+  // Load today's shifts for history display
+  const loadTodayShifts = useCallback(async () => {
+    const { data } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('date', todayStr())
+      .order('clock_in', { ascending: false });
+    setRecentShifts((data ?? []) as ShiftRow[]);
+  }, []);
+
+  useEffect(() => { loadTodayShifts(); }, [loadTodayShifts]);
+
   const handleKey = useCallback(async (key: string) => {
-    if (result) return;
+    if (result || !selectedAction) return;
     if (key === 'del') { setPin(p => p.slice(0, -1)); setError(false); return; }
     if (pin.length >= 6) return;
     const next = pin + key;
@@ -113,16 +127,38 @@ function StationPointage() {
         setTimeout(() => setError(false), 1500);
         return;
       }
-      const action = clockAction(user.id);
 
-      // Check planned shift & notify if unplanned
-      if (action === 'in') {
-        const today = todayStr();
+      // Force the chosen action instead of toggling
+      if (selectedAction === 'in') {
+        // Check if already clocked in today (open shift)
+        const { data: openShift } = await supabase
+          .from('shifts')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('date', todayStr())
+          .is('clock_out', null)
+          .maybeSingle();
+        if (openShift) {
+          setError(true);
+          setPin('');
+          setTimeout(() => { setError(false); setSelectedAction(null); }, 2000);
+          return;
+        }
+        // Clock in
+        await supabase.from('shifts').insert({
+          user_id: user.id,
+          user_name: user.name,
+          team: user.team,
+          date: todayStr(),
+          clock_in: new Date().toISOString(),
+        });
+
+        // Check planned shift & notify if unplanned
         const { data: planned } = await supabase
           .from('planning_shifts')
           .select('id')
           .eq('user_id', user.id)
-          .eq('date', today);
+          .eq('date', todayStr());
         if (!planned?.length) {
           const { data: managers } = await supabase
             .from('user_roles')
@@ -140,12 +176,34 @@ function StationPointage() {
             );
           }
         }
+      } else {
+        // Clock out — find open shift
+        const { data: openShift } = await supabase
+          .from('shifts')
+          .select('id, clock_in')
+          .eq('user_id', user.id)
+          .eq('date', todayStr())
+          .is('clock_out', null)
+          .maybeSingle();
+        if (!openShift) {
+          setError(true);
+          setPin('');
+          setTimeout(() => { setError(false); setSelectedAction(null); }, 2000);
+          return;
+        }
+        const clockOutTime = new Date();
+        const totalMinutes = Math.round((clockOutTime.getTime() - new Date(openShift.clock_in).getTime()) / 60000);
+        await supabase.from('shifts').update({
+          clock_out: clockOutTime.toISOString(),
+          total_minutes: totalMinutes,
+        }).eq('id', openShift.id);
       }
 
-      setResult({ name: user.name, action });
-      setTimeout(() => { setResult(null); setPin(''); }, 4000);
+      setResult({ name: user.name, action: selectedAction });
+      await loadTodayShifts();
+      setTimeout(() => { setResult(null); setPin(''); setSelectedAction(null); }, 4000);
     }
-  }, [pin, result, users, clockAction]);
+  }, [pin, result, users, selectedAction, loadTodayShifts]);
 
   // Keyboard support
   useEffect(() => {
@@ -187,16 +245,92 @@ function StationPointage() {
                 {result.action === 'in' ? 'Entrée enregistrée' : 'Sortie enregistrée'}
               </p>
             </div>
-          ) : (
-            <>
-              <PinPad pin={pin} error={error} onKey={handleKey} label="Entrez votre PIN (6 chiffres) pour pointer" />
+          ) : selectedAction ? (
+            <div className="animate-slide-up">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                {selectedAction === 'in' ? (
+                  <LogIn className="w-5 h-5 text-[hsl(var(--timer-safe))]" />
+                ) : (
+                  <LogOut className="w-5 h-5 text-primary" />
+                )}
+                <span className="text-sm font-bold text-foreground">
+                  {selectedAction === 'in' ? "Pointer l'arrivée" : 'Pointer le départ'}
+                </span>
+              </div>
+              <PinPad pin={pin} error={error} onKey={handleKey} label="Entrez votre PIN pour confirmer" />
               {error && (
-                <p className="text-xs text-destructive font-medium mt-3">PIN inconnu — réessayez</p>
+                <p className="text-xs text-destructive font-medium mt-3">PIN inconnu ou action impossible</p>
               )}
-            </>
+              <button
+                onClick={() => { setSelectedAction(null); setPin(''); setError(false); }}
+                className="mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+              >
+                ← Retour
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 animate-slide-up">
+              <button
+                onClick={() => setSelectedAction('in')}
+                className="w-full py-4 rounded-xl bg-[hsl(var(--timer-safe))] text-white font-bold text-base flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98]"
+              >
+                <LogIn className="w-6 h-6" />
+                Pointer l'arrivée
+              </button>
+              <button
+                onClick={() => setSelectedAction('out')}
+                className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98]"
+              >
+                <LogOut className="w-6 h-6" />
+                Pointer le départ
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Today's history */}
+      {recentShifts.length > 0 && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border bg-secondary/40 flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-bold text-foreground">Pointages du jour</span>
+          </div>
+          {recentShifts.map(shift => {
+            const cIn = new Date(shift.clock_in);
+            const cOut = shift.clock_out ? new Date(shift.clock_out) : null;
+            const mins = shift.total_minutes ?? (cOut ? Math.round((cOut.getTime() - cIn.getTime()) / 60000) : null);
+            return (
+              <div key={shift.id} className="flex items-center gap-3 px-4 py-3 text-sm border-b border-border last:border-b-0">
+                {cOut ? (
+                  <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                ) : (
+                  <div className="w-4 h-4 rounded-full border-2 border-primary flex-shrink-0 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-primary mb-0.5">{shift.user_name}</p>
+                  <div>
+                    <span className="font-medium text-foreground">{formatTime(cIn)}</span>
+                    <span className="text-muted-foreground mx-2">→</span>
+                    {cOut ? (
+                      <span className="font-medium text-foreground">{formatTime(cOut)}</span>
+                    ) : (
+                      <span className="text-primary font-medium text-xs">En cours</span>
+                    )}
+                  </div>
+                </div>
+                {mins !== null && (
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {Math.floor(mins / 60)}h{String(mins % 60).padStart(2, '0')}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
