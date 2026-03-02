@@ -200,7 +200,7 @@ export function MembresModule() {
   // ── Edit member
   const startEdit = (m: MemberRow) => {
     setEditingId(m.id);
-    setEditForm({ name: m.name, role: m.role, team: m.team as Team, status: m.status, note: m.internal_note ?? '' });
+    setEditForm({ name: m.name, role: m.role, team: m.team as Team, status: m.status, note: m.internal_note ?? '', phone: m.phone ?? '', email: m.email ?? '' });
   };
 
   const handleUpdate = async (userId: string) => {
