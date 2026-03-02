@@ -66,7 +66,7 @@ const TEAM_LABELS: Record<string, string> = {
 };
 
 // ─── Validate staff PIN via Supabase (4-digit individual PIN) ─────────────────
-async function validateStaffPin4(pin: string, users: User[]): Promise<User | null> {
+async function validateStaffPin6(pin: string, users: User[]): Promise<User | null> {
   if (!pin || pin.length !== 6) return null;
   for (const u of users) {
     if (u.role === 'station') continue; // skip station device account
