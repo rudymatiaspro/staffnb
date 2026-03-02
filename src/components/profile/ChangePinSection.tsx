@@ -82,9 +82,9 @@ export function ChangePinSection() {
         <input
           type={show ? 'text' : 'password'}
           inputMode="numeric"
-          maxLength={4}
+          maxLength={6}
           value={value}
-          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder={placeholder}
           className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground placeholder:font-sans placeholder:tracking-normal"
         />
