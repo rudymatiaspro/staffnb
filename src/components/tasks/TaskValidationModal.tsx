@@ -48,7 +48,7 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
       const storedHash = currentUser.pin ?? '';
       let valid = false;
       if (!storedHash) {
-        valid = pin === '000111';
+        valid = pin === '154154';
       } else if (storedHash.includes(':')) {
         const res = await verifyPin(storedHash, pin);
         valid = res === 'match';

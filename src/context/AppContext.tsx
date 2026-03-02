@@ -459,8 +459,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       if (!stored) {
-        // No PIN set — default 000111
-        return pin === '000111';
+        // No PIN set — default 154154
+        return pin === '154154';
       }
       // Legacy btoa
       try { return stored === btoa(pin); } catch { return false; }

@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { pin = '7839', userIds } = body;
+    const { pin = '154154', userIds } = body;
 
     if (!userIds || !Array.isArray(userIds)) {
       return new Response(JSON.stringify({ error: 'userIds array required' }), {
