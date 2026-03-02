@@ -7,6 +7,7 @@ import { useBrowserNotifications } from '../hooks/useBrowserNotifications';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { supabase } from '../integrations/supabase/client';
 import { switchLanguage, LANG_META, type SupportedLang } from '../i18n/index';
+import { useIsMobile } from '../hooks/use-mobile';
 
 // Module imports
 import { TaskCard } from '../components/tasks/TaskCard';
@@ -39,6 +40,8 @@ import { ClassesModule } from '../components/admin/ClassesModule';
 import { MembresModule } from '../components/admin/MembresModule';
 import { CakesModule } from '../components/cakes/CakesModule';
 import { BackOfficePermissions } from '../components/admin/BackOfficePermissions';
+import { BackOfficeLayout } from '../components/backoffice/BackOfficeLayout';
+import type { ModuleKey } from '../components/backoffice/BackOfficeSidebar';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
