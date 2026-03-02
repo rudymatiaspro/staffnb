@@ -105,7 +105,7 @@ interface PinPadProps {
   compact?: boolean;
   digits?: 4 | 6;
 }
-function PinPad({ pin, error, onKey, label, compact, digits = 4 }: PinPadProps) {
+function PinPad({ pin, error, onKey, label, compact, digits = 6 }: PinPadProps) {
   return (
     <div className={compact ? 'w-full max-w-[220px]' : 'w-full max-w-xs'}>
       {label && <p className="text-center text-xs text-muted-foreground mb-3">{label}</p>}
