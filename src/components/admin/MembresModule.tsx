@@ -146,6 +146,7 @@ export function MembresModule() {
       team: p.team,
       photo_url: p.photo_url,
       phone: p.phone,
+      email: p.email,
       pin_hash: p.pin_hash,
       pin_set: p.pin_set,
       pin_locked: p.pin_locked,
