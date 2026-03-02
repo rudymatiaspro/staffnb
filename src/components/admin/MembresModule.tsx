@@ -240,7 +240,7 @@ export function MembresModule() {
 
   // ── Set new PIN directly
   const handleSetPin = async () => {
-    if (!pinResetId || newPin.length < 4) return;
+    if (!pinResetId || newPin.length < 6) return;
     setPinSaving(true);
     try {
       const hash = await hashPin(newPin);
