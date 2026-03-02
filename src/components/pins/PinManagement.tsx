@@ -168,7 +168,7 @@ function UserPinRow({ user, showPin, isEditing, newPin, pinError, onToggleShow, 
         <div className="flex items-center gap-2">
           {hasPIN ? (
             <>
-              <span className="text-xs font-mono text-muted-foreground">{showPin ? user.pin : '••••'}</span>
+              <span className="text-xs font-mono text-muted-foreground">{showPin ? user.pin : '••••••'}</span>
               <button onClick={onToggleShow} className="p-1 rounded hover:bg-secondary">
                 {showPin ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
               </button>
