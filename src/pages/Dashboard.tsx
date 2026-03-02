@@ -41,7 +41,7 @@ import { MembresModule } from '../components/admin/MembresModule';
 import { CakesModule } from '../components/cakes/CakesModule';
 import { BackOfficePermissions } from '../components/admin/BackOfficePermissions';
 import { BackOfficeLayout } from '../components/backoffice/BackOfficeLayout';
-import type { ModuleKey } from '../components/backoffice/BackOfficeSidebar';
+import type { ModuleKey as BOModuleKey } from '../components/backoffice/BackOfficeSidebar';
 
 import {
   LogOut, WifiOff, BellOff, Bell, Mail,
