@@ -31,7 +31,7 @@ export function ChangePinSection() {
       const storedHash = currentUser.pin ?? '';
       let oldOk = false;
       if (!storedHash) {
-        oldOk = oldPin === '1111';
+        oldOk = oldPin === '000111';
       } else {
         const res = await verifyPin(storedHash, oldPin);
         // legacy btoa: compare directly
