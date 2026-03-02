@@ -110,7 +110,7 @@ export function PinManagement({ teamFilter }: Props) {
               setPinError('');
             }}
             onPinChange={(v) => {
-              setNewPin(v.replace(/\D/g, '').slice(0, 4));
+              setNewPin(v.replace(/\D/g, '').slice(0, 6));
               setPinError('');
             }}
             onSave={() => handleSavePin(user.id)}
