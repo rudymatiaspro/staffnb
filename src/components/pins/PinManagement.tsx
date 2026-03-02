@@ -34,8 +34,8 @@ export function PinManagement({ teamFilter }: Props) {
   };
 
   const handleSavePin = (userId: string) => {
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      setPinError('Le PIN de connexion doit être exactement 4 chiffres');
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setPinError('Le PIN de connexion doit être exactement 6 chiffres');
       return;
     }
     // Check uniqueness (exclude the user being edited)
