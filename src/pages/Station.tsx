@@ -264,13 +264,13 @@ export default function Station() {
     if (clockState !== 'idle') return;
     if (key === 'clear') { setClockPin(''); setClockError(false); return; }
     if (key === 'del') { setClockPin(p => p.slice(0, -1)); setClockError(false); return; }
-    if (clockPin.length >= 4) return;
+    if (clockPin.length >= 6) return;
     const next = clockPin + key;
     setClockPin(next);
-    if (next.length === 4) {
+    if (next.length === 6) {
       setTimeout(async () => {
-        // Verify 4-digit individual staff PIN via Supabase
-        const user = await validateStaffPin4(next, users);
+        // Verify 6-digit individual staff PIN via Supabase
+        const user = await validateStaffPin6(next, users);
         if (!user) {
           setClockError(true);
           setClockPin('');
