@@ -531,7 +531,7 @@ export default function AuthLogin() {
 
     if (!pinSet || !storedHash) {
       // Default PIN
-      const defaultPin = (godPinAccount.role === 'god' || godPinAccount.role === 'admin') ? '7839' : '000111';
+      const defaultPin = (godPinAccount.role === 'god' || godPinAccount.role === 'admin') ? '783978' : '000111';
       valid = pin === defaultPin;
     } else if (storedHash.includes(':')) {
       const res = await verifyPin(storedHash, pin);
