@@ -77,7 +77,7 @@ export default function Login() {
     setErrorMsg('');
   };
 
-  // ── Step 1: verify PIN (async PBKDF2 / legacy btoa / default 1111) ──────────
+  // ── Step 1: verify PIN (async PBKDF2 / legacy btoa / default 000111) ──────────
   const handlePinSuccess = async (pin: string) => {
     if (!selectedUser) return;
 
@@ -108,7 +108,7 @@ export default function Login() {
     }
 
     if (!selectedUser.pinSet) {
-      // First login — any PIN accepted (default 1111), force new PIN choice
+      // First login — any PIN accepted (default 000111), force new PIN choice
       setPendingPin('');
       setStep('set_new_pin');
       return;
@@ -125,7 +125,7 @@ export default function Login() {
     let valid = false;
 
     if (!storedHash) {
-      valid = pin === '1111';
+      valid = pin === '000111';
     } else if (storedHash.includes(':')) {
       // PBKDF2
       const res = await verifyPin(storedHash, pin);
@@ -240,8 +240,8 @@ export default function Login() {
               <div className="text-center space-y-1">
                 <p className="text-sm font-semibold text-foreground">Bienvenue, {selectedUser.name} !</p>
                 <p className="text-xs text-muted-foreground">
-                  Première connexion — choisis ton PIN personnel.<br />
-                  Il remplacera le PIN par défaut <strong>1111</strong>.
+                  Première connexion — choisis ton PIN personnel à 6 chiffres.<br />
+                  Il remplacera le PIN par défaut <strong>000111</strong>.
                 </p>
               </div>
               <PinEntry

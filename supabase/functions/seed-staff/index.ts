@@ -147,8 +147,8 @@ Deno.serve(async (req) => {
 
       const syntheticId = existing?.id ?? crypto.randomUUID();
 
-      // Hash default PIN "1111" with PBKDF2 (matches pinCrypto.ts)
-      const pinHash = await hashPin('1111');
+      // Hash default PIN "000111" with PBKDF2 (matches pinCrypto.ts)
+      const pinHash = await hashPin('000111');
 
       if (existing) {
         // Update existing profile

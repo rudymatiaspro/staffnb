@@ -61,6 +61,7 @@ interface MemberRow {
   team: string;
   photo_url: string | null;
   phone: string | null;
+  email: string | null;
   pin_hash: string | null;
   pin_set: boolean;
   pin_locked: boolean;
@@ -104,8 +105,8 @@ export function MembresModule() {
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; role: string; team: Team; status: AccountStatus; note: string }>({
-    name: '', role: 'staff', team: 'BAR', status: 'active', note: '',
+  const [editForm, setEditForm] = useState<{ name: string; role: string; team: Team; status: AccountStatus; note: string; phone: string; email: string }>({
+    name: '', role: 'staff', team: 'BAR', status: 'active', note: '', phone: '', email: '',
   });
 
   // PIN reset modal
@@ -132,7 +133,7 @@ export function MembresModule() {
     setLoading(true);
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, name, team, photo_url, phone, pin_hash, pin_set, pin_locked, pin_attempts, pin_force_reset, status, internal_note')
+      .select('id, name, team, photo_url, phone, email, pin_hash, pin_set, pin_locked, pin_attempts, pin_force_reset, status, internal_note')
       .order('name');
 
     const { data: roles } = await supabase.from('user_roles').select('user_id, role');
@@ -145,6 +146,7 @@ export function MembresModule() {
       team: p.team,
       photo_url: p.photo_url,
       phone: p.phone,
+      email: p.email,
       pin_hash: p.pin_hash,
       pin_set: p.pin_set,
       pin_locked: p.pin_locked,
@@ -198,7 +200,7 @@ export function MembresModule() {
   // ── Edit member
   const startEdit = (m: MemberRow) => {
     setEditingId(m.id);
-    setEditForm({ name: m.name, role: m.role, team: m.team as Team, status: m.status, note: m.internal_note ?? '' });
+    setEditForm({ name: m.name, role: m.role, team: m.team as Team, status: m.status, note: m.internal_note ?? '', phone: m.phone ?? '', email: m.email ?? '' });
   };
 
   const handleUpdate = async (userId: string) => {
@@ -207,7 +209,7 @@ export function MembresModule() {
       const token = await getToken();
       const res = await supabase.functions.invoke('manage-account', {
         headers: { Authorization: `Bearer ${token}` },
-        body: { action: 'update_role', userId, role: editForm.role, team: editForm.team, name: editForm.name, status: editForm.status, internal_note: editForm.note },
+        body: { action: 'update_role', userId, role: editForm.role, team: editForm.team, name: editForm.name, status: editForm.status, internal_note: editForm.note, phone: editForm.phone, email: editForm.email },
       });
       if (res.data?.success) {
         showFeedback('success', '✅ Profil mis à jour');
@@ -240,7 +242,7 @@ export function MembresModule() {
 
   // ── Set new PIN directly
   const handleSetPin = async () => {
-    if (!pinResetId || newPin.length < 4) return;
+    if (!pinResetId || newPin.length < 6) return;
     setPinSaving(true);
     try {
       const hash = await hashPin(newPin);
@@ -405,7 +407,7 @@ export function MembresModule() {
                 maxLength={6}
                 value={newPin}
                 onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="4 ou 6 chiffres"
+                placeholder="6 chiffres"
                 className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <button type="button" onClick={() => setShowNewPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -413,7 +415,7 @@ export function MembresModule() {
               </button>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSetPin} disabled={pinSaving || newPin.length < 4} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-40">
+              <button onClick={handleSetPin} disabled={pinSaving || newPin.length < 6} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-40">
                 {pinSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 Enregistrer
               </button>
@@ -522,6 +524,14 @@ export function MembresModule() {
                     <div className="col-span-2 sm:col-span-1">
                       <label className="text-xs text-muted-foreground mb-1 block">Nom</label>
                       <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                      <input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="email@domaine.com" className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-xs text-muted-foreground mb-1 block">Téléphone</label>
+                      <input type="tel" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="+33 6 12 34 56 78" className="w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Rôle</label>

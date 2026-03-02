@@ -67,7 +67,7 @@ const TEAM_LABELS: Record<string, string> = {
 
 // ─── Validate staff PIN via Supabase (4-digit individual PIN) ─────────────────
 async function validateStaffPin4(pin: string, users: User[]): Promise<User | null> {
-  if (!pin || pin.length !== 4) return null;
+  if (!pin || pin.length !== 6) return null;
   for (const u of users) {
     if (u.role === 'station') continue; // skip station device account
     // Fetch pin_hash from DB
@@ -80,7 +80,7 @@ async function validateStaffPin4(pin: string, users: User[]): Promise<User | nul
     const storedHash = (data as any).pin_hash ?? '';
     let valid = false;
     if (!storedHash) {
-      valid = pin === '1111'; // default PIN
+      valid = pin === '000111'; // default PIN
     } else if (storedHash.includes(':')) {
       const res = await verifyPin(storedHash, pin);
       valid = res === 'match';
@@ -94,7 +94,7 @@ async function validateStaffPin4(pin: string, users: User[]): Promise<User | nul
 }
 
 // ─── PIN Pad ──────────────────────────────────────────────────────────────────
-// digits: 4 for staff identification, 6 for station device lock
+// digits: 6 for staff identification, 6 for station device lock
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 
 interface PinPadProps {

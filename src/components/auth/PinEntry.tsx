@@ -40,12 +40,12 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
   };
 
   const handleDigit = (digit: string) => {
-    if (currentPin.length >= 4) return;
+    if (currentPin.length >= 6) return;
     const newPin = currentPin + digit;
     setCurrentPin(newPin);
     setError('');
 
-    if (newPin.length === 4) {
+    if (newPin.length === 6) {
       setTimeout(() => {
         if (!isFirstTime) {
           onSuccess(newPin);
@@ -76,9 +76,9 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
 
   const stepLabel = isFirstTime
     ? step === 'enter'
-      ? 'Create your 4-digit PIN'
-      : 'Confirm your PIN'
-    : 'Enter your PIN';
+      ? 'Créez votre PIN à 6 chiffres'
+      : 'Confirmez votre PIN'
+    : 'Entrez votre PIN';
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -109,8 +109,8 @@ export function PinEntry({ user, isFirstTime, onSuccess, onBack, restaurantName,
       </div>
 
       {/* PIN dots */}
-      <div className={`flex justify-center gap-5 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
-        {[0, 1, 2, 3].map((i) => (
+      <div className={`flex justify-center gap-4 transition-all ${shake ? 'animate-[wiggle_0.4s_ease-in-out]' : ''}`}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
             className={`w-4 h-4 rounded-full transition-all duration-200 ${

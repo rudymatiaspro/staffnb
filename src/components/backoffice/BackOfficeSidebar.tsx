@@ -71,7 +71,7 @@ function buildSections(role: string): SidebarSection[] {
       label: 'Administration',
       items: [
         { id: 'rooms', label: 'Salles', icon: <Home className="w-4 h-4" /> },
-        { id: 'pins', label: 'PINs', icon: <KeyRound className="w-4 h-4" /> },
+        
         { id: 'timesheets_all', label: 'Pointages', icon: <Clock className="w-4 h-4" /> },
         { id: 'backoffice', label: 'Permissions', icon: <Shield className="w-4 h-4" /> },
         { id: 'settings', label: 'Paramètres', icon: <Settings className="w-4 h-4" /> },

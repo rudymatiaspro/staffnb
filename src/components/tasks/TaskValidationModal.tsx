@@ -41,14 +41,14 @@ export function TaskValidationModal({ task, onClose, onValidated }: TaskValidati
   const handlePinDelete = () => setPin((p) => p.slice(0, -1));
 
   const handleValidate = async () => {
-    if (!currentUser || pin.length !== 4 || !photoFile) return;
+    if (!currentUser || pin.length !== 6 || !photoFile) return;
     setUploading(true);
     try {
       // Verify PIN
       const storedHash = currentUser.pin ?? '';
       let valid = false;
       if (!storedHash) {
-        valid = pin === '1111';
+        valid = pin === '000111';
       } else if (storedHash.includes(':')) {
         const res = await verifyPin(storedHash, pin);
         valid = res === 'match';

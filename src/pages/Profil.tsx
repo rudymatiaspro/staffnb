@@ -119,21 +119,21 @@ function InfoTab({ currentUser, updateUser }: { currentUser: any; updateUser: an
   };
 
   const handlePinDigit = (d: string, setter: (fn: (prev: string) => string) => void) => {
-    setter((prev) => prev.length < 4 ? prev + d : prev);
+    setter((prev) => prev.length < 6 ? prev + d : prev);
   };
 
   const handlePinValidate = async () => {
     if (pinStep === 'old') {
       const storedHash = currentUser.pin ?? '';
       let valid = false;
-      if (!storedHash) valid = oldPin === '1111';
+      if (!storedHash) valid = oldPin === '000111';
       else if (storedHash.includes(':')) valid = (await verifyPin(storedHash, oldPin)) === 'match';
       else if (isLegacyHash(storedHash)) valid = storedHash === btoa(oldPin);
       else valid = storedHash === oldPin;
       if (!valid) { setPinError('PIN actuel incorrect.'); setOldPin(''); return; }
       setPinError(''); setPinStep('new');
     } else if (pinStep === 'new') {
-      if (newPin.length !== 4) return;
+      if (newPin.length !== 6) return;
       setPinStep('confirm');
     } else {
       if (confirmPin !== newPin) { setPinError('Les PINs ne correspondent pas.'); setConfirmPin(''); return; }

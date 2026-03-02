@@ -476,7 +476,7 @@ export function AccountManagement() {
         <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <div>
-            <span className="font-semibold">{defaultPinAccounts.length} compte{defaultPinAccounts.length > 1 ? 's' : ''} avec PIN 1111 par défaut</span> — jamais modifié.{' '}
+            <span className="font-semibold">{defaultPinAccounts.length} compte{defaultPinAccounts.length > 1 ? 's' : ''} avec PIN 000111 par défaut</span> — jamais modifié.{' '}
             {defaultPinAccounts.map(u => u.name).join(', ')}
           </div>
         </div>

@@ -102,7 +102,7 @@ function StationPinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-// ─── PIN re-lock overlay (standard 4-digit) ────────────────────────────────────
+// ─── PIN re-lock overlay (standard 6-digit) ────────────────────────────────────
 // Shown when user returns to the app after leaving (without logout)
 function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
   const { currentUser } = useApp();
@@ -117,7 +117,7 @@ function PinLockOverlay({ onUnlock }: { onUnlock: () => void }) {
     let valid = false;
 
     if (!storedHash) {
-      valid = pin === '1111';
+      valid = pin === '000111';
     } else if (storedHash.includes(':')) {
       const res = await verifyPin(storedHash, pin);
       valid = res === 'match';

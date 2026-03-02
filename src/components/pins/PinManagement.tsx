@@ -34,8 +34,8 @@ export function PinManagement({ teamFilter }: Props) {
   };
 
   const handleSavePin = (userId: string) => {
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      setPinError('Le PIN de connexion doit être exactement 4 chiffres');
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setPinError('Le PIN de connexion doit être exactement 6 chiffres');
       return;
     }
     // Check uniqueness (exclude the user being edited)
@@ -110,7 +110,7 @@ export function PinManagement({ teamFilter }: Props) {
               setPinError('');
             }}
             onPinChange={(v) => {
-              setNewPin(v.replace(/\D/g, '').slice(0, 4));
+              setNewPin(v.replace(/\D/g, '').slice(0, 6));
               setPinError('');
             }}
             onSave={() => handleSavePin(user.id)}
@@ -168,7 +168,7 @@ function UserPinRow({ user, showPin, isEditing, newPin, pinError, onToggleShow, 
         <div className="flex items-center gap-2">
           {hasPIN ? (
             <>
-              <span className="text-xs font-mono text-muted-foreground">{showPin ? user.pin : '••••'}</span>
+              <span className="text-xs font-mono text-muted-foreground">{showPin ? user.pin : '••••••'}</span>
               <button onClick={onToggleShow} className="p-1 rounded hover:bg-secondary">
                 {showPin ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
               </button>
@@ -203,10 +203,10 @@ function UserPinRow({ user, showPin, isEditing, newPin, pinError, onToggleShow, 
             <input
               type="text"
               inputMode="numeric"
-              placeholder="4-digit PIN"
+              placeholder="PIN à 6 chiffres"
               value={newPin}
               onChange={e => onPinChange(e.target.value)}
-              maxLength={4}
+              maxLength={6}
               className="flex-1 text-xs border border-border rounded-xl px-3 py-2 bg-background text-foreground font-mono tracking-widest placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button onClick={onGenerate} title="Generate random PIN" className="p-2 rounded-xl border border-border hover:bg-secondary">

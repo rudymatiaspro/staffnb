@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
       const profileInsert: Record<string, unknown> = {
         id: newUser.id,
         name,
+        email,
         team: team ?? 'BAR',
         pin_set: false,
         station_pin_set: false,
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
 
     // ── UPDATE role & team ──────────────────────────────────────────────────────
     if (action === 'update_role') {
-      const { userId, role, team, name, status, internal_note } = body;
+      const { userId, role, team, name, status, internal_note, phone, email } = body;
       if (!userId) throw new Error('userId required');
 
       // Prevent changing god role
@@ -99,7 +100,14 @@ Deno.serve(async (req) => {
       if (name) profileUpdate.name = name;
       if (status) profileUpdate.status = status;
       if (internal_note !== undefined) profileUpdate.internal_note = internal_note;
+      if (phone !== undefined) profileUpdate.phone = phone;
+      if (email !== undefined) profileUpdate.email = email;
       await supabaseAdmin.from('profiles').update(profileUpdate).eq('id', userId);
+
+      // If email changed, update auth user email too
+      if (email) {
+        await supabaseAdmin.auth.admin.updateUserById(userId, { email });
+      }
 
       // Update role
       const { data: existingRole } = await supabaseAdmin

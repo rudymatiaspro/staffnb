@@ -20,10 +20,10 @@ export function ChangePinSection() {
     setError('');
     setSuccess(false);
     if (!currentUser) return;
-    if (oldPin.length !== 4 || !/^\d{4}$/.test(oldPin)) { setError('L\'ancien PIN doit être 4 chiffres'); return; }
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) { setError('Le nouveau PIN doit être 4 chiffres'); return; }
+    if (oldPin.length !== 6 || !/^\d{6}$/.test(oldPin)) { setError('L\'ancien PIN doit être 6 chiffres'); return; }
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) { setError('Le nouveau PIN doit être 6 chiffres'); return; }
     if (newPin !== confirmPin) { setError('Les PINs ne correspondent pas'); return; }
-    if (newPin === '1111') { setError('Impossible d\'utiliser le PIN par défaut 1111'); return; }
+    if (newPin === '000111') { setError('Impossible d\'utiliser le PIN par défaut 000111'); return; }
 
     setLoading(true);
     try {
@@ -31,7 +31,7 @@ export function ChangePinSection() {
       const storedHash = currentUser.pin ?? '';
       let oldOk = false;
       if (!storedHash) {
-        oldOk = oldPin === '1111';
+        oldOk = oldPin === '000111';
       } else {
         const res = await verifyPin(storedHash, oldPin);
         // legacy btoa: compare directly
@@ -82,9 +82,9 @@ export function ChangePinSection() {
         <input
           type={show ? 'text' : 'password'}
           inputMode="numeric"
-          maxLength={4}
+          maxLength={6}
           value={value}
-          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder={placeholder}
           className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground placeholder:font-sans placeholder:tracking-normal"
         />
@@ -115,7 +115,7 @@ export function ChangePinSection() {
         onChange={setOldPin}
         show={showOld}
         onToggle={() => setShowOld(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
       <PinInput
         label="Nouveau PIN"
@@ -123,7 +123,7 @@ export function ChangePinSection() {
         onChange={setNewPin}
         show={showNew}
         onToggle={() => setShowNew(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
       <PinInput
         label="Confirmer le nouveau PIN"
@@ -131,7 +131,7 @@ export function ChangePinSection() {
         onChange={setConfirmPin}
         show={showNew}
         onToggle={() => setShowNew(v => !v)}
-        placeholder="••••"
+        placeholder="••••••"
       />
 
       {error && (
